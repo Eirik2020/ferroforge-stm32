@@ -16,6 +16,7 @@
 mod adc;
 mod exti;
 mod spi;
+pub mod spi_queue;
 mod uart;
 pub mod uart_queue;
 mod uart_rx;
@@ -23,6 +24,7 @@ mod uart_rx;
 pub use adc::adc_scan;
 pub use exti::exti_line;
 pub use spi::spi_port;
+pub use spi_queue::{spi_multi_port, spi_single_port};
 pub use uart::uart_port;
 pub use uart_queue::uart_queue_port;
 pub use uart_rx::uart_rx_port;

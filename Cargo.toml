@@ -21,6 +21,9 @@ embedded-hal = "=1.0.0"
 # PROTOTYPE (variant B): the queue and the handles' standard traits.
 heapless = "=0.9.3"
 rtic-sync = "=1.6.1"
+# PROTOTYPE (SPI port M): the shared queue's critical section; the firmware
+# provides the implementation (cortex-m's single-core one on the benches).
+critical-section = "=1.2.0"
 rtic = { version = "=2.4.0", default-features = false, features = ["thumbv7-backend"] }
 # The clock a member stamps a wake with is the firmware's monotonic; a member
 # names it as `Mono`, bounded on `rtic_monotonics::Monotonic` over `fugit`'s

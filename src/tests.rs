@@ -362,3 +362,152 @@ fn uart_queue_port_builds_on_an_h753_wiring() {
     type W = Wiring<USART1, Af7<'B', 6>, Af7<'B', 7>, Stream<2, 5>, Stream<2, 4>>;
     uart_queue_builds!(W, USART1, Af7<'B', 6>, Af7<'B', 7>, Stream<2, 5>, Stream<2, 4>);
 }
+
+#[test]
+fn spi_single_and_multi_ports_state_their_contracts() {
+    let found = groups(include_str!("spi_queue.rs"));
+    let [single, multi] = found.as_slice() else {
+        panic!("two groups in spi_queue.rs, found {}", found.len());
+    };
+    assert_eq!(single.path.last().unwrap(), "spi_single_port");
+    assert_eq!(multi.path.last().unwrap(), "spi_multi_port");
+    let names = |list: &[ferroforge_contracts::Typed]| -> Vec<std::string::String> {
+        list.iter().map(|t| t.name.to_string()).collect()
+    };
+    for (group, member, handles, config) in [
+        (single, "s_on_spi_rx_dma", "handle", "config"),
+        (multi, "m_on_spi_rx_dma", "handles", "configs"),
+    ] {
+        let contract = &group.arguments.contract;
+        let roles: Vec<_> = contract.slots.iter().map(|s| s.role.to_string()).collect();
+        assert_eq!(
+            roles,
+            ["instance", "sck", "miso", "mosi", "tx_dma", "rx_dma", "cs"]
+        );
+        assert_eq!(names(&contract.memory), ["memory"]);
+        assert_eq!(names(&contract.handles), [handles]);
+        let pends: Vec<_> = contract
+            .pends
+            .iter()
+            .map(|p| (p.name.to_string(), p.member.to_string()))
+            .collect();
+        assert_eq!(pends, [("kick".to_string(), member.to_string())]);
+        let arguments: Vec<_> = contract
+            .constructor
+            .as_ref()
+            .unwrap()
+            .arguments
+            .iter()
+            .map(|a| a.to_string())
+            .collect();
+        assert_eq!(
+            arguments,
+            [
+                "rcc", "wiring", "cs", config, "tx_buf", "rx_buf", "memory", "kick", "now"
+            ]
+        );
+        let [vector] = contract.vectors.as_slice() else {
+            panic!("one vector");
+        };
+        assert_eq!(vector.member, member);
+        assert_eq!(vector.slot, "rx_dma");
+    }
+}
+
+/// `spi_queue::new_single` and `new_multi` at one wiring, with the result's
+/// fields the contracts name.
+macro_rules! spi_queue_builds {
+    ($U:ty, $Sck:ty, $Miso:ty, $Mosi:ty, $TxD:ty, $RxD:ty, $Cs:ty) => {{
+        use crate::spi_queue::{
+            self, Handles, MultiMemory, MultiRefused, MultiResources, Port, SingleMemory,
+            SingleResources, SpiHandle,
+        };
+        use ferrohal_stm32::{
+            rcc::Rcc,
+            spi::{Config, SpiRefused, Wiring},
+        };
+        type W = Wiring<$U, $Sck, $Miso, $Mosi, $TxD, $RxD>;
+        let single: fn(
+            &mut Rcc,
+            W,
+            $Cs,
+            &Config,
+            &'static mut [u8],
+            &'static mut [u8],
+            &'static mut SingleMemory<4>,
+            fn(),
+            fn() -> u32,
+        ) -> Result<
+            SingleResources<W, $Cs>,
+            SpiRefused<$U, $Sck, $Miso, $Mosi, $TxD, $RxD>,
+        > = spi_queue::new_single;
+        let _ = single;
+        let fields = |built: SingleResources<W, $Cs>| -> (Port<W, ($Cs,)>, SpiHandle) {
+            (built.port, built.handle)
+        };
+        let _ = fields;
+        type Four = ($Cs, $Cs, $Cs, $Cs);
+        let multi: fn(
+            &mut Rcc,
+            W,
+            Four,
+            &[Config],
+            &'static mut [u8],
+            &'static mut [u8],
+            &'static mut MultiMemory<8, 8, 4>,
+            fn(),
+            fn() -> u32,
+        ) -> Result<
+            MultiResources<W, Four>,
+            MultiRefused<$U, $Sck, $Miso, $Mosi, $TxD, $RxD, Four>,
+        > = spi_queue::new_multi;
+        let _ = multi;
+        let fields = |built: MultiResources<W, Four>| -> (Port<W, Four>, Handles) {
+            (built.port, built.handles)
+        };
+        let _ = fields;
+    }};
+}
+
+#[cfg(feature = "stm32f401re")]
+#[test]
+fn spi_single_and_multi_ports_build_on_an_f401_wiring() {
+    use ferrohal_stm32::{
+        chip::SPI1,
+        dma::Stream,
+        gpio::{Alternate, Output, Pin},
+    };
+    type Af5<const P: char, const N: u8> = Pin<P, N, Alternate<5>>;
+    // SPI1 on PA5/PA6/PA7, DMA2 streams 3 and 0 (RM0368 table 29).
+    spi_queue_builds!(
+        SPI1,
+        Af5<'A', 5>,
+        Af5<'A', 6>,
+        Af5<'A', 7>,
+        Stream<2, 3>,
+        Stream<2, 0>,
+        Pin<'A', 4, Output>
+    );
+}
+
+#[cfg(feature = "stm32h753zi")]
+#[test]
+fn spi_single_and_multi_ports_build_on_an_h753_wiring() {
+    use ferrohal_stm32::{
+        chip::SPI1,
+        dma::Stream,
+        gpio::{Alternate, Output, Pin},
+    };
+    type Af5<const P: char, const N: u8> = Pin<P, N, Alternate<5>>;
+    // FerroHAL's H753 bench SPI1 (its S1): DMA1 streams 5 and 4 through
+    // DMAMUX.
+    spi_queue_builds!(
+        SPI1,
+        Af5<'A', 5>,
+        Af5<'A', 6>,
+        Af5<'D', 7>,
+        Stream<1, 5>,
+        Stream<1, 4>,
+        Pin<'D', 14, Output>
+    );
+}
