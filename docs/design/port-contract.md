@@ -27,6 +27,9 @@ pub mod uart_port { .. }
 - **Vectors** say which member serves which slot's interrupt. The vector's name
   comes from FerroHAL's data for the slot's type; the member's `binds` is that
   name, and its priority is the firmware's.
+  A slot that carries one vector per lane, such as the compare lanes'
+  generator, names its member in brackets, `on_lane_dma = [generator]`, and the
+  firmware declares that member once per vector.
 - **Resources** are every resource the members leave to the firmware, with its
   type over the slots' parameters. The firmware declares each as a `#[shared]` or
   `#[local]` field and binds it in the selection.

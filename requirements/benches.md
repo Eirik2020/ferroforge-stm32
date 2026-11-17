@@ -103,6 +103,33 @@ as on the Nucleo-F401RE, on `adc_v4` and DMAMUX: ADC3, which carries the
 internal pair, on DMA2 stream 0, reading PF6. Pass: every check prints `PASS`,
 none prints `FAIL`, and the script exits zero [PORT-401].
 
+## Compare lanes on the Nucleo-F401RE
+
+`hil/run-f401-lanes.sh`, with no links: a pin's input register reads its own
+output, as `hil/nucleo-f401re-compare-lanes/src/main.rs` lays out. The firmware
+assembles four lanes, TIM3 CH3/CH4 on PB0/PB1 and TIM2 CH3/CH2 on PB10/PB3 over
+DMA1 streams 7, 2, 1 and 6, into one generator with TIM3 starting TIM2, at
+600 kHz, builds it with `compare_lanes::new` active low, and selects
+`compare_lanes` with its member declared once per stream vector. TIM1's update
+has DMA2 stream 5 sample port B about 12 times a period. It plays 400
+waveforms one at a time, each lane 16 different bits, and samples every tenth.
+Pass: every check prints `PASS`, none prints `FAIL`, and the script exits zero.
+The checks: every lane's vector is enabled [PORT-501]; before anything plays
+every line is high, its inactive level [PORT-502]; each waveform's outcome
+reached the firmware's task once, completed, with no lane still playing
+[PORT-501]; every sampled waveform carried each lane's own bits, pulses pulling
+low, on its pin [PORT-501]; and after the last every line is high again
+[PORT-502].
+
+## Compare lanes on the Nucleo-H753ZI
+
+`hil/run-h753-lanes.sh`, with no links, as
+`hil/nucleo-h753zi-compare-lanes/src/main.rs` lays out. The same as on the
+Nucleo-F401RE, on two lanes of one timer: TIM3 CH3/CH4 on PB0/PB1 over DMA2
+streams 0 and 1, built active high, with TIM8's update having DMA1 stream 0
+sample port B. The checks are the F401's, with every line's inactive level low
+and the pulses driving high.
+
 ## UART port on the Nucleo-H753ZI
 
 `hil/run-h753.sh`, with FerroHAL's H753 links Z2 (PC6 to PC7) and Z3 (PB6 to

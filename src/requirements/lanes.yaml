@@ -1,0 +1,45 @@
+schema_version: 2
+requirements:
+  - id: PORT-501
+    title: The compare lanes port serves every lane's vector and wakes the firmware once a waveform
+    statement: >-
+      The compare lanes port's member, declared once per lane's stream vector,
+      shall serve the generator and pass each waveform's outcome to the
+      firmware's task once, when no lane still plays.
+    rationale: >-
+      FerroHAL's waveform generator is one owner whose lanes each end on their
+      own stream's vector; a firmware playing several lanes from one start
+      needs one outcome per waveform, not one per lane, and a failed lane
+      stops them all.
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#Compare lanes on the Nucleo-F401RE
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#Compare lanes on the Nucleo-H753ZI
+
+  - id: PORT-502
+    title: The compare lanes constructor leaves every output idle
+    statement: >-
+      The compare lanes constructor shall leave every lane's output on at its
+      inactive level, for the polarity it is given, with no waveform playing.
+    rationale: >-
+      An output that pulses before the firmware plays a waveform drives
+      whatever the lane is wired to; the polarity decides which level is
+      inactive, so both have to hold.
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#Compare lanes on the Nucleo-F401RE
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#Compare lanes on the Nucleo-H753ZI

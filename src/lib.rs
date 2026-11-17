@@ -15,12 +15,14 @@
 
 mod adc;
 mod exti;
+mod lanes;
 mod spi;
 mod uart;
 mod uart_rx;
 
 pub use adc::adc_scan;
 pub use exti::exti_line;
+pub use lanes::compare_lanes;
 pub use spi::spi_port;
 pub use uart::uart_port;
 pub use uart_rx::uart_rx_port;
