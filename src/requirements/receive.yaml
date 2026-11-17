@@ -6,7 +6,7 @@ requirements:
       Each of the receive-only UART port's vector members shall serve the UART
       and pass the events of a nonempty service to the firmware's task.
     rationale: >-
-      A receive-only link (ESC telemetry, an RC receiver) has no transmit pin
+      A receive-only link, from a device that only sends, has no transmit pin
       or stream, so it needs one vector fewer than a full port; the port is how a
       firmware gets it served without writing the handlers.
     derived_from: [G1, G3]

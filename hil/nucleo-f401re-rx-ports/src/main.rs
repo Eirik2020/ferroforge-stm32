@@ -24,7 +24,7 @@
 //! | Vector | Serves | Priority |
 //! | --- | --- | --- |
 //! | `USART1`, `DMA2_STREAM2` | `framed`'s members | 3 |
-//! | `USART6`, `DMA2_STREAM1` | `telemetry`'s members | 3 |
+//! | `USART6`, `DMA2_STREAM1` | `plain`'s members | 3 |
 //! | `TIM4`, `TIM3` | `fast`'s and `slow`'s `on_tick` | 3 |
 //! | `SPI2` | RTIC, dispatching the firmware's readers | 2 |
 //! | `SPI1` | RTIC, dispatching `checks` | 1 |
@@ -85,9 +85,9 @@ ferroforge::app! {
     const FRAMED: uart::Config = uart::Config::new(Hertz(100_000))
         .with_parity(Parity::Even)
         .with_stop_bits(StopBits::Two);
-    const TELEMETRY: uart::Config = uart::Config::new(Hertz(115_200));
+    const PLAIN: uart::Config = uart::Config::new(Hertz(115_200));
     const _: () = assert!(uart::check::<USART1>(&CLOCKS, &FRAMED).is_ok());
-    const _: () = assert!(uart::check::<USART6>(&CLOCKS, &TELEMETRY).is_ok());
+    const _: () = assert!(uart::check::<USART6>(&CLOCKS, &PLAIN).is_ok());
 
     const FAST: Hertz = Hertz(1_000);
     const SLOW: Hertz = Hertz(250);
@@ -96,12 +96,12 @@ ferroforge::app! {
 
     /// Core cycles per bit on each line: 840 exactly, and 729 (0.02 % fast).
     const FRAMED_BIT: u32 = 84_000_000 / 100_000;
-    const TELEMETRY_BIT: u32 = 84_000_000 / 115_200;
+    const PLAIN_BIT: u32 = 84_000_000 / 115_200;
 
     type Af7<const P: char, const N: u8> = Pin<P, N, Alternate<7>>;
     type Af8<const P: char, const N: u8> = Pin<P, N, Alternate<8>>;
     type FramedUart = Uart<RxWiring<USART1, Af7<'A', 10>, Stream<2, 2>>>;
-    type TelemetryUart = Uart<RxWiring<USART6, Af8<'A', 12>, Stream<2, 1>>>;
+    type PlainUart = Uart<RxWiring<USART6, Af8<'A', 12>, Stream<2, 1>>>;
 
     const RX_RING: usize = 256;
     /// Bytes sent into each port, in frames of 1 to 32 bytes.
@@ -130,24 +130,24 @@ ferroforge::app! {
     #[shared]
     struct Shared {
         framed: FramedUart,
-        telemetry: TelemetryUart,
+        plain: PlainUart,
         fast_timer: Tick<TIM4>,
         slow_timer: Tick<TIM3>,
         fast_ticks: Ticks,
         slow_ticks: Ticks,
         framed_tally: Tally,
-        telemetry_tally: Tally,
+        plain_tally: Tally,
     }
 
     #[local]
     struct Local {
         framed_line: Pin<'A', 9, Output>,
-        telemetry_line: Pin<'A', 11, Output>,
+        plain_line: Pin<'A', 11, Output>,
     }
 
     #[init(local = [
         framed_ring: [u8; RX_RING] = [0; RX_RING],
-        telemetry_ring: [u8; RX_RING] = [0; RX_RING],
+        plain_ring: [u8; RX_RING] = [0; RX_RING],
     ])]
     fn init(cx: init::Context) -> (Shared, Local) {
         let p = cx.device;
@@ -165,12 +165,12 @@ ferroforge::app! {
         // The senders idle at mark, high, before either receiver opens.
         let mut framed_line = gpioa.p9.into_push_pull_output(ctrl);
         framed_line.set_high();
-        let mut telemetry_line = gpioa.p11.into_push_pull_output(ctrl);
-        telemetry_line.set_high();
+        let mut plain_line = gpioa.p11.into_push_pull_output(ctrl);
+        plain_line.set_high();
         let mut framed_rx = gpioa.p10.into_alternate::<7>(ctrl);
         framed_rx.set_pull(ctrl, Pull::Up);
-        let mut telemetry_rx = gpioa.p12.into_alternate::<8>(ctrl);
-        telemetry_rx.set_pull(ctrl, Pull::Up);
+        let mut plain_rx = gpioa.p12.into_alternate::<8>(ctrl);
+        plain_rx.set_pull(ctrl, Pull::Up);
 
         let local = cx.local;
         let framed = ferroforge_stm32::uart_rx_port::new(
@@ -180,11 +180,11 @@ ferroforge::app! {
             local.framed_ring,
         )
         .unwrap_or_else(|refused| defmt::panic!("USART1: {}", refused.error()));
-        let telemetry = ferroforge_stm32::uart_rx_port::new(
+        let plain = ferroforge_stm32::uart_rx_port::new(
             &mut rcc,
-            RxWiring { uart: p.USART6, rx: telemetry_rx, rx_dma: dma2.s1 },
-            &TELEMETRY,
-            local.telemetry_ring,
+            RxWiring { uart: p.USART6, rx: plain_rx, rx_dma: dma2.s1 },
+            &PLAIN,
+            local.plain_ring,
         )
         .unwrap_or_else(|refused| defmt::panic!("USART6: {}", refused.error()));
         let fast = ferroforge_stm32::tick::new(&mut rcc, p.TIM4, FAST)
@@ -197,15 +197,15 @@ ferroforge::app! {
         (
             Shared {
                 framed: framed.uart,
-                telemetry: telemetry.uart,
+                plain: plain.uart,
                 fast_timer: fast.timer,
                 slow_timer: slow.timer,
                 fast_ticks: Ticks::default(),
                 slow_ticks: Ticks::default(),
                 framed_tally: Tally::default(),
-                telemetry_tally: Tally::default(),
+                plain_tally: Tally::default(),
             },
-            Local { framed_line, telemetry_line },
+            Local { framed_line, plain_line },
         )
     }
 
@@ -217,8 +217,8 @@ ferroforge::app! {
         fn on_rx_dma;
     }
 
-    #[group(from = ferroforge_stm32::uart_rx_port, shared = [uart = telemetry], spawn = [events = telemetry_events])]
-    mod telemetry {
+    #[group(from = ferroforge_stm32::uart_rx_port, shared = [uart = plain], spawn = [events = plain_events])]
+    mod plain {
         #[task(binds = USART6, priority = 3)]
         fn on_uart;
         #[task(binds = DMA2_STREAM1, priority = 3)]
@@ -245,11 +245,11 @@ ferroforge::app! {
     }
 
     /// The 8N1 port's reader: drains the ring, checking every byte.
-    #[task(priority = 2, shared = [telemetry, telemetry_tally])]
-    async fn telemetry_events(cx: telemetry_events::Context, events: Events) {
-        let telemetry_events::SharedResources { mut telemetry, mut telemetry_tally, .. } =
+    #[task(priority = 2, shared = [plain, plain_tally])]
+    async fn plain_events(cx: plain_events::Context, events: Events) {
+        let plain_events::SharedResources { mut plain, mut plain_tally, .. } =
             cx.shared;
-        telemetry_tally.lock(|tally| telemetry.lock(|uart| drain(uart, tally, events)));
+        plain_tally.lock(|tally| plain.lock(|uart| drain(uart, tally, events)));
     }
 
     #[task(priority = 2, shared = [fast_ticks])]
@@ -266,26 +266,26 @@ ferroforge::app! {
     /// each port made of them.
     #[task(
         priority = 1,
-        shared = [framed, telemetry, fast_timer, slow_timer, fast_ticks, slow_ticks, framed_tally, telemetry_tally],
-        local = [framed_line, telemetry_line],
+        shared = [framed, plain, fast_timer, slow_timer, fast_ticks, slow_ticks, framed_tally, plain_tally],
+        local = [framed_line, plain_line],
     )]
     async fn checks(cx: checks::Context) {
         let checks::SharedResources {
             mut framed,
-            mut telemetry,
+            mut plain,
             mut fast_timer,
             mut slow_timer,
             mut fast_ticks,
             mut slow_ticks,
             mut framed_tally,
-            mut telemetry_tally,
+            mut plain_tally,
             ..
         } = cx.shared;
-        let checks::LocalResources { framed_line, telemetry_line, .. } = cx.local;
+        let checks::LocalResources { framed_line, plain_line, .. } = cx.local;
         let mut failed = 0u32;
 
         let bound = framed.lock(|uart| uart.vectors().verify()).is_ok()
-            && telemetry.lock(|uart| uart.vectors().verify()).is_ok()
+            && plain.lock(|uart| uart.vectors().verify()).is_ok()
             && fast_timer.lock(|timer| timer.vectors().verify()).is_ok()
             && slow_timer.lock(|timer| timer.vectors().verify()).is_ok();
         failed += verdict("every member's vector is enabled [PORT-101, PORT-111]", bound);
@@ -317,11 +317,11 @@ ferroforge::app! {
 
         // Each port: a counter in frames of 1 to 32 bytes, each followed by
         // three characters of idle line.
-        stream(telemetry_line, TELEMETRY_BIT, false, 1);
+        stream(plain_line, PLAIN_BIT, false, 1);
         stream(framed_line, FRAMED_BIT, true, 2);
         wait(10 * MS);
         for (name, tally, health) in [
-            ("USART6, 115 200 8N1", telemetry_tally.lock(|t| *t), telemetry.lock(|u| u.health())),
+            ("USART6, 115 200 8N1", plain_tally.lock(|t| *t), plain.lock(|u| u.health())),
             ("USART1, 100 000 8E2", framed_tally.lock(|t| *t), framed.lock(|u| u.health())),
         ] {
             defmt::info!(
@@ -329,11 +329,11 @@ ferroforge::app! {
                 name, tally.bytes, tally.mismatches, tally.gaps, tally.wakes, tally.idles, health
             );
         }
-        let telemetry = telemetry_tally.lock(|t| *t);
+        let plain = plain_tally.lock(|t| *t);
         let framed = framed_tally.lock(|t| *t);
         failed += verdict(
             "every 8N1 byte came back, in order, once [PORT-101]",
-            intact(&telemetry),
+            intact(&plain),
         );
         failed += verdict(
             "every 8E2 byte came back, in order, once [PORT-101]",
@@ -341,7 +341,7 @@ ferroforge::app! {
         );
         failed += verdict(
             "each port woke the firmware's reader on idle lines [PORT-101]",
-            telemetry.wakes > 0 && telemetry.idles > 0 && framed.wakes > 0 && framed.idles > 0,
+            plain.wakes > 0 && plain.idles > 0 && framed.wakes > 0 && framed.idles > 0,
         );
 
         if failed == 0 {

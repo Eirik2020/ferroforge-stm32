@@ -6,8 +6,7 @@
 //! update since the port was opened. A tick the task had not yet taken when the
 //! next arrived is dropped, as every outgoing call coalesces, and shows as a
 //! gap in the sequence: an overrun the firmware can see and count. It carries
-//! no protocol; what a tick is for (a control loop, a watchdog) is the
-//! firmware's.
+//! no protocol; what a tick is for is the firmware's.
 //!
 //! Requirements: PORT-001, PORT-002, PORT-111
 
