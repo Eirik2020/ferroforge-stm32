@@ -44,6 +44,12 @@ hil/run-h753-adc.sh            # Nucleo-H753ZI: adc_scan over FerroHAL's link Z1
 reqtool validate | check       # requirements and evidence (reqtool at the revision CI pins)
 ```
 
+Before every push, match CI: run the full `checks/run.sh` with a reqtool built at CI's
+`REQTOOL_REV` (`.github/workflows/ci.yml`) on the PATH; run.sh skips `reqtool validate` when
+it finds none. A local pass is not "fixed": only green repo CI on the pushed head is. When
+repo CI fails, read the failing jobs' own logs first (`gh run view <id> --log-failed`, or the
+job log) and fix every failure they show before pushing again; never guess from a local run.
+
 ## Rules
 
 - G5: `#![forbid(unsafe_code)]`. A chip's unsafe belongs to FerroHAL; anything that
