@@ -259,3 +259,106 @@ fn spi_port_builds_on_an_h753_wiring() {
     > = spi_port::new;
     let _ = constructor;
 }
+
+#[test]
+fn uart_queue_port_states_its_contract() {
+    let found = groups(include_str!("uart_queue.rs"));
+    let [group] = found.as_slice() else {
+        panic!("one group in uart_queue.rs, found {}", found.len());
+    };
+    assert_eq!(group.path.last().unwrap(), "uart_queue_port");
+    let contract = &group.arguments.contract;
+    let names = |list: &[ferroforge_contracts::Typed]| -> Vec<std::string::String> {
+        list.iter().map(|t| t.name.to_string()).collect()
+    };
+    assert_eq!(names(&contract.memory), ["queues"]);
+    assert_eq!(names(&contract.handles), ["handle"]);
+    let pends: Vec<_> = contract
+        .pends
+        .iter()
+        .map(|p| (p.name.to_string(), p.member.to_string()))
+        .collect();
+    assert_eq!(pends, [("kick".to_string(), "q_on_tx_dma".to_string())]);
+    let shared: Vec<_> = contract.shared.iter().map(|r| r.name.to_string()).collect();
+    assert_eq!(shared, ["port"]);
+    let arguments: Vec<_> = contract
+        .constructor
+        .as_ref()
+        .unwrap()
+        .arguments
+        .iter()
+        .map(|a| a.to_string())
+        .collect();
+    assert_eq!(
+        arguments,
+        [
+            "rcc", "wiring", "config", "tx_buf", "rx_buf", "queues", "kick", "now"
+        ]
+    );
+    for vector in &contract.vectors {
+        let member = group
+            .members
+            .iter()
+            .find(|m| m.name == vector.member)
+            .expect("the vector's member is in the group");
+        assert_eq!(member.kind, ferroforge_contracts::TaskKind::Hardware);
+    }
+}
+
+/// `uart_queue::new` at one wiring, with the result's fields the contract
+/// names: `port` (shared) and `handle`.
+macro_rules! uart_queue_builds {
+    ($W:ty, $U:ty, $Tx:ty, $Rx:ty, $TxD:ty, $RxD:ty) => {{
+        use crate::uart_queue::{self, Handle, Port, Queues, Resources};
+        use ferrohal_stm32::{
+            rcc::Rcc,
+            uart::{Config, UartRefused},
+        };
+        let constructor: fn(
+            &mut Rcc,
+            $W,
+            &Config,
+            &'static mut [u8],
+            &'static mut [u8],
+            &'static mut Queues<8, 8>,
+            fn(),
+            fn() -> u32,
+        ) -> Result<Resources<$U, $Tx, $Rx, $TxD, $RxD>, UartRefused<$W>> = uart_queue::new;
+        let _ = constructor;
+        let fields = |built: Resources<$U, $Tx, $Rx, $TxD, $RxD>| -> (Port<$U, $Tx, $Rx, $TxD, $RxD>, Handle) {
+            (built.port, built.handle)
+        };
+        let _ = fields;
+    }};
+}
+
+#[cfg(feature = "stm32f401re")]
+#[test]
+fn uart_queue_port_builds_on_an_f401_wiring() {
+    use ferrohal_stm32::{
+        chip::USART1,
+        dma::Stream,
+        gpio::{Alternate, Pin},
+        uart::Wiring,
+    };
+    type Af7<const P: char, const N: u8> = Pin<P, N, Alternate<7>>;
+    // USART1 on PA9/PA10, DMA2 streams 7 and 2 (RM0368 table 29).
+    type W = Wiring<USART1, Af7<'A', 9>, Af7<'A', 10>, Stream<2, 7>, Stream<2, 2>>;
+    uart_queue_builds!(W, USART1, Af7<'A', 9>, Af7<'A', 10>, Stream<2, 7>, Stream<2, 2>);
+}
+
+#[cfg(feature = "stm32h753zi")]
+#[test]
+fn uart_queue_port_builds_on_an_h753_wiring() {
+    use ferrohal_stm32::{
+        chip::USART1,
+        dma::Stream,
+        gpio::{Alternate, Pin},
+        uart::Wiring,
+    };
+    type Af7<const P: char, const N: u8> = Pin<P, N, Alternate<7>>;
+    // FerroHAL's H753 bench USART1 (its Z3): DMA2 streams 5 and 4 through
+    // DMAMUX.
+    type W = Wiring<USART1, Af7<'B', 6>, Af7<'B', 7>, Stream<2, 5>, Stream<2, 4>>;
+    uart_queue_builds!(W, USART1, Af7<'B', 6>, Af7<'B', 7>, Stream<2, 5>, Stream<2, 4>);
+}

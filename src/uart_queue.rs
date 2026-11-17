@@ -85,15 +85,6 @@ impl<const RX: usize, const TX: usize> Default for Queues<RX, TX> {
     }
 }
 
-/// What the firmware hands the port that the port cannot name itself.
-#[derive(Clone, Copy)]
-pub struct Hooks {
-    /// Pends any one of the port's vectors (`|| rtic::pend(Interrupt::..)`).
-    pub kick: fn(),
-    /// The firmware's clock, read once per chunk.
-    pub now: fn() -> u32,
-}
-
 /// The consumer's end of one UART port.
 pub struct Handle {
     rx: Consumer<'static, RxChunk>,
@@ -282,15 +273,19 @@ where
     pub handle: Handle,
 }
 
-/// Opens the UART and splits `queues`.
-#[allow(clippy::type_complexity)]
+/// Opens the UART on `wiring` and splits `queues`. `kick` is the
+/// selection's generated pend of the transmit stream's vector; `now` is the
+/// firmware's clock, read once per chunk.
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn new<U, Tx, Rx, TxD, RxD, const RX: usize, const TX: usize>(
     rcc: &mut Rcc,
     wiring: Wiring<U, Tx, Rx, TxD, RxD>,
     config: &Config,
-    buffers: Buffers,
+    tx_buf: &'static mut [u8],
+    rx_buf: &'static mut [u8],
     queues: &'static mut Queues<RX, TX>,
-    hooks: Hooks,
+    kick: fn(),
+    now: fn() -> u32,
 ) -> Result<Resources<U, Tx, Rx, TxD, RxD>, UartRefused<Wiring<U, Tx, Rx, TxD, RxD>>>
 where
     U: Instance,
@@ -299,7 +294,15 @@ where
     TxD: TxDma<U>,
     RxD: RxDma<U>,
 {
-    let uart = Uart::new(rcc, wiring, config, buffers)?;
+    let uart = Uart::new(
+        rcc,
+        wiring,
+        config,
+        Buffers {
+            tx: tx_buf,
+            rx: rx_buf,
+        },
+    )?;
     let Queues {
         rx,
         tx,
@@ -318,7 +321,7 @@ where
             tx: tx_c,
             status,
             wake: writer,
-            now: hooks.now,
+            now,
             longest: 0,
         },
         handle: Handle {
@@ -326,16 +329,30 @@ where
             tx: tx_p,
             status,
             wake: reader,
-            kick: hooks.kick,
+            kick,
         },
     })
 }
 
-/// The variant B group. Members share `port`; the firmware gives them one
-/// priority so RTIC's lock among them costs nothing. Nothing is spawned:
-/// the port wakes whichever task holds the handle.
-#[ferroforge::group]
+/// The variant B group. Members share `port`; one priority for all three
+/// makes RTIC's lock among them free, but the firmware decides (D14).
+/// Nothing is spawned: the port wakes whichever task holds the handle,
+/// which the firmware gives to any task at boot (D12). In `init`:
+/// `uart_queue::new(.., queues, <selection>::kick, now)`.
+#[ferroforge::group(
+    slots = [instance: U, tx: Tx, rx: Rx, tx_dma: TxD, rx_dma: RxD],
+    vectors = [q_on_uart = instance, q_on_rx_dma = rx_dma, q_on_tx_dma = tx_dma],
+    shared = [port: Port<U, Tx, Rx, TxD, RxD>],
+    buffers = [#[dma] tx_buf: [u8], #[dma] rx_buf: [u8]],
+    config = [config: Config @ platform, now: fn() -> u32 @ platform],
+    memory = [queues: Queues],
+    handles = [handle: Handle],
+    pends = [kick = q_on_tx_dma],
+    constructor = new(rcc, wiring, config, tx_buf, rx_buf, queues, kick, now),
+)]
 pub mod uart_queue_port {
+    #[allow(unused_imports)]
+    use super::{Config, Handle, Port, Queues, new};
     pub use ferrohal_stm32::Service;
 
     /// The USART's own vector.

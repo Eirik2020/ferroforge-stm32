@@ -25,8 +25,7 @@ ferroforge::app! {
         uart::{self, Wiring},
     };
     use cortex_m_semihosting::debug::{self, EXIT_FAILURE, EXIT_SUCCESS};
-    use ferroforge_stm32::uart_queue::{self, Handle, Hooks, Port, Queues};
-    use ferrohal_stm32::device::Interrupt;
+    use ferroforge_stm32::uart_queue::{self, Handle, Port, Queues};
     use nucleo_h753zi_uart_ab::Loop;
 
     /// 400 MHz from HSI, as FerroHAL's H753 bench runs: 64 MHz / 4 = 16 MHz
@@ -193,15 +192,16 @@ ferroforge::app! {
         let w1 = Wiring { uart: p.USART1, tx: tx1, rx: rx1, tx_dma: dma2.s5, rx_dma: dma2.s4 };
         let w6 = Wiring { uart: p.USART6, tx: tx6, rx: rx6, tx_dma: dma1.s6, rx_dma: dma1.s0 };
         let local = cx.local;
-        // The firmware, not the consumer, names the vector the handle pends.
+        // `usartN::kick` is generated from the group's `pends`: the vector is
+        // written once, on the member below.
         let r1 = uart_queue::new(
-            &mut rcc, w1, &FRAME, uart::Buffers { tx: local.tx1, rx: local.rx1 }, local.q1,
-            Hooks { kick: || rtic::pend(Interrupt::DMA2_STREAM5), now: cycles },
+            &mut rcc, w1, &FRAME, local.tx1, local.rx1, local.q1,
+            usart1::kick, cycles,
         )
         .unwrap_or_else(|refused| defmt::panic!("USART1: {}", refused.error()));
         let r6 = uart_queue::new(
-            &mut rcc, w6, &FRAME, uart::Buffers { tx: local.tx6, rx: local.rx6 }, local.q6,
-            Hooks { kick: || rtic::pend(Interrupt::DMA1_STREAM6), now: cycles },
+            &mut rcc, w6, &FRAME, local.tx6, local.rx6, local.q6,
+            usart6::kick, cycles,
         )
         .unwrap_or_else(|refused| defmt::panic!("USART6: {}", refused.error()));
         let start = Loop { limit: TOTAL, ..Loop::default() };

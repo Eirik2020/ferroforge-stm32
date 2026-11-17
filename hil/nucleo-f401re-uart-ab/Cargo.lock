@@ -216,7 +216,7 @@ checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 [[package]]
 name = "ferroforge"
 version = "0.4.0"
-source = "git+https://github.com/Eirik2020/ferroforge?rev=f7387ed67ca29e194c8938d0db03f735c59480d7#f7387ed67ca29e194c8938d0db03f735c59480d7"
+source = "git+https://github.com/Eirik2020/ferroforge?rev=a7d3ab9395770fcd1a0f4ad867e9cf3e14d84ba5#a7d3ab9395770fcd1a0f4ad867e9cf3e14d84ba5"
 dependencies = [
  "ferroforge-macros",
 ]
@@ -224,7 +224,7 @@ dependencies = [
 [[package]]
 name = "ferroforge-contracts"
 version = "0.4.0"
-source = "git+https://github.com/Eirik2020/ferroforge?rev=f7387ed67ca29e194c8938d0db03f735c59480d7#f7387ed67ca29e194c8938d0db03f735c59480d7"
+source = "git+https://github.com/Eirik2020/ferroforge?rev=a7d3ab9395770fcd1a0f4ad867e9cf3e14d84ba5#a7d3ab9395770fcd1a0f4ad867e9cf3e14d84ba5"
 dependencies = [
  "proc-macro2",
  "syn 2.0.119",
@@ -233,7 +233,7 @@ dependencies = [
 [[package]]
 name = "ferroforge-macros"
 version = "0.4.0"
-source = "git+https://github.com/Eirik2020/ferroforge?rev=f7387ed67ca29e194c8938d0db03f735c59480d7#f7387ed67ca29e194c8938d0db03f735c59480d7"
+source = "git+https://github.com/Eirik2020/ferroforge?rev=a7d3ab9395770fcd1a0f4ad867e9cf3e14d84ba5#a7d3ab9395770fcd1a0f4ad867e9cf3e14d84ba5"
 dependencies = [
  "ferroforge-contracts",
  "proc-macro2",
