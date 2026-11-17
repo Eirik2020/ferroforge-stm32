@@ -148,6 +148,52 @@ impl Handle {
     }
 }
 
+/// PROTOTYPE measurement: what the port's runs are made of, in `now`
+/// ticks. Each field is the longest seen since boot.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Split {
+    /// The whole run: one `on_interrupt` of the port.
+    pub run: u32,
+    /// Chunks and frames the longest run handled.
+    pub run_chunks: u8,
+    pub run_frames: u8,
+    /// FerroHAL's own `on_interrupt`.
+    pub events: u32,
+    /// One FerroHAL `read_chunk`.
+    pub read_chunk: u32,
+    /// One FerroHAL `try_send`.
+    pub try_send: u32,
+    /// The wake: `Signal::write`.
+    pub wake: u32,
+    /// The port's time for one chunk of exactly each of
+    /// [`LENGTHS`](Self::LENGTHS) bytes: from taking room for it to
+    /// queueing it for the consumer.
+    pub per_chunk: [u32; 4],
+}
+
+impl Split {
+    /// The chunk lengths `per_chunk` is kept for.
+    pub const LENGTHS: [usize; 4] = [4, 32, 64, 256];
+
+    /// Records one chunk of `len` bytes that took `took` ticks.
+    pub fn chunk(&mut self, len: usize, took: u32) {
+        if let Some(i) = Self::LENGTHS.iter().position(|&l| l == len)
+            && let Some(slot) = self.per_chunk.get_mut(i)
+        {
+            *slot = (*slot).max(took);
+        }
+    }
+
+    /// Records one whole run.
+    pub fn run(&mut self, took: u32, chunks: usize, frames: usize) {
+        if took > self.run {
+            self.run = took;
+            self.run_chunks = u8::try_from(chunks).unwrap_or(u8::MAX);
+            self.run_frames = u8::try_from(frames).unwrap_or(u8::MAX);
+        }
+    }
+}
+
 /// The port's own state: the UART and the port's queue ends.
 pub struct Port<U, Tx, Rx, TxD, RxD>
 where
@@ -159,8 +205,8 @@ where
     status: &'static Status,
     wake: SignalWriter<'static, ()>,
     now: fn() -> u32,
-    /// PROTOTYPE measurement: the longest `on_interrupt`, in `now` ticks.
-    longest: u32,
+    /// PROTOTYPE measurement: the longest run, split.
+    split: Split,
 }
 
 impl<U, Tx, Rx, TxD, RxD> Port<U, Tx, Rx, TxD, RxD>
@@ -180,12 +226,17 @@ where
     /// At mixed priorities this is how long one port task can hold off
     /// another through the lock among them.
     pub fn longest(&self) -> u32 {
-        self.longest
+        self.split.run
     }
 
-    /// Ring into queue, whole chunks. True when the consumer has news.
-    fn pump_rx(&mut self) -> bool {
-        let mut news = false;
+    /// PROTOTYPE measurement: what the longest runs are made of.
+    pub fn split(&self) -> Split {
+        self.split
+    }
+
+    /// Ring into queue, whole chunks. How many chunks went to the consumer.
+    fn pump_rx(&mut self) -> usize {
+        let mut chunks = 0;
         // Bounded: more than a 256-byte ring's worth of 64-byte chunks and
         // the gaps between them.
         for _ in 0..16 {
@@ -193,8 +244,12 @@ where
                 self.status.starved.store(true, Ordering::Release);
                 break;
             }
+            let start = (self.now)();
             let mut bytes = [0; SLOT];
-            let chunk = match self.uart.read_chunk(&mut bytes) {
+            let read = (self.now)();
+            let result = self.uart.read_chunk(&mut bytes);
+            self.split.read_chunk = self.split.read_chunk.max((self.now)().wrapping_sub(read));
+            let chunk = match result {
                 Ok(Some(chunk)) => chunk,
                 Ok(None) => break,
                 // Only `Halted`: reported as a gap chunk, never dropped.
@@ -211,20 +266,27 @@ where
             };
             // Room was checked above; only this end fills the queue.
             let _ = self.rx.enqueue(slot);
-            news = true;
+            self.split
+                .chunk(chunk.len, (self.now)().wrapping_sub(start));
+            chunks += 1;
             if chunk.end == ChunkEnd::Gap(Error::Halted) {
                 break;
             }
         }
-        news
+        chunks
     }
 
-    /// Queue into FerroHAL, whole frames. True when the port just went idle.
-    fn pump_tx(&mut self) -> bool {
+    /// Queue into FerroHAL, whole frames. Whether the port just went idle,
+    /// and how many frames it passed on.
+    fn pump_tx(&mut self) -> (bool, usize) {
+        let mut frames = 0;
         for _ in 0..16 {
             let Some(frame) = self.tx.peek() else { break };
-            match self.uart.try_send(&frame.bytes[..usize::from(frame.len)]) {
-                Ok(()) => {}
+            let start = (self.now)();
+            let result = self.uart.try_send(&frame.bytes[..usize::from(frame.len)]);
+            self.split.try_send = self.split.try_send.max((self.now)().wrapping_sub(start));
+            match result {
+                Ok(()) => frames += 1,
                 Err(SendError::Full) => break,
                 Err(_) => {
                     self.status.tx_faults.fetch_add(1, Ordering::Relaxed);
@@ -235,7 +297,7 @@ where
         // `ready` on heapless 0.9's consumer means "holds an item".
         let idle = !self.tx.ready() && self.uart.queued() == 0;
         let was = self.status.idle.swap(idle, Ordering::AcqRel);
-        idle && !was
+        (idle && !was, frames)
     }
 }
 
@@ -253,12 +315,16 @@ where
     fn on_interrupt(&mut self) {
         let start = (self.now)();
         let events = self.uart.on_interrupt();
-        let went_idle = self.pump_tx();
-        let news = self.pump_rx();
-        if news || went_idle || events.fault {
+        self.split.events = self.split.events.max((self.now)().wrapping_sub(start));
+        let (went_idle, frames) = self.pump_tx();
+        let chunks = self.pump_rx();
+        if chunks > 0 || went_idle || events.fault {
+            let wake = (self.now)();
             self.wake.write(());
+            self.split.wake = self.split.wake.max((self.now)().wrapping_sub(wake));
         }
-        self.longest = self.longest.max((self.now)().wrapping_sub(start));
+        self.split
+            .run((self.now)().wrapping_sub(start), chunks, frames);
     }
 }
 
@@ -322,7 +388,7 @@ where
             status,
             wake: writer,
             now,
-            longest: 0,
+            split: Split::default(),
         },
         handle: Handle {
             rx: rx_c,
