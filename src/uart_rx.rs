@@ -6,8 +6,8 @@
 //! `uart_port`'s own definitions, selected again: every member calls the same
 //! [`Service::on_interrupt`](ferrohal_stm32::Service::on_interrupt), which
 //! serves whatever a UART has, so a receive-only UART needs nothing different.
-//! It carries no protocol; a protocol group, such as [`sbus`](crate::sbus),
-//! nests it.
+//! It carries no protocol: protocols are not hardware, so a decoder lives in
+//! the application or a protocol crate, behind the port's `events` call.
 //!
 //! Requirements: PORT-001, PORT-002, PORT-101
 

@@ -49,17 +49,19 @@ pub mod uart_port { .. }
   the contract has no optional members yet, and a receive-only UART has one
   vector fewer. It selects the full port's members again rather than copying
   them.
-- A protocol group nests the port it needs and adds its decoder as a task behind
-  the port's `events` call, so the port's members and contract are the port's
-  alone (`sbus_rx` nests `uart_rx_port`).
+- A port carries no protocol. Protocols are not hardware: a decoder or encoder
+  lives in the application or a protocol crate, as a task behind the port's
+  `events` call, never in a port group.
 
 ## Receive constraints
 
-Two constraints the receive members and every protocol behind them hold:
+Two constraints the receive members hold, and that bind any protocol a firmware
+puts behind them:
 
 - A frame ends on an idle line and nowhere else. In circular reception a full
-  buffer means the ring wrapped, not that a frame ended, so a decoder treats a
-  chunk ended by a full buffer or a line error as suspect whatever its bytes.
+  buffer means the ring wrapped, not that a frame ended, so a decoder above the
+  port treats a chunk ended by a full buffer or a line error as suspect whatever
+  its bytes.
 - The USART's error flags are the receive path's business, not diagnostics: an
   uncleared overrun stops the peripheral requesting DMA at all, so ignoring one
   wedges reception rather than degrading it. The members serve every vector
