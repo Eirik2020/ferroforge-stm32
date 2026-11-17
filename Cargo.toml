@@ -18,6 +18,9 @@ embedded-hal = "=1.0.0"
 # The lock a group member's shared resource arrives through (`rtic::Mutex`).
 # The backend is the firmware's choice in practice; naming one here lets the
 # crate check on its own, on the target and on the host.
+# PROTOTYPE (variant B): the queue and the handles' standard traits.
+heapless = "=0.9.3"
+embedded-io = "=0.7.1"
 rtic = { version = "=2.4.0", default-features = false, features = ["thumbv7-backend"] }
 # The clock a member stamps a wake with is the firmware's monotonic; a member
 # names it as `Mono`, bounded on `rtic_monotonics::Monotonic` over `fugit`'s

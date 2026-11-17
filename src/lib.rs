@@ -17,12 +17,14 @@ mod adc;
 mod exti;
 mod spi;
 mod uart;
+pub mod uart_queue;
 mod uart_rx;
 
 pub use adc::adc_scan;
 pub use exti::exti_line;
 pub use spi::spi_port;
 pub use uart::uart_port;
+pub use uart_queue::uart_queue_port;
 pub use uart_rx::uart_rx_port;
 
 #[cfg(test)]
