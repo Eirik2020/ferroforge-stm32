@@ -1,0 +1,24 @@
+//! FerroForge task groups for STM32 hardware ports, built on FerroHAL.
+//!
+//! Each port is a `#[ferroforge::group]` with a contract: the hardware slots it
+//! is built from, which member serves which slot's vector, the resources it
+//! leaves to the firmware, and the constructor that builds them. A firmware,
+//! hand-written or generated, selects a port with one `#[group(from = ..)]`
+//! inside `ferroforge::app!`, and calls its constructor from `init`.
+//!
+//! The constructors are generic over FerroHAL's wiring types, so a firmware's
+//! only port-specific code is its wiring alias and the constructor call. Every
+//! group also builds for the host, so a host tool can check what it reads.
+
+#![no_std]
+#![forbid(unsafe_code)]
+
+mod uart;
+
+pub use uart::uart_port;
+
+#[cfg(test)]
+extern crate std;
+
+#[cfg(test)]
+mod tests;
