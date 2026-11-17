@@ -1,0 +1,134 @@
+{
+  "schema_version": 5,
+  "run_id": "20261117T154519Z__receive-ports-and-ticks-on-the-nucleo-f401re__nucleo-f401re-rx-ports__01",
+  "recorded_at_utc": "2026-11-17T15:45:19Z",
+  "board": "nucleo-f401re-rx-ports",
+  "tier": "HIL",
+  "revision": "a99905e7a613c1543372e1f65d9c4be309fd1708",
+  "working_tree": "clean",
+  "configuration": {
+    "board": "nucleo-f401re-rx-ports",
+    "features": [],
+    "files": {
+      "hil/nucleo-f401re-rx-ports/.cargo/config.toml": "2fb6c8648a6ca90449e9b35fb962adec336a248a30bd53ae7fa67fcbb13ab0fd",
+      "hil/nucleo-f401re-rx-ports/Cargo.toml": "2b214b1da37b0db86cee85fb4ef18547a0868e93f3768f4ab344214e6c5e3bc7",
+      "hil/nucleo-f401re-rx-ports/src/main.rs": "570702639bb118680333371543fc7226b2962cf2244ca36831cadb5c6ade3a8a"
+    },
+    "externals": {
+      "bare-metal": "0.2.5",
+      "bitfield": "0.13.2",
+      "bitflags": "1.3.2",
+      "cortex-m": "0.7.10",
+      "cortex-m-macros": "0.7.8",
+      "cortex-m-rt": "0.7.7",
+      "cortex-m-rt-macros": "0.7.7",
+      "cortex-m-semihosting": "0.5.0",
+      "critical-section": "1.2.0",
+      "defmt": "0.3.101, 1.2.0",
+      "defmt-macros": "1.2.0",
+      "defmt-parser": "1.1.0",
+      "defmt-rtt": "1.3.1",
+      "embedded-hal": "0.2.7, 1.0.0",
+      "embedded-io": "0.7.1",
+      "equivalent": "1.0.3",
+      "ferroforge": "0.4.0+96da6f1b74e1b2e8d8e67405db0179dba85f90cd",
+      "ferroforge-contracts": "0.4.0+96da6f1b74e1b2e8d8e67405db0179dba85f90cd",
+      "ferroforge-macros": "0.4.0+96da6f1b74e1b2e8d8e67405db0179dba85f90cd",
+      "ferrohal-stm32": "0.1.0+d9ddc472eae17a335dd6fdd217af3c4dc4050d1b",
+      "hashbrown": "0.17.1",
+      "indexmap": "2.14.2",
+      "nb": "0.1.3, 1.1.0",
+      "panic-probe": "1.0.0",
+      "portable-atomic": "1.15.0",
+      "proc-macro2": "1.0.107",
+      "quote": "1.0.47",
+      "rtic": "2.4.0",
+      "rtic-core": "1.0.0",
+      "rtic-macros": "2.4.0",
+      "rustc_version": "0.2.3",
+      "semver": "0.9.0",
+      "semver-parser": "0.7.0",
+      "stm32-metapac": "21.0.0",
+      "syn": "2.0.119, 3.0.10",
+      "thiserror": "2.0.21",
+      "thiserror-impl": "2.0.21",
+      "unicode-ident": "1.0.27",
+      "vcell": "0.1.3",
+      "void": "1.0.2",
+      "volatile-register": "0.2.2"
+    },
+    "environment": {
+      "DEFMT_LOG": "info"
+    }
+  },
+  "results": [
+    {
+      "requirement": "PORT-101",
+      "method": {
+        "procedure": "requirements/benches.md#Receive ports and ticks on the Nucleo-F401RE"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "c66d5d030cae5c2dd77adbcbb448ef46dd5995704f34e655ce253dd2b8578772",
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-111",
+      "method": {
+        "procedure": "requirements/benches.md#Receive ports and ticks on the Nucleo-F401RE"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "83c494571030408970a3f5b8a83a2e053e1877fa413feb5449b98fd5a50f4992",
+      "result": "pass"
+    }
+  ],
+  "note": null,
+  "supersedes": [],
+  "ruling": null,
+  "details": {
+    "execution": {
+      "performed_by": "agent",
+      "user_confirmed": false
+    },
+    "conditions": {
+      "actuators": "none on this bench",
+      "image": "release profile, thumbv7em-none-eabihf, no extra features; firmware hash not captured",
+      "links": "FerroHAL's F401 links J1 (PA9-PA10) and J2 (PA11-PA12) fitted; PA9 and PA11 driven as GPIO by the firmware",
+      "equipment": [
+        "Nucleo-F401RE (MB1136) through its ST-LINK V2-1, probe 0674FF555185754867115446",
+        "probe-rs"
+      ],
+      "environment": [
+        "development bench"
+      ]
+    },
+    "commands": [
+      {
+        "command": "RIG_REQUESTER=... F401_PROBE=0483:374b:0674FF555185754867115446 python3 -I <ferrohal-stm32>/tools/rig_run.py hil/run-f401-rx.sh",
+        "exit_code": 0
+      }
+    ],
+    "measurements": {
+      "checks_failed": 0,
+      "checks_passed": 6,
+      "clocks": "sysclk 84 MHz, pclk1 42 MHz, pclk2 84 MHz",
+      "exit": 0,
+      "rig_run_id": "f401-rx-20261117T154438Z-243972-rx-ports",
+      "ticks_200ms": "TIM4 200 (0 gaps, last 200), TIM3 50 (0 gaps, last 50)",
+      "usart1_8e2": "1024 bytes read, 0 wrong, 0 gaps, 71 wakes (63 idle); every health counter 0",
+      "usart6_8n1": "1024 bytes read, 0 wrong, 0 gaps, 71 wakes (63 idle); every health counter 0"
+    },
+    "observations": [
+      "Run by an agent on ubuntu-beefcake at the coordinator's board grant, from a fresh clone at this revision, through FerroHAL's rig telemetry wrapper (ferrohal-stm32 main fc8cef8).",
+      "Every member's vector was enabled; both timers ticked at their rates with no gap; on both ports every byte came back once and in order and the reader woke on idle lines; the firmware exited through semihosting with success."
+    ],
+    "limitations": [
+      "Built and run from revision a99905e, the commit this record is made at.",
+      "The rig telemetry entry misattributes branch and commit (FerroHAL's), board name and probe, and has no build or flash timings, because the wrapper was pointed at another repository's script.",
+      "The RTT log stayed on the rig PC and is not attached; the figures above are as the runner reported them."
+    ]
+  }
+}
