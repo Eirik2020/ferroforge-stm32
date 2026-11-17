@@ -46,6 +46,9 @@ reqtool validate | check       # requirements and evidence (reqtool at the revis
   another HAL.
 - The rig: flash only with the owner's or coordinator's grant for that board.
   Never claim a pass from a build; record bench evidence with `reqtool record`.
+- reqtool hashes a procedure's section with its trailing blank line, so appending a
+  section to `requirements/benches.md` re-owes the old last one: add new sections
+  above the last.
 - Dependencies are pinned exactly (FerroHAL and FerroForge by git revision until
   they are on crates.io). A bump re-owes the files that import it.
 - One commit per item, detailed body. Nothing documented only in a commit, PR or
