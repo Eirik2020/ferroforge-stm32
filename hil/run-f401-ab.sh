@@ -9,7 +9,7 @@ if [ -n "${F401_PROBE:-}" ]; then
 fi
 mkdir -p "$here/logs"
 status=0
-for v in a b; do
+for v in a b b-mixed; do
     log="$here/logs/f401-uart-$v.log"
     (cd "$here/nucleo-f401re-uart-ab" && timeout 120 cargo run --release --bin "uart-$v") > "$log" 2>&1
     code=$?

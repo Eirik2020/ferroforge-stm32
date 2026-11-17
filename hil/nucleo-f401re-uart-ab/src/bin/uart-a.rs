@@ -97,10 +97,24 @@ ferroforge::app! {
 
     fn report(variant: &str, name: &str, l: &Loop) -> u32 {
         defmt::info!(
-            "{} {}: sent {} read {} wrong {} gaps {} wakes {} longest step {} cycles",
-            variant, name, l.sent, l.read, l.wrong, l.gaps, l.wakes, l.longest_step
+            "{} {}: sent {} read {} wrong {} chunks {} idle-ended {} gaps {} wakes {} all-sent {} longest step {} cycles oldest chunk {} cycles",
+            variant, name, l.sent, l.read, l.wrong, l.chunks, l.idles, l.gaps, l.wakes, l.all_sent, l.longest_step, l.oldest
         );
-        verdict("main run: every byte back, in order", l.read == TOTAL && l.wrong == 0 && l.gaps == 0)
+        let mut failed = 0;
+        if l.flood == 0 {
+            failed += verdict("main run: every byte back, in order", l.read == TOTAL && l.wrong == 0 && l.gaps == 0);
+        } else {
+            let (read0, gaps0) = l.before;
+            defmt::info!(
+                "{} {} slow: {} of {} flooded bytes read, {} gaps reported to the consumer",
+                variant, name, l.read - read0, l.flood, l.gaps - gaps0
+            );
+            failed += verdict("main run: every byte back before the flood", read0 >= TOTAL);
+            failed += verdict("slow: loss reported to the consumer as a gap", l.gaps > gaps0);
+        }
+        failed += verdict("frame ends reach the consumer (idle chunks)", l.idles > 0);
+        failed += verdict("the consumer learned everything was sent", l.all_sent > 0);
+        failed
     }
 
     fn finish(failed: u32) -> ! {
@@ -161,7 +175,8 @@ ferroforge::app! {
         defmt::info!("variant A on the Nucleo-F401RE");
         checks::spawn().ok();
         let start = Loop { limit: TOTAL, ..Loop::default() };
-        (Shared { usart1: usart1.uart, usart6: usart6.uart, loop1: start, loop6: start }, Local {})
+        let flood = Loop { flood: FLOOD, ..start };
+        (Shared { usart1: usart1.uart, usart6: usart6.uart, loop1: flood, loop6: start }, Local {})
     }
 
     #[group(from = ferroforge_stm32::uart_port, shared = [uart = usart1], spawn = [events = usart1_events])]
@@ -189,56 +204,50 @@ ferroforge::app! {
     #[task(priority = 2, shared = [usart1, loop1])]
     async fn usart1_events(cx: usart1_events::Context, _events: Events) {
         let usart1_events::SharedResources { mut usart1, mut loop1, .. } = cx.shared;
-        loop1.lock(|l| {
-            let t = cycles();
-            usart1.lock(|uart| l.step(uart));
-            l.longest_step = l.longest_step.max(cycles().wrapping_sub(t));
-        });
+        consume(&mut usart1, &mut loop1);
     }
 
     #[task(priority = 2, shared = [usart6, loop6])]
     async fn usart6_events(cx: usart6_events::Context, _events: Events) {
         let usart6_events::SharedResources { mut usart6, mut loop6, .. } = cx.shared;
-        loop6.lock(|l| {
+        consume(&mut usart6, &mut loop6);
+    }
+
+    fn consume<P: nucleo_f401re_uart_ab::Port>(
+        port: &mut impl rtic::Mutex<T = P>,
+        tally: &mut impl rtic::Mutex<T = Loop>,
+    ) {
+        let pause = tally.lock(|l| {
             let t = cycles();
-            usart6.lock(|uart| l.step(uart));
+            port.lock(|p| l.step(p, cycles()));
             l.longest_step = l.longest_step.max(cycles().wrapping_sub(t));
+            l.wants_pause()
         });
+        if pause {
+            // The slow consumer: busy elsewhere, holding no lock.
+            cortex_m::asm::delay(25_200_000);
+            tally.lock(|l| {
+                l.release();
+                port.lock(|p| l.step(p, cycles()));
+            });
+        }
     }
 
     #[task(priority = 1, shared = [usart1, usart6, loop1, loop6])]
     async fn checks(cx: checks::Context) {
         let checks::SharedResources { mut usart1, mut usart6, mut loop1, mut loop6, .. } = cx.shared;
-        // Kick: the first step sends; arrivals drive the rest.
-        loop1.lock(|l| usart1.lock(|u| l.step(u)));
-        loop6.lock(|l| usart6.lock(|u| l.step(u)));
-        wait_for(3_000, || loop1.lock(|l| l.read) >= TOTAL && loop6.lock(|l| l.read) >= TOTAL);
+        // Kick: the first step sends; the port's wakes drive the rest.
+        consume(&mut usart1, &mut loop1);
+        consume(&mut usart6, &mut loop6);
+        wait_for(4_000, || {
+            loop1.lock(|l| l.flooding && !l.hold && l.read >= l.before.0 + 256)
+                && loop6.lock(|l| l.read) >= TOTAL
+        });
         cortex_m::asm::delay(8_400_000);
         let mut failed = report("A", "USART1", &loop1.lock(|l| *l));
         failed += report("A", "USART6", &loop6.lock(|l| *l));
-
-        // Slow consumer on USART1: send FLOOD bytes without reading.
-        loop1.lock(|l| {
-            l.hold = true;
-            l.limit = TOTAL + FLOOD;
-        });
-        for _ in 0..200 {
-            loop1.lock(|l| usart1.lock(|u| l.step(u)));
-            cortex_m::asm::delay(84_000);
-        }
-        let before = loop1.lock(|l| (l.read, l.gaps));
-        loop1.lock(|l| {
-            l.hold = false;
-            usart1.lock(|u| l.step(u));
-        });
-        cortex_m::asm::delay(8_400_000);
-        let after = loop1.lock(|l| (l.sent, l.read, l.gaps));
         let health = usart1.lock(|u| u.health());
-        defmt::info!(
-            "A slow: sent {} read {} of {} flooded, gaps seen by consumer {}, FerroHAL buffer_overruns {}",
-            after.0, after.1 - before.0, FLOOD, after.2 - before.1, health.buffer_overruns
-        );
-        failed += verdict("slow: loss reported to the consumer", after.2 > before.1);
+        defmt::info!("A USART1 FerroHAL buffer_overruns {}", health.buffer_overruns);
         finish(failed);
     }
 }

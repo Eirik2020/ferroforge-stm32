@@ -2,41 +2,66 @@
 //! section 3). Not product code; not merged.
 //!
 //! The port's three members own the FerroHAL [`Uart`] together with the
-//! port's ends of two `heapless` byte queues. The consumer owns the other
-//! ends, as [`RxHandle`] and [`TxHandle`], and never names the UART, its
-//! wiring, or a lock. Both handles implement `embedded-io`'s non-blocking
-//! traits, the same ones FerroHAL's `Uart` implements.
+//! port's ends of two `heapless` queues: received chunks one way, frames to
+//! send the other. The consumer owns the other ends in one [`Handle`] and
+//! never names the UART, its wiring, its vectors or a lock. Every UART's
+//! handle has the same type, so which consumer gets which UART can be chosen
+//! at boot.
+//!
+//! The consumer sees FerroHAL's own vocabulary: [`Chunk`] (length, why it
+//! ended, generation), `try_send` with [`SendError`], `is_idle`. On top it
+//! gets what only the port can give: the time each chunk was taken from the
+//! ring (D7), and a wake that reaches whichever task holds the handle.
 
-use core::sync::atomic::{AtomicU32, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 use ferrohal_stm32::{
     Service,
     rcc::Rcc,
     uart::{
-        Buffers, Config, Instance, RxDma, RxPin, SendError, TxDma, TxPin, Uart, UartRefused, Wiring,
+        Buffers, Chunk, ChunkEnd, Config, Error, Instance, RxDma, RxPin, SendError, TxDma, TxPin,
+        Uart, UartRefused, Wiring,
     },
 };
 use heapless::spsc::{Consumer, Producer, Queue};
+use rtic_sync::signal::{Signal, SignalReader, SignalWriter};
 
-/// Bytes the port moves per step between FerroHAL and a queue.
-const STEP: usize = 32;
+/// The longest chunk or frame one queue slot holds.
+pub const SLOT: usize = 64;
 
-/// What the port reports to the consumer outside the byte stream (D8).
-#[derive(Default)]
-pub struct Status {
-    /// Bytes the port had to leave in FerroHAL's ring because the receive
-    /// queue was full when it served the ring.
-    deferred: AtomicU32,
-    /// Gaps FerroHAL reported in the byte stream (overrun, line, DMA error).
-    gaps: AtomicU32,
+/// One received chunk, as the port took it from FerroHAL's ring.
+#[derive(Clone, Copy)]
+struct RxChunk {
+    bytes: [u8; SLOT],
+    chunk: Chunk,
+    at: u32,
 }
 
-/// The memory both queues live in, provided by the firmware (`init` local)
-/// and split once by [`new`].
+/// One frame waiting to be sent.
+#[derive(Clone, Copy)]
+struct TxFrame {
+    bytes: [u8; SLOT],
+    len: u8,
+}
+
+/// What the port tells the consumer outside the stream.
+struct Status {
+    /// The receive queue was full while the port served the ring: the
+    /// consumer's next take pends the port, so the ring is served again.
+    starved: AtomicBool,
+    /// Frames FerroHAL refused other than for room (a halted transmitter).
+    tx_faults: AtomicU32,
+    /// Nothing queued in the port or in FerroHAL.
+    idle: AtomicBool,
+}
+
+/// The memory the port and its handle share, provided by the firmware
+/// (an `init` local) and split once by [`new`].
 pub struct Queues<const RX: usize, const TX: usize> {
-    rx: Queue<u8, RX>,
-    tx: Queue<u8, TX>,
+    rx: Queue<RxChunk, RX>,
+    tx: Queue<TxFrame, TX>,
     status: Status,
+    wake: Signal<()>,
 }
 
 impl<const RX: usize, const TX: usize> Queues<RX, TX> {
@@ -45,9 +70,11 @@ impl<const RX: usize, const TX: usize> Queues<RX, TX> {
             rx: Queue::new(),
             tx: Queue::new(),
             status: Status {
-                deferred: AtomicU32::new(0),
-                gaps: AtomicU32::new(0),
+                starved: AtomicBool::new(false),
+                tx_faults: AtomicU32::new(0),
+                idle: AtomicBool::new(true),
             },
+            wake: Signal::new(),
         }
     }
 }
@@ -58,119 +85,75 @@ impl<const RX: usize, const TX: usize> Default for Queues<RX, TX> {
     }
 }
 
-/// A scheduler error the consumer learns from its next read (D8).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PortError {
-    /// FerroHAL reported `gaps` breaks in the stream since the last read.
-    Gap { gaps: u32 },
+/// What the firmware hands the port that the port cannot name itself.
+#[derive(Clone, Copy)]
+pub struct Hooks {
+    /// Pends any one of the port's vectors (`|| rtic::pend(Interrupt::..)`).
+    pub kick: fn(),
+    /// The firmware's clock, read once per chunk.
+    pub now: fn() -> u32,
 }
 
-impl core::fmt::Display for PortError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Self::Gap { gaps } => write!(f, "{gaps} gap(s) in the stream"),
-        }
-    }
-}
-
-impl core::error::Error for PortError {}
-
-impl embedded_io::Error for PortError {
-    fn kind(&self) -> embedded_io::ErrorKind {
-        embedded_io::ErrorKind::Other
-    }
-}
-
-/// The consumer's receive end.
-pub struct RxHandle {
-    queue: Consumer<'static, u8>,
+/// The consumer's end of one UART port.
+pub struct Handle {
+    rx: Consumer<'static, RxChunk>,
+    tx: Producer<'static, TxFrame>,
     status: &'static Status,
-    seen_gaps: u32,
-    /// Pends a port vector, so a port that deferred bytes refills the queue.
+    wake: SignalReader<'static, ()>,
     kick: fn(),
 }
 
-/// The consumer's transmit end.
-pub struct TxHandle {
-    queue: Producer<'static, u8>,
-    /// Pends a port vector, so the port moves the queue into FerroHAL.
-    kick: fn(),
-}
-
-impl RxHandle {
-    /// Bytes the port has had to leave in FerroHAL's ring since boot.
-    pub fn deferred(&self) -> u32 {
-        self.status.deferred.load(Ordering::Relaxed)
+impl Handle {
+    /// Waits until the port has news: a chunk, the last frame sent, a fault.
+    pub async fn wait(&mut self) {
+        self.wake.wait().await;
     }
-}
 
-impl embedded_io::ErrorType for RxHandle {
-    type Error = PortError;
-}
-
-impl embedded_io::Read for RxHandle {
-    /// Copies what the queue holds, without waiting. `Ok(0)` means nothing
-    /// yet. A gap is reported once, before the bytes after it.
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize, PortError> {
-        let gaps = self.status.gaps.load(Ordering::Acquire);
-        if gaps != self.seen_gaps {
-            let new = gaps.wrapping_sub(self.seen_gaps);
-            self.seen_gaps = gaps;
-            return Err(PortError::Gap { gaps: new });
+    /// The next chunk, copied into `buf` (as FerroHAL's `read_chunk`), with
+    /// the time the port took it. A chunk longer than `buf` is cut, and
+    /// says so by ending `Full`.
+    pub fn read_chunk(&mut self, buf: &mut [u8]) -> Option<(Chunk, u32)> {
+        let slot = self.rx.dequeue()?;
+        let len = slot.chunk.len.min(buf.len()).min(SLOT);
+        buf[..len].copy_from_slice(&slot.bytes[..len]);
+        let mut chunk = slot.chunk;
+        if len < chunk.len {
+            chunk.end = ChunkEnd::Full;
         }
-        let mut n = 0;
-        while n < buf.len() {
-            match self.queue.dequeue() {
-                Some(byte) => {
-                    buf[n] = byte;
-                    n += 1;
-                }
-                None => break,
-            }
-        }
-        if n > 0 && self.status.deferred.load(Ordering::Relaxed) > 0 {
+        chunk.len = len;
+        if self.status.starved.swap(false, Ordering::AcqRel) {
             (self.kick)();
         }
-        Ok(n)
+        Some((chunk, slot.at))
     }
-}
 
-impl embedded_io::ReadReady for RxHandle {
-    /// True too when a gap waits to be reported by `read`.
-    fn read_ready(&mut self) -> Result<bool, PortError> {
-        Ok(self.queue.ready() || self.status.gaps.load(Ordering::Acquire) != self.seen_gaps)
-    }
-}
-
-impl embedded_io::ErrorType for TxHandle {
-    type Error = PortError;
-}
-
-impl embedded_io::Write for TxHandle {
-    /// Queues as much of `buf` as fits, without waiting, and wakes the port.
-    fn write(&mut self, buf: &[u8]) -> Result<usize, PortError> {
-        let mut n = 0;
-        for &byte in buf {
-            if self.queue.enqueue(byte).is_err() {
-                break;
-            }
-            n += 1;
+    /// Queues `frame` whole, or not at all (as FerroHAL's `try_send`).
+    pub fn try_send(&mut self, frame: &[u8]) -> Result<(), SendError> {
+        if frame.is_empty() {
+            return Ok(());
         }
-        if n > 0 {
-            (self.kick)();
+        if frame.len() > SLOT {
+            return Err(SendError::TooLarge);
         }
-        Ok(n)
-    }
-
-    fn flush(&mut self) -> Result<(), PortError> {
+        let mut slot = TxFrame {
+            bytes: [0; SLOT],
+            len: frame.len() as u8,
+        };
+        slot.bytes[..frame.len()].copy_from_slice(frame);
+        self.status.idle.store(false, Ordering::Release);
+        self.tx.enqueue(slot).map_err(|_| SendError::Full)?;
         (self.kick)();
         Ok(())
     }
-}
 
-impl embedded_io::WriteReady for TxHandle {
-    fn write_ready(&mut self) -> Result<bool, PortError> {
-        Ok(self.queue.ready())
+    /// Whether every frame queued so far has left the wire.
+    pub fn is_idle(&self) -> bool {
+        self.status.idle.load(Ordering::Acquire)
+    }
+
+    /// Frames the transmitter refused since boot: faults are not hidden.
+    pub fn tx_faults(&self) -> u32 {
+        self.status.tx_faults.load(Ordering::Relaxed)
     }
 }
 
@@ -180,12 +163,13 @@ where
     U: Instance,
 {
     uart: Uart<Wiring<U, Tx, Rx, TxD, RxD>>,
-    rx: Producer<'static, u8>,
-    tx: Consumer<'static, u8>,
+    rx: Producer<'static, RxChunk>,
+    tx: Consumer<'static, TxFrame>,
     status: &'static Status,
-    /// A transmit step taken from the queue but not yet accepted by FerroHAL.
-    staged: [u8; STEP],
-    staged_len: usize,
+    wake: SignalWriter<'static, ()>,
+    now: fn() -> u32,
+    /// PROTOTYPE measurement: the longest `on_interrupt`, in `now` ticks.
+    longest: u32,
 }
 
 impl<U, Tx, Rx, TxD, RxD> Port<U, Tx, Rx, TxD, RxD>
@@ -196,73 +180,71 @@ where
     TxD: TxDma<U>,
     RxD: RxDma<U>,
 {
-    /// FerroHAL's UART, for checks such as `vectors().verify()`.
+    /// FerroHAL's UART, for checks such as `health()`.
     pub fn uart(&self) -> &Uart<Wiring<U, Tx, Rx, TxD, RxD>> {
         &self.uart
     }
 
-    /// Ring into queue. True when the consumer has something new.
-    fn pump_rx(&mut self) -> bool {
-        let mut woke = false;
-        let mut buf = [0u8; STEP];
-        // Bounded: one ring's worth of steps at most is served per call.
-        for _ in 0..64 {
-            let free = self.rx.capacity() - self.rx.len();
-            if free == 0 {
-                let left = self.uart.available().unwrap_or(0);
-                if left > 0 {
-                    self.status
-                        .deferred
-                        .fetch_add(u32::from(left), Ordering::Relaxed);
-                }
-                break;
-            }
-            match self.uart.try_read(&mut buf[..free.min(STEP)]) {
-                Ok(0) => break,
-                Ok(n) => {
-                    for &byte in &buf[..n] {
-                        // Room was measured above; only this end fills it.
-                        let _ = self.rx.enqueue(byte);
-                    }
-                    woke = true;
-                }
-                Err(_) => {
-                    self.status.gaps.fetch_add(1, Ordering::Release);
-                    woke = true;
-                }
-            }
-        }
-        woke
+    /// PROTOTYPE measurement: the longest `on_interrupt`, in `now` ticks.
+    /// At mixed priorities this is how long one port task can hold off
+    /// another through the lock among them.
+    pub fn longest(&self) -> u32 {
+        self.longest
     }
 
-    /// Queue into FerroHAL's transmit buffer, one step at a time.
-    fn pump_tx(&mut self) {
-        for _ in 0..64 {
-            if self.staged_len == 0 {
-                while self.staged_len < STEP {
-                    match self.tx.dequeue() {
-                        Some(byte) => {
-                            self.staged[self.staged_len] = byte;
-                            self.staged_len += 1;
-                        }
-                        None => break,
-                    }
-                }
-                if self.staged_len == 0 {
-                    return;
-                }
+    /// Ring into queue, whole chunks. True when the consumer has news.
+    fn pump_rx(&mut self) -> bool {
+        let mut news = false;
+        // Bounded: more than a 256-byte ring's worth of 64-byte chunks and
+        // the gaps between them.
+        for _ in 0..16 {
+            if !self.rx.ready() {
+                self.status.starved.store(true, Ordering::Release);
+                break;
             }
-            match self.uart.try_send(&self.staged[..self.staged_len]) {
-                Ok(()) => self.staged_len = 0,
-                Err(SendError::Full) => return,
-                // Too large cannot happen with a buffer of STEP or more;
-                // halted drops the step, as FerroHAL drops frames then.
-                Err(_) => {
-                    self.staged_len = 0;
-                    return;
-                }
+            let mut bytes = [0; SLOT];
+            let chunk = match self.uart.read_chunk(&mut bytes) {
+                Ok(Some(chunk)) => chunk,
+                Ok(None) => break,
+                // Only `Halted`: reported as a gap chunk, never dropped.
+                Err(error) => Chunk {
+                    len: 0,
+                    end: ChunkEnd::Gap(error),
+                    generation: self.uart.generation(),
+                },
+            };
+            let slot = RxChunk {
+                bytes,
+                chunk,
+                at: (self.now)(),
+            };
+            // Room was checked above; only this end fills the queue.
+            let _ = self.rx.enqueue(slot);
+            news = true;
+            if chunk.end == ChunkEnd::Gap(Error::Halted) {
+                break;
             }
         }
+        news
+    }
+
+    /// Queue into FerroHAL, whole frames. True when the port just went idle.
+    fn pump_tx(&mut self) -> bool {
+        for _ in 0..16 {
+            let Some(frame) = self.tx.peek() else { break };
+            match self.uart.try_send(&frame.bytes[..usize::from(frame.len)]) {
+                Ok(()) => {}
+                Err(SendError::Full) => break,
+                Err(_) => {
+                    self.status.tx_faults.fetch_add(1, Ordering::Relaxed);
+                }
+            }
+            self.tx.dequeue();
+        }
+        // `ready` on heapless 0.9's consumer means "holds an item".
+        let idle = !self.tx.ready() && self.uart.queued() == 0;
+        let was = self.status.idle.swap(idle, Ordering::AcqRel);
+        idle && !was
     }
 }
 
@@ -274,41 +256,41 @@ where
     TxD: TxDma<U>,
     RxD: RxDma<U>,
 {
-    /// True when the consumer should be woken.
-    type Event = bool;
+    /// Nothing: the port wakes its consumer itself.
+    type Event = ();
 
-    fn on_interrupt(&mut self) -> bool {
+    fn on_interrupt(&mut self) {
+        let start = (self.now)();
         let events = self.uart.on_interrupt();
-        self.pump_tx();
-        self.pump_rx() || events.fault
+        let went_idle = self.pump_tx();
+        let news = self.pump_rx();
+        if news || went_idle || events.fault {
+            self.wake.write(());
+        }
+        self.longest = self.longest.max((self.now)().wrapping_sub(start));
     }
 }
 
-/// What [`new`] builds: the port's resource and the consumer's two handles.
+/// What [`new`] builds: the port's resource and the consumer's handle.
 pub struct Resources<U, Tx, Rx, TxD, RxD>
 where
     U: Instance,
 {
     /// Shared by the port's three members only.
     pub port: Port<U, Tx, Rx, TxD, RxD>,
-    /// The consumer's, as `#[local]`.
-    pub rx: RxHandle,
-    /// The consumer's, as `#[local]`.
-    pub tx: TxHandle,
+    /// The consumer's, as a `#[local]`, given to any task at boot.
+    pub handle: Handle,
 }
 
-/// Opens the UART and splits `queues`. `kick` pends any one of the port's
-/// vectors (`|| rtic::pend(Interrupt::..)`): the firmware names it, not the
-/// consumer.
-#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+/// Opens the UART and splits `queues`.
+#[allow(clippy::type_complexity)]
 pub fn new<U, Tx, Rx, TxD, RxD, const RX: usize, const TX: usize>(
     rcc: &mut Rcc,
     wiring: Wiring<U, Tx, Rx, TxD, RxD>,
     config: &Config,
-    tx_buf: &'static mut [u8],
-    rx_buf: &'static mut [u8],
+    buffers: Buffers,
     queues: &'static mut Queues<RX, TX>,
-    kick: fn(),
+    hooks: Hooks,
 ) -> Result<Resources<U, Tx, Rx, TxD, RxD>, UartRefused<Wiring<U, Tx, Rx, TxD, RxD>>>
 where
     U: Instance,
@@ -317,67 +299,61 @@ where
     TxD: TxDma<U>,
     RxD: RxDma<U>,
 {
-    let uart = Uart::new(
-        rcc,
-        wiring,
-        config,
-        Buffers {
-            tx: tx_buf,
-            rx: rx_buf,
-        },
-    )?;
-    let Queues { rx, tx, status } = queues;
+    let uart = Uart::new(rcc, wiring, config, buffers)?;
+    let Queues {
+        rx,
+        tx,
+        status,
+        wake,
+    } = queues;
     let status: &'static Status = status;
+    let wake: &'static Signal<()> = wake;
     let (rx_p, rx_c) = rx.split();
     let (tx_p, tx_c) = tx.split();
+    let (writer, reader) = wake.split();
     Ok(Resources {
         port: Port {
             uart,
             rx: rx_p,
             tx: tx_c,
             status,
-            staged: [0; STEP],
-            staged_len: 0,
+            wake: writer,
+            now: hooks.now,
+            longest: 0,
         },
-        rx: RxHandle {
-            queue: rx_c,
+        handle: Handle {
+            rx: rx_c,
+            tx: tx_p,
             status,
-            seen_gaps: 0,
-            kick,
+            wake: reader,
+            kick: hooks.kick,
         },
-        tx: TxHandle { queue: tx_p, kick },
     })
 }
 
-/// The variant B group. Members share `port` and must sit at one priority,
-/// so RTIC's lock among them costs nothing; the group cannot state that rule
-/// (finding).
+/// The variant B group. Members share `port`; the firmware gives them one
+/// priority so RTIC's lock among them costs nothing. Nothing is spawned:
+/// the port wakes whichever task holds the handle.
 #[ferroforge::group]
 pub mod uart_queue_port {
     pub use ferrohal_stm32::Service;
 
     /// The USART's own vector.
-    #[ferroforge::task(shared = [port], bounds = [port: Service<Event = bool>], spawn = [ready()])]
+    #[ferroforge::task(shared = [port], bounds = [port: Service<Event = ()>])]
     pub fn q_on_uart(mut cx: q_on_uart::Context) {
-        if cx.shared.port.lock(|port| port.on_interrupt()) {
-            let _: Result<(), ()> = cx.spawn.ready();
-        }
+        cx.shared.port.lock(|port| port.on_interrupt());
     }
 
     /// The receive stream's vector.
-    #[ferroforge::task(shared = [port], bounds = [port: Service<Event = bool>], spawn = [ready()])]
+    #[ferroforge::task(shared = [port], bounds = [port: Service<Event = ()>])]
     pub fn q_on_rx_dma(mut cx: q_on_rx_dma::Context) {
-        if cx.shared.port.lock(|port| port.on_interrupt()) {
-            let _: Result<(), ()> = cx.spawn.ready();
-        }
+        cx.shared.port.lock(|port| port.on_interrupt());
     }
 
-    /// The transmit stream's vector, also pended by the handles.
-    #[ferroforge::task(shared = [port], bounds = [port: Service<Event = bool>], spawn = [ready()])]
+    /// The transmit stream's vector, also pended by the handle.
+    #[ferroforge::task(shared = [port], bounds = [port: Service<Event = ()>])]
     pub fn q_on_tx_dma(mut cx: q_on_tx_dma::Context) {
-        if cx.shared.port.lock(|port| port.on_interrupt()) {
-            let _: Result<(), ()> = cx.spawn.ready();
-        }
+        cx.shared.port.lock(|port| port.on_interrupt());
     }
 }
 
@@ -385,59 +361,86 @@ pub mod uart_queue_port {
 mod tests {
     extern crate std;
     use super::*;
-    use embedded_io::{Read, Write};
+    use core::sync::atomic::AtomicUsize;
     use std::boxed::Box;
 
-    fn kick() {}
+    static KICKS: AtomicUsize = AtomicUsize::new(0);
+    fn kick() {
+        KICKS.fetch_add(1, Ordering::Relaxed);
+    }
 
-    fn handles() -> (
-        Producer<'static, u8>,
-        RxHandle,
-        TxHandle,
-        Consumer<'static, u8>,
-        &'static Status,
-    ) {
-        let q: &'static mut Queues<8, 8> = Box::leak(Box::new(Queues::new()));
-        let Queues { rx, tx, status } = q;
-        let status: &'static Status = status;
-        let (rp, rc) = rx.split();
-        let (tp, tc) = tx.split();
-        (
-            rp,
-            RxHandle {
-                queue: rc,
-                status,
-                seen_gaps: 0,
-                kick,
-            },
-            TxHandle { queue: tp, kick },
-            tc,
+    #[test]
+    fn a_chunk_keeps_its_end_and_time_and_a_starved_port_is_kicked() {
+        let q: &'static mut Queues<4, 4> = Box::leak(Box::new(Queues::new()));
+        let Queues {
+            rx,
+            tx,
             status,
-        )
+            wake,
+        } = q;
+        let status: &'static Status = status;
+        let (mut rp, rc) = rx.split();
+        let (tp, _tc) = tx.split();
+        let (_w, r) = wake.split();
+        let mut h = Handle {
+            rx: rc,
+            tx: tp,
+            status,
+            wake: r,
+            kick,
+        };
+        let mut bytes = [0; SLOT];
+        bytes[..3].copy_from_slice(b"abc");
+        let chunk = Chunk {
+            len: 3,
+            end: ChunkEnd::Gap(Error::BufferOverrun),
+            generation: 2,
+        };
+        assert!(
+            rp.enqueue(RxChunk {
+                bytes,
+                chunk,
+                at: 77
+            })
+            .is_ok()
+        );
+        status.starved.store(true, Ordering::Release);
+        let before = KICKS.load(Ordering::Relaxed);
+        let mut buf = [0; 2];
+        let (got, at) = h.read_chunk(&mut buf).unwrap();
+        assert_eq!(
+            (got.len, got.end, got.generation, at),
+            (2, ChunkEnd::Full, 2, 77)
+        );
+        assert_eq!(&buf, b"ab");
+        assert!(KICKS.load(Ordering::Relaxed) > before);
+        assert!(h.read_chunk(&mut buf).is_none());
     }
 
     #[test]
-    fn bytes_pass_both_ways_and_a_full_queue_takes_what_fits() {
-        let (mut rp, mut rx, mut tx, mut tc, _) = handles();
-        for b in 1..=3 {
-            rp.enqueue(b).unwrap();
-        }
-        let mut buf = [0; 8];
-        assert_eq!(rx.read(&mut buf).unwrap(), 3);
-        assert_eq!(&buf[..3], &[1, 2, 3]);
-        assert_eq!(rx.read(&mut buf).unwrap(), 0);
-        // heapless keeps one slot free: an 8-slot queue holds 7.
-        assert_eq!(tx.write(&[9; 10]).unwrap(), 7);
-        assert_eq!(tc.dequeue(), Some(9));
-    }
-
-    #[test]
-    fn a_gap_is_reported_once_before_the_bytes_after_it() {
-        let (mut rp, mut rx, _, _, status) = handles();
-        rp.enqueue(5).unwrap();
-        status.gaps.fetch_add(2, Ordering::Release);
-        let mut buf = [0; 4];
-        assert_eq!(rx.read(&mut buf), Err(PortError::Gap { gaps: 2 }));
-        assert_eq!(rx.read(&mut buf).unwrap(), 1);
+    fn a_frame_queues_whole_or_not_at_all() {
+        let q: &'static mut Queues<4, 2> = Box::leak(Box::new(Queues::new()));
+        let Queues {
+            rx,
+            tx,
+            status,
+            wake,
+        } = q;
+        let status: &'static Status = status;
+        let (_rp, rc) = rx.split();
+        let (tp, _tc) = tx.split();
+        let (_w, r) = wake.split();
+        let mut h = Handle {
+            rx: rc,
+            tx: tp,
+            status,
+            wake: r,
+            kick,
+        };
+        assert_eq!(h.try_send(&[0; SLOT + 1]), Err(SendError::TooLarge));
+        assert_eq!(h.try_send(b"x"), Ok(()));
+        assert!(!h.is_idle());
+        // heapless keeps one slot free: a 2-slot queue holds 1 frame.
+        assert_eq!(h.try_send(b"y"), Err(SendError::Full));
     }
 }

@@ -20,7 +20,7 @@ embedded-hal = "=1.0.0"
 # crate check on its own, on the target and on the host.
 # PROTOTYPE (variant B): the queue and the handles' standard traits.
 heapless = "=0.9.3"
-embedded-io = "=0.7.1"
+rtic-sync = "=1.6.1"
 rtic = { version = "=2.4.0", default-features = false, features = ["thumbv7-backend"] }
 # The clock a member stamps a wake with is the firmware's monotonic; a member
 # names it as `Mono`, bounded on `rtic_monotonics::Monotonic` over `fugit`'s
@@ -41,6 +41,8 @@ stm32h743vi = ["ferrohal-stm32/stm32h743vi"]
 stm32h753zi = ["ferrohal-stm32/stm32h753zi"]
 
 [dev-dependencies]
+# PROTOTYPE: rtic-sync's Signal needs a critical section on the host.
+critical-section = { version = "=1.2.0", features = ["std"] }
 # The host tests read this crate's own source as a host tool would.
 ferroforge-contracts = { git = "https://github.com/Eirik2020/ferroforge", rev = "f7387ed67ca29e194c8938d0db03f735c59480d7" }
 syn = { version = "=2.0.119", features = ["full"] }

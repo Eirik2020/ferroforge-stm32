@@ -10,15 +10,7 @@ publish = false
 test = false
 bench = false
 
-[[bin]]
-name = "uart-a"
-test = false
-bench = false
 
-[[bin]]
-name = "uart-b"
-test = false
-bench = false
 
 [dependencies]
 ferroforge-stm32 = { path = "../.." }
@@ -30,7 +22,6 @@ ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "c
 cortex-m = { version = "0.7.7", features = ["critical-section-single-core"] }
 cortex-m-rt = "0.7.6"
 cortex-m-semihosting = "0.5.0"
-embedded-io = "=0.7.1"
 rtic = { version = "2.4.0", features = ["thumbv7-backend"] }
 
 defmt = "1.0.1"
