@@ -19,6 +19,7 @@ mod spi;
 pub mod spi_lent;
 pub mod spi_queue;
 mod uart;
+pub mod uart_lent;
 pub mod uart_queue;
 mod uart_rx;
 
@@ -28,6 +29,7 @@ pub use spi::spi_port;
 pub use spi_lent::spi_lent_port;
 pub use spi_queue::{spi_multi_port, spi_single_port};
 pub use uart::uart_port;
+pub use uart_lent::uart_lent_port;
 pub use uart_queue::uart_queue_port;
 pub use uart_rx::uart_rx_port;
 
