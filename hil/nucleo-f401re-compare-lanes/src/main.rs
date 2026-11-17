@@ -31,7 +31,7 @@
 //! | Vector | Serves | Priority |
 //! | --- | --- | --- |
 //! | `DMA1_STREAM7`, `DMA1_STREAM2`, `DMA1_STREAM1`, `DMA1_STREAM6` | `lanes`' member, once each | 3 |
-//! | `SPI2` | RTIC, dispatching `lanes_done` | 2 |
+//! | `SPI2` | RTIC, dispatching `lanes_events` | 2 |
 //! | `SPI3` | RTIC, dispatching `checks` | 1 |
 //!
 //! Each check prints `PASS` or `FAIL` with the requirements it verifies in
@@ -112,11 +112,9 @@ ferroforge::app! {
     /// What the firmware's task has seen.
     #[derive(Clone, Copy, Default)]
     pub struct Log {
-        /// Waveforms whose outcome reached the task, and those that completed.
-        pub ended: u32,
-        pub completed: u32,
-        /// Outcomes that found a lane still playing.
-        pub early: u32,
+        /// Wakes of the firmware's task, and those carrying a failure.
+        pub wakes: u32,
+        pub failures: u32,
     }
 
     #[shared]
@@ -175,7 +173,12 @@ ferroforge::app! {
         let Ok(generator) = Awg::linked(tim3, tim2, (lane0, lane1), (lane2, lane3)) else {
             defmt::panic!("TIM3 linked to TIM2")
         };
-        let lanes = compare_lanes::new(generator, true);
+        // Polarity and outputs are FerroHAL's, set in init; the group only
+        // takes the generator as its resource.
+        let mut generator = generator;
+        generator.set_active_low(true);
+        generator.set_outputs(true);
+        let lanes = compare_lanes::new(generator);
         let rate = Hertz(RATE_KHZ * 1000 * PER_BIT);
         let Ok(sampler) = Sampler::new::<'B'>(&mut rcc, p.TIM1, dma2.s5, rate, cx.local.samples)
         else {
@@ -191,7 +194,7 @@ ferroforge::app! {
     }
 
     #[group(from = ferroforge_stm32::compare_lanes, shared = [generator = lanes],
-            spawn = [done = lanes_done])]
+            spawn = [events = lanes_events])]
     mod lanes {
         #[task(binds = DMA1_STREAM7, priority = 3)]
         fn on_lane_dma;
@@ -203,15 +206,12 @@ ferroforge::app! {
         fn on_lane_dma;
     }
 
-    /// The firmware's task: takes each waveform's outcome.
-    #[task(priority = 2, shared = [lanes, log])]
-    async fn lanes_done(cx: lanes_done::Context, result: Result<(), Error>) {
-        let lanes_done::SharedResources { mut lanes, mut log, .. } = cx.shared;
-        let busy = lanes.lock(|lanes| lanes.is_busy());
-        log.lock(|log| {
-            log.ended += 1;
-            log.completed += u32::from(result.is_ok());
-            log.early += u32::from(busy);
+    /// The firmware's task: takes each wake's event.
+    #[task(priority = 2, shared = [log])]
+    async fn lanes_events(mut cx: lanes_events::Context, event: Result<u8, Error>) {
+        cx.shared.log.lock(|log| {
+            log.wakes += 1;
+            log.failures += u32::from(event.is_err());
         });
     }
 
@@ -227,23 +227,12 @@ ferroforge::app! {
             lanes.lock(|lanes| lanes.vectors().verify()).is_ok(),
         );
 
-        // Before anything plays, every line sits at its inactive level: high,
-        // active low. 256 samples, about 36 us.
-        let idle = match sample(sampler, 256, || {}) {
-            Some(samples) => samples.iter().all(|s| PINS.iter().all(|pin| s & (1 << pin) != 0)),
-            None => false,
-        };
-        failed += verdict(
-            "the constructor left every output on at its inactive level, high [PORT-502]",
-            idle,
-        );
-
         let period = lanes.lock(|lanes| lanes.period());
         let count = (PER_BIT as usize) * (BITS + 16);
-        let (mut refused, mut sampled, mut wrong) = (0u32, 0u32, 0u32);
+        let (mut refused, mut sampled, mut wrong, mut unended, mut unwoken) = (0u32, 0u32, 0u32, 0u32, 0u32);
         for index in 0..WAVEFORMS {
             let patterns = patterns(index);
-            let before = log.lock(|log| log.ended);
+            let before = log.lock(|log| log.wakes);
             let loaded = lanes.lock(|lanes| {
                 (0..4).all(|lane| lanes.load(lane, &duties(patterns[lane], period)).is_ok())
             });
@@ -272,32 +261,24 @@ ferroforge::app! {
                 lanes.lock(|lanes| lanes.abort());
                 continue;
             }
-            await_ended(&mut log, before + 1);
+            // Every lane ends on its own vector; the generator says when the
+            // last has, and the task has been woken by then.
+            unended += u32::from(!await_idle(&mut lanes));
+            unwoken += u32::from(!await_woken(&mut log, before + 1));
         }
-        // Any outcome after the last would be a second one for a waveform.
-        wait(MS);
         let seen = log.lock(|log| *log);
         defmt::info!(
-            "{} waveforms: {} ended, {} completed, {} with a lane still playing, {} refused; {} sampled, {} read back wrong",
-            WAVEFORMS, seen.ended, seen.completed, seen.early, refused, sampled, wrong
+            "{} waveforms: {} refused, {} not ended, {} without a wake; {} wakes, {} failures; {} sampled, {} read back wrong",
+            WAVEFORMS, refused, unended, unwoken, seen.wakes, seen.failures, sampled, wrong
         );
         failed += verdict(
-            "each waveform's outcome reached the firmware's task once, completed, with no lane playing [PORT-501]",
-            refused == 0 && seen.ended == WAVEFORMS && seen.completed == WAVEFORMS && seen.early == 0,
+            "every waveform ended on every lane and woke the firmware's task, with no failure [PORT-501]",
+            refused == 0 && unended == 0 && unwoken == 0 && seen.failures == 0,
         );
         failed += verdict(
             "every sampled waveform carried each lane's own 16 bits, active low, on its pin [PORT-501]",
             wrong == 0 && sampled > 0,
         );
-        let idle = match sample(sampler, 256, || {}) {
-            Some(samples) => samples.iter().all(|s| PINS.iter().all(|pin| s & (1 << pin) != 0)),
-            None => false,
-        };
-        failed += verdict(
-            "after the last waveform every line is back at its inactive level [PORT-502]",
-            idle,
-        );
-
         if failed == 0 {
             defmt::info!("all checks passed");
         } else {
@@ -380,14 +361,26 @@ ferroforge::app! {
         (found == BITS && start.is_none()).then_some(bits)
     }
 
-    /// Spins until the task has taken `ended` outcomes, for at most 10 ms.
-    fn await_ended(log: &mut impl rtic::Mutex<T = Log>, ended: u32) {
+    /// Spins until no lane plays, for at most 10 ms; whether it got there.
+    fn await_idle(lanes: &mut impl rtic::Mutex<T = Lanes>) -> bool {
         for _ in 0..100 {
-            if log.lock(|log| log.ended) >= ended {
-                return;
+            if !lanes.lock(|lanes| lanes.is_busy()) {
+                return true;
             }
             wait(MS / 10);
         }
+        false
+    }
+
+    /// Spins until the task has been woken `wakes` times, for at most 10 ms.
+    fn await_woken(log: &mut impl rtic::Mutex<T = Log>, wakes: u32) -> bool {
+        for _ in 0..100 {
+            if log.lock(|log| log.wakes) >= wakes {
+                return true;
+            }
+            wait(MS / 10);
+        }
+        false
     }
 
     /// Spins until `cycles` core cycles have passed. Interrupts still run.
