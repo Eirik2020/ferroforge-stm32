@@ -264,7 +264,7 @@ ferroforge::app! {
             let pause = loops.lock(|loops| {
                 let l = &mut loops[index];
                 let t = cycles();
-                l.step(handle, cycles());
+                l.step(handle, cycles);
                 l.longest_step = l.longest_step.max(cycles().wrapping_sub(t));
                 l.wants_pause()
             });
@@ -280,7 +280,7 @@ ferroforge::app! {
     #[task(priority = 1, shared = [port1, port6, loops])]
     async fn checks(cx: checks::Context) {
         let checks::SharedResources { mut port1, mut port6, mut loops, .. } = cx.shared;
-        wait_for(4_000, || {
+        wait_for(8_000, || {
             loops.lock(|l| l[0].flooding && !l[0].hold && l[0].read >= l[0].before.0 + 256 && l[1].read >= TOTAL)
         });
         cortex_m::asm::delay(100 * MS);

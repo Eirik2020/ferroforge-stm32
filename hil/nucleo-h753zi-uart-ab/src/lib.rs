@@ -107,7 +107,7 @@ impl Loop {
     }
 
     /// One wake: read what is there (unless holding), then send what fits.
-    pub fn step<P: Port>(&mut self, port: &mut P, now: u32) {
+    pub fn step<P: Port>(&mut self, port: &mut P, now: fn() -> u32) {
         self.wakes += 1;
         if !self.hold {
             let mut buf = [0u8; 64];
@@ -117,7 +117,7 @@ impl Loop {
                 };
                 self.chunks += 1;
                 if let Some(at) = at {
-                    self.oldest = self.oldest.max(now.wrapping_sub(at));
+                    self.oldest = self.oldest.max(now().wrapping_sub(at));
                 }
                 match chunk.end {
                     ChunkEnd::Idle => self.idles += 1,
@@ -140,6 +140,12 @@ impl Loop {
             self.limit += self.flood;
         }
         for _ in 0..16 {
+            // Frame by frame: the next goes out once the last is back, so
+            // the line idles between frames as a protocol's would. The
+            // flood sends without waiting.
+            if !self.hold && self.sent > self.read {
+                break;
+            }
             if self.sent >= self.limit {
                 if port.idle() {
                     self.all_sent += 1;
@@ -154,6 +160,9 @@ impl Loop {
             match port.send(&frame[..len]) {
                 Ok(()) => self.sent += len as u32,
                 Err(_) => break,
+            }
+            if !self.hold {
+                break;
             }
         }
     }

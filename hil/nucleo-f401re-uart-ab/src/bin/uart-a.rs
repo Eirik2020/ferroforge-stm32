@@ -219,7 +219,7 @@ ferroforge::app! {
     ) {
         let pause = tally.lock(|l| {
             let t = cycles();
-            port.lock(|p| l.step(p, cycles()));
+            port.lock(|p| l.step(p, cycles));
             l.longest_step = l.longest_step.max(cycles().wrapping_sub(t));
             l.wants_pause()
         });
@@ -228,7 +228,7 @@ ferroforge::app! {
             cortex_m::asm::delay(25_200_000);
             tally.lock(|l| {
                 l.release();
-                port.lock(|p| l.step(p, cycles()));
+                port.lock(|p| l.step(p, cycles));
             });
         }
     }
@@ -239,7 +239,7 @@ ferroforge::app! {
         // Kick: the first step sends; the port's wakes drive the rest.
         consume(&mut usart1, &mut loop1);
         consume(&mut usart6, &mut loop6);
-        wait_for(4_000, || {
+        wait_for(8_000, || {
             loop1.lock(|l| l.flooding && !l.hold && l.read >= l.before.0 + 256)
                 && loop6.lock(|l| l.read) >= TOTAL
         });
