@@ -1,0 +1,22 @@
+schema_version: 2
+requirements:
+  - id: PORT-401
+    title: The ADC sequence port ends each sequence from its vector and wakes the firmware
+    statement: >-
+      The ADC sequence port's vector member shall serve the scan and pass the
+      outcome of each sequence that ends to the firmware's task.
+    rationale: >-
+      FerroHAL's sequence ends when its DMA stream completes; serving that one
+      vector lets a firmware convert at its own rate without polling, under the
+      scheduler's lock, as FerroHAL's single-owner model expects.
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#ADC sequence on the Nucleo-F401RE
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#ADC sequence on the Nucleo-H753ZI

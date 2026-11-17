@@ -12,10 +12,12 @@ every_file_traced_except = ["hil"]
 tiers = ["HIL"]
 
 [board_tiers]
+nucleo-f401re-adc-scan = "HIL"
 nucleo-f401re-exti-line = "HIL"
 nucleo-f401re-uart-loopback = "HIL"
 nucleo-f401re-rx-ports = "HIL"
 nucleo-f401re-spi-loopback = "HIL"
+nucleo-h753zi-adc-scan = "HIL"
 nucleo-h753zi-exti-line = "HIL"
 nucleo-h753zi-spi-loopback = "HIL"
 nucleo-h753zi-uart-loopback = "HIL"

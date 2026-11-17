@@ -27,6 +27,10 @@ requirements:
           environment: host
           method:
             test: ferroforge_stm32::exti::tests::exti_line_states_its_contract
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::adc::tests::adc_scan_states_its_contract
 
   - id: PORT-002
     title: A port's constructor is generic over FerroHAL's wiring
@@ -72,6 +76,14 @@ requirements:
           environment: host
           method:
             test: ferroforge_stm32::exti::tests::exti_line_builds_on_an_h753_line
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::adc::tests::adc_scan_builds_on_an_f401_converter
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::adc::tests::adc_scan_builds_on_an_h753_converter
 
   - id: PORT-003
     title: The UART port serves its vectors and wakes the firmware

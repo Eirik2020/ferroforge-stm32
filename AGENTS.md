@@ -1,11 +1,12 @@
 # ferroforge-stm32 - agent entry
 
 FerroForge task groups for STM32 hardware ports, on FerroHAL. Groups: `uart_port`,
-`uart_rx_port`, `spi_port`, `exti_line`. Benches: `hil/nucleo-f401re-uart-loopback`,
-`hil/nucleo-f401re-rx-ports`, `hil/nucleo-f401re-spi-loopback` and
-`hil/nucleo-f401re-exti-line` (Nucleo-F401RE), `hil/nucleo-h753zi-uart-loopback`,
-`hil/nucleo-h753zi-spi-loopback` and `hil/nucleo-h753zi-exti-line`
-(Nucleo-H753ZI), all HIL tier.
+`uart_rx_port`, `spi_port`, `exti_line`, `adc_scan`. Benches:
+`hil/nucleo-f401re-uart-loopback`, `hil/nucleo-f401re-rx-ports`, `hil/nucleo-f401re-spi-loopback`,
+`hil/nucleo-f401re-exti-line` and `hil/nucleo-f401re-adc-scan` (Nucleo-F401RE),
+`hil/nucleo-h753zi-uart-loopback`, `hil/nucleo-h753zi-spi-loopback`,
+`hil/nucleo-h753zi-exti-line` and `hil/nucleo-h753zi-adc-scan` (Nucleo-H753ZI),
+all HIL tier.
 
 ## Authority
 
@@ -35,9 +36,11 @@ hil/run-f401.sh                # Nucleo-F401RE: the uart_port loopback (F401_PRO
 hil/run-f401-rx.sh             # Nucleo-F401RE: uart_rx_port twice, same links
 hil/run-f401-spi.sh            # Nucleo-F401RE: spi_port over FerroHAL's link S1
 hil/run-f401-exti.sh           # Nucleo-F401RE: exti_line over FerroHAL's link J2
+hil/run-f401-adc.sh            # Nucleo-F401RE: adc_scan over FerroHAL's link S1
 hil/run-h753.sh                # Nucleo-H753ZI: the same loopback (H753_PROBE)
 hil/run-h753-spi.sh            # Nucleo-H753ZI: spi_port over FerroHAL's link S1
 hil/run-h753-exti.sh           # Nucleo-H753ZI: exti_line over FerroHAL's link Z1
+hil/run-h753-adc.sh            # Nucleo-H753ZI: adc_scan over FerroHAL's link Z10
 reqtool validate | check       # requirements and evidence (reqtool at the revision CI pins)
 ```
 
