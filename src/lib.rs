@@ -15,6 +15,7 @@
 
 mod adc;
 mod exti;
+mod lanes;
 mod spi;
 pub mod spi_lent;
 pub mod spi_queue;
@@ -25,6 +26,7 @@ mod uart_rx;
 
 pub use adc::adc_scan;
 pub use exti::exti_line;
+pub use lanes::compare_lanes;
 pub use spi::spi_port;
 pub use spi_lent::spi_lent_port;
 pub use spi_queue::{spi_multi_port, spi_single_port};

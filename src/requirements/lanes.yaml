@@ -1,0 +1,23 @@
+schema_version: 2
+requirements:
+  - id: PORT-501
+    title: The compare lanes port serves every lane's vector and wakes the firmware
+    statement: >-
+      The compare lanes port's member, declared once per lane's stream vector,
+      shall serve the generator and pass the event of a nonempty service to
+      the firmware's task.
+    rationale: >-
+      FerroHAL's waveform generator is one owner whose lanes each end on their
+      own stream's vector; the group is how a firmware gets it served under
+      the scheduler's lock without writing the handlers.
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#Compare lanes on the Nucleo-F401RE
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#Compare lanes on the Nucleo-H753ZI

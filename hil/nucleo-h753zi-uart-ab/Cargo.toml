@@ -14,7 +14,7 @@ bench = false
 
 [dependencies]
 ferroforge-stm32 = { path = "../.." }
-ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "a7d3ab9395770fcd1a0f4ad867e9cf3e14d84ba5" }
+ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "a3e8c0b021203b904fb293e50a5df12bf71dca13" }
 # FerroHAL's pin, as ferroforge-stm32's. `rt` gives RTIC its vector table,
 # `rtic` the `Peripherals::steal` that `peripherals = true` names.
 ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "ceaedbf97e6d059e168fd3eaecddf5fe39f7b7a9", features = ["stm32h753zi", "rt", "rtic", "defmt"] }
