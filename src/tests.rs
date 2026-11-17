@@ -414,6 +414,51 @@ fn spi_single_and_multi_ports_state_their_contracts() {
     }
 }
 
+#[test]
+fn spi_lent_port_states_its_contract() {
+    let found = groups(include_str!("spi_lent.rs"));
+    let [lent] = found.as_slice() else {
+        panic!("one group in spi_lent.rs, found {}", found.len());
+    };
+    assert_eq!(lent.path.last().unwrap(), "spi_lent_port");
+    let contract = &lent.arguments.contract;
+    let roles: Vec<_> = contract.slots.iter().map(|s| s.role.to_string()).collect();
+    assert_eq!(
+        roles,
+        ["instance", "sck", "miso", "mosi", "tx_dma", "rx_dma", "cs"]
+    );
+    let names = |list: &[ferroforge_contracts::Typed]| -> Vec<std::string::String> {
+        list.iter().map(|t| t.name.to_string()).collect()
+    };
+    assert_eq!(names(&contract.memory), ["memory"]);
+    assert_eq!(names(&contract.handles), ["handles"]);
+    let pends: Vec<_> = contract
+        .pends
+        .iter()
+        .map(|p| (p.name.to_string(), p.member.to_string()))
+        .collect();
+    assert_eq!(pends, [("kick".to_string(), "r_on_spi_rx_dma".to_string())]);
+    let arguments: Vec<_> = contract
+        .constructor
+        .as_ref()
+        .unwrap()
+        .arguments
+        .iter()
+        .map(|a| a.to_string())
+        .collect();
+    assert_eq!(
+        arguments,
+        [
+            "rcc", "wiring", "cs", "configs", "tx_buf", "rx_buf", "memory", "lent", "kick", "now"
+        ]
+    );
+    let [vector] = contract.vectors.as_slice() else {
+        panic!("one vector");
+    };
+    assert_eq!(vector.member, "r_on_spi_rx_dma");
+    assert_eq!(vector.slot, "rx_dma");
+}
+
 /// `spi_queue::new_single` and `new_multi` at one wiring, with the result's
 /// fields the contracts name.
 macro_rules! spi_queue_builds {
@@ -463,6 +508,29 @@ macro_rules! spi_queue_builds {
         > = spi_queue::new_multi;
         let _ = multi;
         let fields = |built: MultiResources<W, Four>| -> (Port<W, Four>, Handles) {
+            (built.port, built.handles)
+        };
+        let _ = fields;
+        use crate::spi_lent::{
+            self, LentHandles, LentMemory, LentPort, LentRefused, LentResources,
+        };
+        let lent: fn(
+            &mut Rcc,
+            W,
+            Four,
+            &[Config],
+            &'static mut [u8],
+            &'static mut [u8],
+            &'static mut LentMemory<9, 4>,
+            &mut dyn Iterator<Item = (usize, &'static mut [u8])>,
+            fn(),
+            fn() -> u32,
+        ) -> Result<
+            LentResources<W, Four>,
+            LentRefused<$U, $Sck, $Miso, $Mosi, $TxD, $RxD, Four>,
+        > = spi_lent::new_lent;
+        let _ = lent;
+        let fields = |built: LentResources<W, Four>| -> (LentPort<W, Four>, LentHandles) {
             (built.port, built.handles)
         };
         let _ = fields;
