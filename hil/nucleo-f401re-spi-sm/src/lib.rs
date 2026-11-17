@@ -382,7 +382,9 @@ pub async fn switch(
     let fits = |sck: u32, r: u32| r <= sck && r > sck / 2;
     verdict(
         "switch: settings changed with the device, bytes intact, each at its own SCK",
-        wrong == 0 && switches >= 200 && fits(sa, rate(took[0])) && fits(sb, rate(took[1])),
+        // The first transfer goes to the device already in force: 200
+        // alternating transfers change device 199 times.
+        wrong == 0 && switches >= 199 && fits(sa, rate(took[0])) && fits(sb, rate(took[1])),
     )
 }
 
