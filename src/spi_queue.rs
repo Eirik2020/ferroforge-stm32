@@ -81,9 +81,9 @@ pub enum Outcome {
 
 /// One kept part's place in the transaction.
 #[derive(Clone, Copy, Default)]
-struct Part {
-    at: u16,
-    len: u16,
+pub(crate) struct Part {
+    pub(crate) at: u16,
+    pub(crate) len: u16,
 }
 
 /// One chip-select assertion: parts appended back to back, sent as one
@@ -401,7 +401,7 @@ impl<const Q: usize> SharedQueue for PriorityQueue<Q> {
 }
 
 /// Whether sequence number `a` was given before `b`, across a wrap.
-fn older(a: u32, b: u32) -> bool {
+pub(crate) fn older(a: u32, b: u32) -> bool {
     (b.wrapping_sub(a) as i32) > 0
 }
 
@@ -548,6 +548,19 @@ chip_selects!(6; 0 A, 1 B, 2 C, 3 D, 4 E, 5 F);
 chip_selects!(7; 0 A, 1 B, 2 C, 3 D, 4 E, 5 F, 6 G);
 chip_selects!(8; 0 A, 1 B, 2 C, 3 D, 4 E, 5 F, 6 G, 7 H);
 
+/// PROTOTYPE check: whether, straight after device `d`'s transfer ended,
+/// its own line was not low or another line was not high.
+#[cfg_attr(feature = "prototype-quiet", allow(dead_code))]
+pub(crate) fn readback_wrong<Cs: ChipSelects>(cs: &mut Cs, d: usize) -> bool {
+    let mut wrong = cs.is_selected(d) != Some(true);
+    for other in 0..Cs::COUNT {
+        if other != d && cs.is_selected(other) != Some(false) {
+            wrong = true;
+        }
+    }
+    wrong
+}
+
 /// Where the port takes what to send next.
 enum Source {
     Single(Consumer<'static, Entry>),
@@ -662,14 +675,10 @@ impl<W: Parts, Cs: ChipSelects> Port<W, Cs> {
         let now = (self.now)();
         let d = usize::from(run.device);
         // PROTOTYPE check: own line low, every other line high, read
-        // straight after the end and before the release.
-        let mut wrong = self.cs.is_selected(d) != Some(true);
-        for other in 0..Cs::COUNT {
-            if other != d && self.cs.is_selected(other) != Some(false) {
-                wrong = true;
-            }
-        }
-        if wrong {
+        // straight after the end and before the release. Compiled out by
+        // `prototype-quiet`, to measure the port's run without it.
+        #[cfg(not(feature = "prototype-quiet"))]
+        if readback_wrong(&mut self.cs, d) {
             self.stats.cs_wrong = self.stats.cs_wrong.saturating_add(1);
         }
         self.cs.select(d, false);
