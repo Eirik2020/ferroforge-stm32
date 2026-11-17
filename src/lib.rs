@@ -13,9 +13,15 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
+pub mod sbus;
+mod timer;
 mod uart;
+mod uart_rx;
 
+pub use sbus::sbus_rx;
+pub use timer::tick;
 pub use uart::uart_port;
+pub use uart_rx::uart_rx_port;
 
 #[cfg(test)]
 extern crate std;

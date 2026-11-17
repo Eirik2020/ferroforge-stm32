@@ -13,4 +13,5 @@ tiers = ["HIL"]
 
 [board_tiers]
 nucleo-f401re-uart-loopback = "HIL"
+nucleo-f401re-rx-ports = "HIL"
 nucleo-h753zi-uart-loopback = "HIL"

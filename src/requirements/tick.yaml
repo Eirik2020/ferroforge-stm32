@@ -1,0 +1,19 @@
+schema_version: 2
+requirements:
+  - id: PORT-111
+    title: The tick port numbers every update it serves
+    statement: >-
+      The tick port's member shall serve the timer's update vector and, for
+      each update it serves, pass the firmware's task a sequence number
+      one greater than the last update's.
+    rationale: >-
+      A control loop or watchdog runs on the tick; a tick dropped because the
+      firmware's task was still queued must show as a gap in the sequence
+      rather than vanish.
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#Receive ports and ticks on the Nucleo-F401RE

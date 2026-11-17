@@ -12,6 +12,9 @@ from `init`; a tool can read the contract from source and write that firmware.
 | Group | What it is | Proven on |
 | --- | --- | --- |
 | `uart_port` | One FerroHAL `Uart`, served from its three vectors | Nucleo-F401RE |
+| `uart_rx_port` | A receive-only `Uart`, served from its two vectors | - |
+| `tick` | A timer's update interrupt, numbered for the firmware | - |
+| `sbus_rx` | `uart_rx_port` with an SBUS decoder behind it | - |
 
 The golden reference is `hil/nucleo-f401re-uart-loopback`, a hand-written
 `ferroforge::app!`. Agents start at [AGENTS.md](AGENTS.md); the design is in

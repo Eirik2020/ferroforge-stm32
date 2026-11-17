@@ -32,6 +32,7 @@ jobs:
           workspaces: |
             . -> target
             hil/nucleo-f401re-uart-loopback -> target
+            hil/nucleo-f401re-rx-ports -> target
             hil/nucleo-h753zi-uart-loopback -> target
       - name: Install reqtool at its pinned revision
         run: >

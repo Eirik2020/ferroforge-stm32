@@ -12,7 +12,7 @@ use std::{string::ToString, vec::Vec};
 use crate::uart_port;
 
 /// Every group in `source`, by name, as `ferroforge_contracts` reads it.
-fn groups(source: &str) -> Vec<ferroforge_contracts::GroupDeclaration> {
+pub(crate) fn groups(source: &str) -> Vec<ferroforge_contracts::GroupDeclaration> {
     let file: syn::File = syn::parse_str(source).expect("the source parses");
     ferroforge_contracts::groups(&file).expect("every contract is well formed")
 }

@@ -1,8 +1,9 @@
 # ferroforge-stm32 - agent entry
 
-FerroForge task groups for STM32 hardware ports, on FerroHAL. Groups: `uart_port`.
-Benches: `hil/nucleo-f401re-uart-loopback` (Nucleo-F401RE) and
-`hil/nucleo-h753zi-uart-loopback` (Nucleo-H753ZI), both HIL tier.
+FerroForge task groups for STM32 hardware ports, on FerroHAL. Groups: `uart_port`,
+`uart_rx_port`, `tick`, `sbus_rx`. Benches: `hil/nucleo-f401re-uart-loopback` and
+`hil/nucleo-f401re-rx-ports` (Nucleo-F401RE), `hil/nucleo-h753zi-uart-loopback`
+(Nucleo-H753ZI), all HIL tier.
 
 ## Authority
 
@@ -29,6 +30,7 @@ Benches: `hil/nucleo-f401re-uart-loopback` (Nucleo-F401RE) and
 ```
 checks/run.sh                  # fmt, clippy + rustdoc per chip, host tests, bench images, reqtool validate
 hil/run-f401.sh                # Nucleo-F401RE: the uart_port loopback (F401_PROBE picks the probe)
+hil/run-f401-rx.sh             # Nucleo-F401RE: uart_rx_port, sbus_rx and tick, same links
 hil/run-h753.sh                # Nucleo-H753ZI: the same loopback (H753_PROBE)
 reqtool validate | check       # requirements and evidence (reqtool at the revision CI pins)
 ```
