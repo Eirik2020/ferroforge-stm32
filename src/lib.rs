@@ -9,8 +9,6 @@
 //! The constructors are generic over FerroHAL's wiring types, so a firmware's
 //! only port-specific code is its wiring alias and the constructor call. Every
 //! group also builds for the host, so a host tool can check what it reads.
-//!
-//! Requirements: PORT-001, PORT-002
 
 #![no_std]
 #![forbid(unsafe_code)]

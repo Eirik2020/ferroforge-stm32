@@ -9,6 +9,8 @@
 
 use std::{string::ToString, vec::Vec};
 
+use crate::uart_port;
+
 /// Every group in `source`, by name, as `ferroforge_contracts` reads it.
 fn groups(source: &str) -> Vec<ferroforge_contracts::GroupDeclaration> {
     let file: syn::File = syn::parse_str(source).expect("the source parses");
@@ -67,9 +69,9 @@ fn uart_port_builds_on_an_f401_wiring() {
     // The golden app's USART1 (RM0368 table 28: DMA2 streams 7 and 2).
     type W = Wiring<USART1, Af7<'A', 9>, Af7<'A', 10>, Stream<2, 7>, Stream<2, 2>>;
     type Built =
-        crate::uart_port::Resources<USART1, Af7<'A', 9>, Af7<'A', 10>, Stream<2, 7>, Stream<2, 2>>;
+        uart_port::Resources<USART1, Af7<'A', 9>, Af7<'A', 10>, Stream<2, 7>, Stream<2, 2>>;
     let constructor: fn(&mut Rcc, W, &Config, Buffers) -> Result<Built, UartRefused<W>> =
-        crate::uart_port::new;
+        uart_port::new;
     let _ = constructor;
 }
 
@@ -87,9 +89,8 @@ fn uart_port_builds_on_an_h753_wiring() {
     // FerroHAL's H753 bench USART1 (its Z3): DMA2 streams 5 and 4 through
     // DMAMUX.
     type W = Wiring<USART1, Af7<'B', 6>, Af7<'B', 7>, Stream<2, 5>, Stream<2, 4>>;
-    type Built =
-        crate::uart_port::Resources<USART1, Af7<'B', 6>, Af7<'B', 7>, Stream<2, 5>, Stream<2, 4>>;
+    type Built = uart_port::Resources<USART1, Af7<'B', 6>, Af7<'B', 7>, Stream<2, 5>, Stream<2, 4>>;
     let constructor: fn(&mut Rcc, W, &Config, Buffers) -> Result<Built, UartRefused<W>> =
-        crate::uart_port::new;
+        uart_port::new;
     let _ = constructor;
 }
