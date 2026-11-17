@@ -143,13 +143,13 @@ impl Loop {
             // Frame by frame: the next goes out once the last is back, so
             // the line idles between frames as a protocol's would. The
             // flood sends without waiting.
-            if !self.hold && self.sent > self.read {
-                break;
-            }
             if self.sent >= self.limit {
                 if port.idle() {
                     self.all_sent += 1;
                 }
+                break;
+            }
+            if !self.hold && self.sent > self.read {
                 break;
             }
             let len = FRAME.min((self.limit - self.sent) as usize);
