@@ -57,6 +57,30 @@ streams 5 and 4, PD14 as chip select, the data cache off. Pass: every check
 prints `PASS`, none prints `FAIL`, and the script exits zero [PORT-201,
 PORT-202].
 
+## EXTI line on the Nucleo-F401RE
+
+`hil/run-f401-exti.sh`, with FerroHAL's F401 link J2 (PA11 to PA12) fitted, as
+`hil/nucleo-f401re-exti-line/src/main.rs` lists it. The firmware selects
+`exti_line` on line 12, PA12's rising edge, with SysTick at 1 kHz as the
+monotonic, and drives PA11 as a GPIO: 100 edges one at a time, each awaited;
+one edge while it holds the firmware's task off for 5 ms; three edges while it
+holds the task off, then one more. Pass: every check prints `PASS`, none prints
+`FAIL`, and the script exits zero. The checks: the member's vector is enabled
+[PORT-301]; every one of the 100 edges reached the firmware's task, none missed
+[PORT-301], each stamped within a tick of being driven and no later than its
+task ran [PORT-302]; the held edge's stamp is within a tick of its driving and
+at least 4 ms before its task ran [PORT-302]; of the three held edges one
+reached the task, and the edge after carried a count of 2 missed [PORT-301]; and
+the line is left clear [PORT-301].
+
+## EXTI line on the Nucleo-H753ZI
+
+`hil/run-h753-exti.sh`, with FerroHAL's H753 link Z1 (PD5 to PD6) fitted, as
+`hil/nucleo-h753zi-exti-line/src/main.rs` lists it. The same firmware and checks
+as on the Nucleo-F401RE, on line 6, PD6's rising edge, served from the shared
+`EXTI9_5` vector. Pass: every check prints `PASS`, none prints `FAIL`, and the
+script exits zero [PORT-301, PORT-302].
+
 ## UART port on the Nucleo-H753ZI
 
 `hil/run-h753.sh`, with FerroHAL's H753 links Z2 (PC6 to PC7) and Z3 (PB6 to

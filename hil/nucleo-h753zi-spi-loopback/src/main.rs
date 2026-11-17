@@ -86,8 +86,6 @@ ferroforge::app! {
     const BUS: spi::Config = spi::Config::new(Hertz::khz(400));
     const _: () = assert!(spi::check::<SPI1>(&CLOCKS, &BUS).is_ok());
 
-    /// CPU cycles in a millisecond, for the busy waits.
-    
     type Af5<const P: char, const N: u8> = Pin<P, N, Alternate<5>>;
 
     /// SPI1 over S1: PD7 into PA6, DMA1 stream 5 transmitting, stream 4
