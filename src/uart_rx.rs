@@ -2,28 +2,34 @@
 //! from its two vectors.
 //!
 //! The same port as [`uart_port`](crate::uart_port) without the transmit side:
-//! no TX pin, no transmit stream, so one vector fewer. Its members are
-//! `uart_port`'s own definitions, selected again: every member calls the same
-//! [`Service::on_interrupt`](ferrohal_stm32::Service::on_interrupt), which
-//! serves whatever a UART has, so a receive-only UART needs nothing different.
+//! no TX pin, no transmit stream, so one vector fewer. Each member calls
+//! [`Service::on_interrupt`](ferrohal_stm32::Service::on_interrupt), as
+//! `uart_port`'s do, and also stamps the wake with the firmware's monotonic,
+//! read in the interrupt: a reader that judges how old its data is needs the
+//! time the line delivered it, not the time the scheduler ran the reader.
+//! Wakes coalesce, so when one is dropped because the reader was still queued,
+//! the queued wake keeps the earlier stamp: data never looks newer than it is.
 //! It carries no protocol: protocols are not hardware, so a decoder lives in
 //! the application or a protocol crate, behind the port's `events` call.
 //!
-//! Requirements: PORT-001, PORT-002, PORT-101
+//! Requirements: PORT-001, PORT-002, PORT-101, PORT-102
 
 /// The receive-only UART port group. A firmware selects it once per port:
+///
+/// The firmware's reader takes the events and the arrival time in
+/// microseconds of the monotonic's epoch:
 ///
 /// ```rust,ignore
 /// #[group(from = ferroforge_stm32::uart_rx_port, shared = [uart = usart6],
 ///         spawn = [events = usart6_events])]
 /// mod usart6 {
-///     #[task(binds = USART6, priority = 2)] fn on_uart;
-///     #[task(binds = DMA2_STREAM1, priority = 2)] fn on_rx_dma;
+///     #[task(binds = USART6, priority = 2)] fn on_rx_uart;
+///     #[task(binds = DMA2_STREAM1, priority = 2)] fn on_rx_stream;
 /// }
 /// ```
 #[ferroforge::group(
     slots = [instance: U, rx: Rx, rx_dma: RxD],
-    vectors = [on_uart = instance, on_rx_dma = rx_dma],
+    vectors = [on_rx_uart = instance, on_rx_stream = rx_dma],
     shared = [uart: Uart<RxWiring<U, Rx, RxD>>],
     constructor = new,
 )]
@@ -33,7 +39,6 @@ pub mod uart_rx_port {
         uart::{Config, Instance, RxDma, RxPin, RxWiring, Uart, UartRxRefused},
     };
 
-    pub use crate::uart_port::{on_rx_dma, on_uart};
     pub use ferrohal_stm32::{Service, uart::Events};
 
     /// What [`new`] builds: the port's one resource, the UART.
@@ -60,6 +65,36 @@ pub mod uart_rx_port {
         RxD: RxDma<U>,
     {
         Uart::new_rx(rcc, wiring, config, ring).map(|uart| Resources { uart })
+    }
+
+    /// The USART's own vector: idle line, line errors.
+    #[ferroforge::task(
+        shared = [uart],
+        bounds = [uart: Service<Event = Events>],
+        spawn = [events(events: Events, at_us: u64)],
+        monotonic = Mono,
+    )]
+    pub fn on_rx_uart(mut cx: on_rx_uart::Context) {
+        let at_us = Mono::now().duration_since_epoch().to_micros();
+        let events = cx.shared.uart.lock(|uart| uart.on_interrupt());
+        if events.any() {
+            let _: Result<(), (Events, u64)> = cx.spawn.events(events, at_us);
+        }
+    }
+
+    /// The receive stream's vector: the ring's half and end, DMA errors.
+    #[ferroforge::task(
+        shared = [uart],
+        bounds = [uart: Service<Event = Events>],
+        spawn = [events(events: Events, at_us: u64)],
+        monotonic = Mono,
+    )]
+    pub fn on_rx_stream(mut cx: on_rx_stream::Context) {
+        let at_us = Mono::now().duration_since_epoch().to_micros();
+        let events = cx.shared.uart.lock(|uart| uart.on_interrupt());
+        if events.any() {
+            let _: Result<(), (Events, u64)> = cx.spawn.events(events, at_us);
+        }
     }
 }
 
@@ -92,8 +127,8 @@ mod tests {
         assert_eq!(
             vectors,
             [
-                ("on_uart".to_string(), "instance".to_string()),
-                ("on_rx_dma".to_string(), "rx_dma".to_string()),
+                ("on_rx_uart".to_string(), "instance".to_string()),
+                ("on_rx_stream".to_string(), "rx_dma".to_string()),
             ]
         );
         let shared: Vec<_> = contract.shared.iter().map(|r| r.name.to_string()).collect();

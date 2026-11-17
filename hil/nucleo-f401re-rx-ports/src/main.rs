@@ -1,6 +1,7 @@
-//! The receive-only ports and the tick on the Nucleo-F401RE (MB1136): a
+//! The receive-only ports on the Nucleo-F401RE (MB1136): a
 //! hand-written `ferroforge::app!` selecting `ferroforge_stm32::uart_rx_port`
-//! twice, on USART1 and USART6, and `tick` on TIM4 and TIM3.
+//! twice, on USART1 and USART6, with SysTick as the monotonic their members
+//! stamp each wake with.
 //!
 //! A receive-only UART has nothing of its own to send with, so each line is
 //! driven from its loop's other end as a GPIO pin, bit by bit against the
@@ -25,7 +26,7 @@
 //! | --- | --- | --- |
 //! | `USART1`, `DMA2_STREAM2` | `framed`'s members | 3 |
 //! | `USART6`, `DMA2_STREAM1` | `plain`'s members | 3 |
-//! | `TIM4`, `TIM3` | `fast`'s and `slow`'s `on_tick` | 3 |
+//! | `SysTick` | the monotonic, at 1 kHz | RTIC's |
 //! | `SPI2` | RTIC, dispatching the firmware's readers | 2 |
 //! | `SPI1` | RTIC, dispatching `checks` | 1 |
 //!
@@ -44,21 +45,25 @@ ferroforge::app! {
     dispatchers = [SPI1, SPI2],
 
     use cortex_m::peripheral::DWT;
+    use rtic_monotonics::systick::prelude::*;
+
+    // The monotonic the receive members stamp each wake with. 1 kHz, so a
+    // stamp is good to a millisecond; interrupts masked while a frame is
+    // driven hold its tick back, so the count runs slow but never backwards.
+    systick_monotonic!(Mono, 1000);
     use cortex_m_semihosting::debug::{self, EXIT_FAILURE, EXIT_SUCCESS};
     use ferroforge_stm32::uart_rx_port::Events;
     use ferrohal_stm32::{
-        chip::{TIM3, TIM4, USART1, USART6},
+        chip::{USART1, USART6},
         dma::Stream,
         gpio::{Alternate, Output, Pin, Pull},
         rcc::{AhbPrescaler, ApbPrescaler, Clocks, Config, Pll, PllP, PllSource, Supply, Sysclk},
         time::Hertz,
-        timer::Tick,
         uart::{self, Parity, RxWiring, StopBits, Uart},
     };
 
     /// 84 MHz from HSI, the F401's ceiling (DS10086 section 3.13): 16 MHz /
-    /// 16 * 336 = 336 MHz VCO, / 4 = 84 MHz. APB1 at 42 MHz, its limit, so
-    /// TIM3 and TIM4 count at 84 MHz.
+    /// 16 * 336 = 336 MHz VCO, / 4 = 84 MHz. APB1 at 42 MHz, its limit.
     const CLOCK_CONFIG: Config = Config {
         hse: None,
         pll: Some(Pll {
@@ -89,11 +94,6 @@ ferroforge::app! {
     const _: () = assert!(uart::check::<USART1>(&CLOCKS, &FRAMED).is_ok());
     const _: () = assert!(uart::check::<USART6>(&CLOCKS, &PLAIN).is_ok());
 
-    const FAST: Hertz = Hertz(1_000);
-    const SLOW: Hertz = Hertz(250);
-    const _: () = assert!(Tick::<TIM4>::check(&CLOCKS, FAST).is_ok());
-    const _: () = assert!(Tick::<TIM3>::check(&CLOCKS, SLOW).is_ok());
-
     /// Core cycles per bit on each line: 840 exactly, and 729 (0.02 % fast).
     const FRAMED_BIT: u32 = 84_000_000 / 100_000;
     const PLAIN_BIT: u32 = 84_000_000 / 115_200;
@@ -107,14 +107,6 @@ ferroforge::app! {
     /// Bytes sent into each port, in frames of 1 to 32 bytes.
     const TOTAL: u32 = 1024;
 
-    /// What a tick's consumer has seen.
-    #[derive(Clone, Copy, Default)]
-    pub struct Ticks {
-        pub count: u32,
-        pub gaps: u32,
-        pub last: u32,
-    }
-
     /// What a port's reader has seen; the bytes sent are a counter wrapping
     /// at 256.
     #[derive(Clone, Copy, Default)]
@@ -125,16 +117,19 @@ ferroforge::app! {
         pub wakes: u32,
         pub idles: u32,
         pub expected: u8,
+        /// The first and latest wake's stamp, in microseconds.
+        pub first_us: u64,
+        pub last_us: u64,
+        /// Wakes stamped earlier than the wake before.
+        pub backwards: u32,
+        /// Wakes stamped later than the reader ran.
+        pub ahead: u32,
     }
 
     #[shared]
     struct Shared {
         framed: FramedUart,
         plain: PlainUart,
-        fast_timer: Tick<TIM4>,
-        slow_timer: Tick<TIM3>,
-        fast_ticks: Ticks,
-        slow_ticks: Ticks,
         framed_tally: Tally,
         plain_tally: Tally,
     }
@@ -154,6 +149,7 @@ ferroforge::app! {
         let mut core = cx.core;
         core.DCB.enable_trace();
         core.DWT.enable_cycle_counter();
+        Mono::start(core.SYST, 84_000_000);
 
         let mut rcc = match p.RCC.freeze(&CLOCK_CONFIG) {
             Ok(rcc) => rcc,
@@ -187,21 +183,13 @@ ferroforge::app! {
             local.plain_ring,
         )
         .unwrap_or_else(|refused| defmt::panic!("USART6: {}", refused.error()));
-        let fast = ferroforge_stm32::tick::new(&mut rcc, p.TIM4, FAST)
-            .unwrap_or_else(|refused| defmt::panic!("TIM4: {}", refused.error()));
-        let slow = ferroforge_stm32::tick::new(&mut rcc, p.TIM3, SLOW)
-            .unwrap_or_else(|refused| defmt::panic!("TIM3: {}", refused.error()));
 
-        defmt::info!("receive ports and ticks on the Nucleo-F401RE, clocks: {}", CLOCKS);
+        defmt::info!("receive ports on the Nucleo-F401RE, clocks: {}", CLOCKS);
         checks::spawn().ok();
         (
             Shared {
                 framed: framed.uart,
                 plain: plain.uart,
-                fast_timer: fast.timer,
-                slow_timer: slow.timer,
-                fast_ticks: Ticks::default(),
-                slow_ticks: Ticks::default(),
                 framed_tally: Tally::default(),
                 plain_tally: Tally::default(),
             },
@@ -212,71 +200,44 @@ ferroforge::app! {
     #[group(from = ferroforge_stm32::uart_rx_port, shared = [uart = framed], spawn = [events = framed_events])]
     mod framed {
         #[task(binds = USART1, priority = 3)]
-        fn on_uart;
+        fn on_rx_uart;
         #[task(binds = DMA2_STREAM2, priority = 3)]
-        fn on_rx_dma;
+        fn on_rx_stream;
     }
 
     #[group(from = ferroforge_stm32::uart_rx_port, shared = [uart = plain], spawn = [events = plain_events])]
     mod plain {
         #[task(binds = USART6, priority = 3)]
-        fn on_uart;
+        fn on_rx_uart;
         #[task(binds = DMA2_STREAM1, priority = 3)]
-        fn on_rx_dma;
-    }
-
-    #[group(from = ferroforge_stm32::tick, shared = [timer = fast_timer], spawn = [tick = fast_tick])]
-    mod fast {
-        #[task(binds = TIM4, priority = 3)]
-        fn on_tick;
-    }
-
-    #[group(from = ferroforge_stm32::tick, shared = [timer = slow_timer], spawn = [tick = slow_tick])]
-    mod slow {
-        #[task(binds = TIM3, priority = 3)]
-        fn on_tick;
+        fn on_rx_stream;
     }
 
     /// The 8E2 port's reader: drains the ring, checking every byte.
     #[task(priority = 2, shared = [framed, framed_tally])]
-    async fn framed_events(cx: framed_events::Context, events: Events) {
+    async fn framed_events(cx: framed_events::Context, events: Events, at_us: u64) {
         let framed_events::SharedResources { mut framed, mut framed_tally, .. } = cx.shared;
-        framed_tally.lock(|tally| framed.lock(|uart| drain(uart, tally, events)));
+        framed_tally.lock(|tally| framed.lock(|uart| drain(uart, tally, events, at_us)));
     }
 
     /// The 8N1 port's reader: drains the ring, checking every byte.
     #[task(priority = 2, shared = [plain, plain_tally])]
-    async fn plain_events(cx: plain_events::Context, events: Events) {
+    async fn plain_events(cx: plain_events::Context, events: Events, at_us: u64) {
         let plain_events::SharedResources { mut plain, mut plain_tally, .. } =
             cx.shared;
-        plain_tally.lock(|tally| plain.lock(|uart| drain(uart, tally, events)));
+        plain_tally.lock(|tally| plain.lock(|uart| drain(uart, tally, events, at_us)));
     }
 
-    #[task(priority = 2, shared = [fast_ticks])]
-    async fn fast_tick(mut cx: fast_tick::Context, sequence: u32) {
-        cx.shared.fast_ticks.lock(|ticks| count(ticks, sequence));
-    }
-
-    #[task(priority = 2, shared = [slow_ticks])]
-    async fn slow_tick(mut cx: slow_tick::Context, sequence: u32) {
-        cx.shared.slow_ticks.lock(|ticks| count(ticks, sequence));
-    }
-
-    /// Ticks for a measured while, then drives both lines and judges what
-    /// each port made of them.
+    /// Drives both lines and judges what each port made of them.
     #[task(
         priority = 1,
-        shared = [framed, plain, fast_timer, slow_timer, fast_ticks, slow_ticks, framed_tally, plain_tally],
+        shared = [framed, plain, framed_tally, plain_tally],
         local = [framed_line, plain_line],
     )]
     async fn checks(cx: checks::Context) {
         let checks::SharedResources {
             mut framed,
             mut plain,
-            mut fast_timer,
-            mut slow_timer,
-            mut fast_ticks,
-            mut slow_ticks,
             mut framed_tally,
             mut plain_tally,
             ..
@@ -285,48 +246,24 @@ ferroforge::app! {
         let mut failed = 0u32;
 
         let bound = framed.lock(|uart| uart.vectors().verify()).is_ok()
-            && plain.lock(|uart| uart.vectors().verify()).is_ok()
-            && fast_timer.lock(|timer| timer.vectors().verify()).is_ok()
-            && slow_timer.lock(|timer| timer.vectors().verify()).is_ok();
-        failed += verdict("every member's vector is enabled [PORT-101, PORT-111]", bound);
-
-        // Ticks: 200 ms by the cycle counter, from a clean count.
-        let (fast_start, slow_start) =
-            (fast_ticks.lock(|t| t.count), slow_ticks.lock(|t| t.count));
-        wait(200 * MS);
-        let fast = fast_ticks.lock(|t| *t);
-        let slow = slow_ticks.lock(|t| *t);
-        let fast_count = fast.count - fast_start;
-        let slow_count = slow.count - slow_start;
-        defmt::info!(
-            "ticks in 200 ms: TIM4 {} ({} gaps, last {}), TIM3 {} ({} gaps, last {})",
-            fast_count, fast.gaps, fast.last, slow_count, slow.gaps, slow.last
-        );
-        failed += verdict(
-            "TIM4 at 1 kHz ticked 200 times, numbered without a gap [PORT-111]",
-            (199..=201).contains(&fast_count) && fast.gaps == 0,
-        );
-        failed += verdict(
-            "TIM3 at 250 Hz ticked 50 times, numbered without a gap [PORT-111]",
-            (49..=51).contains(&slow_count) && slow.gaps == 0,
-        );
-        // The lines below are driven with interrupts masked a frame at a time;
-        // the ticks would only queue behind them.
-        fast_timer.lock(|timer| timer.pause());
-        slow_timer.lock(|timer| timer.pause());
+            && plain.lock(|uart| uart.vectors().verify()).is_ok();
+        failed += verdict("every member's vector is enabled [PORT-101]", bound);
 
         // Each port: a counter in frames of 1 to 32 bytes, each followed by
         // three characters of idle line.
+        let started_us = now_us();
         stream(plain_line, PLAIN_BIT, false, 1);
         stream(framed_line, FRAMED_BIT, true, 2);
         wait(10 * MS);
+        let ended_us = now_us();
         for (name, tally, health) in [
             ("USART6, 115 200 8N1", plain_tally.lock(|t| *t), plain.lock(|u| u.health())),
             ("USART1, 100 000 8E2", framed_tally.lock(|t| *t), framed.lock(|u| u.health())),
         ] {
             defmt::info!(
-                "{}: {} bytes read, {} wrong, {} gaps, {} wakes ({} idle); line {}",
-                name, tally.bytes, tally.mismatches, tally.gaps, tally.wakes, tally.idles, health
+                "{}: {} bytes read, {} wrong, {} gaps, {} wakes ({} idle); stamps {} to {} us, {} backwards, {} ahead; line {}",
+                name, tally.bytes, tally.mismatches, tally.gaps, tally.wakes, tally.idles,
+                tally.first_us, tally.last_us, tally.backwards, tally.ahead, health
             );
         }
         let plain = plain_tally.lock(|t| *t);
@@ -342,6 +279,20 @@ ferroforge::app! {
         failed += verdict(
             "each port woke the firmware's reader on idle lines [PORT-101]",
             plain.wakes > 0 && plain.idles > 0 && framed.wakes > 0 && framed.idles > 0,
+        );
+        let stamped = |tally: &Tally| {
+            tally.backwards == 0
+                && tally.ahead == 0
+                && tally.first_us >= started_us
+                && tally.last_us <= ended_us
+        };
+        failed += verdict(
+            "every wake was stamped in order, within the run, never after its reader ran [PORT-102]",
+            stamped(&plain) && stamped(&framed),
+        );
+        failed += verdict(
+            "the 8N1 port's wakes were stamped before the 8E2 port's, as sent [PORT-102]",
+            plain.last_us <= framed.first_us,
         );
 
         if failed == 0 {
@@ -421,17 +372,17 @@ ferroforge::app! {
         });
     }
 
-    /// Counts a tick and any gap in its numbering.
-    fn count(ticks: &mut Ticks, sequence: u32) {
-        if ticks.count > 0 && sequence != ticks.last.wrapping_add(1) {
-            ticks.gaps += 1;
-        }
-        ticks.count += 1;
-        ticks.last = sequence;
-    }
-
     /// Reads everything there is, checking each byte against the counter.
-    fn drain<W: uart::Parts>(uart: &mut Uart<W>, tally: &mut Tally, events: Events) {
+    fn drain<W: uart::Parts>(uart: &mut Uart<W>, tally: &mut Tally, events: Events, at_us: u64) {
+        if tally.wakes == 0 {
+            tally.first_us = at_us;
+        } else if at_us < tally.last_us {
+            tally.backwards += 1;
+        }
+        if at_us > now_us() {
+            tally.ahead += 1;
+        }
+        tally.last_us = at_us;
         tally.wakes += 1;
         tally.idles += u32::from(events.idle);
         let mut buf = [0u8; 64];
@@ -454,6 +405,11 @@ ferroforge::app! {
                 }
             }
         }
+    }
+
+    /// The monotonic's time, as the members stamp it.
+    fn now_us() -> u64 {
+        Mono::now().duration_since_epoch().to_micros()
     }
 
     /// Prints the check's verdict; 1 for a failure, to count them.

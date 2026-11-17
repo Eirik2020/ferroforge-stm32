@@ -17,6 +17,11 @@ ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "96da6f1b7
 # The backend is the firmware's choice in practice; naming one here lets the
 # crate check on its own, on the target and on the host.
 rtic = { version = "=2.4.0", default-features = false, features = ["thumbv7-backend"] }
+# The clock a member stamps a wake with is the firmware's monotonic; a member
+# names it as `Mono`, bounded on `rtic_monotonics::Monotonic` over `fugit`'s
+# instant, as every FerroForge task taking `monotonic = Mono` is.
+rtic-monotonics = { version = "=2.2.1", default-features = false }
+fugit = { version = "=0.3.9", default-features = false }
 
 [features]
 default = []

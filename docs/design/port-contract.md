@@ -47,8 +47,11 @@ pub mod uart_port { .. }
   selection, and host tests can instantiate a constructor with a real wiring.
 - A receive-only port is its own group, not an optional half of the full one:
   the contract has no optional members yet, and a receive-only UART has one
-  vector fewer. It selects the full port's members again rather than copying
-  them.
+  vector fewer. Its members are its own, because each also stamps the wake.
+- A receive member reads the firmware's monotonic in the interrupt and passes
+  the time with the events, so a reader can judge how old its data is. A wake
+  dropped because the reader was still queued leaves the queued wake's earlier
+  stamp, so data never looks newer than it is.
 - A port carries no protocol. Protocols are not hardware: a decoder or encoder
   lives in the application or a protocol crate, as a task behind the port's
   `events` call, never in a port group.

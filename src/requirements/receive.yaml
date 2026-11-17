@@ -15,4 +15,23 @@ requirements:
         - level: target
           environment: development
           method:
-            procedure: requirements/benches.md#Receive ports and ticks on the Nucleo-F401RE
+            procedure: requirements/benches.md#Receive ports on the Nucleo-F401RE
+
+  - id: PORT-102
+    title: The receive-only UART port stamps each wake with its arrival
+    statement: >-
+      Each of the receive-only UART port's vector members shall pass the
+      firmware's task, with the events, the firmware monotonic's time read in
+      that interrupt, in microseconds since its epoch.
+    rationale: >-
+      A reader that judges how old its data is needs the time the line
+      delivered it; the time the reader runs adds however long the scheduler
+      kept it queued. A dropped wake leaves the queued one's earlier stamp, so
+      data never looks newer than it is.
+    derived_from: [PORT-101]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#Receive ports on the Nucleo-F401RE
