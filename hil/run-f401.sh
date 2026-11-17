@@ -17,6 +17,7 @@ log="$here/logs/f401-uart-loopback.log"
 code=$?
 pass=$(grep -c "PASS" "$log")
 fail=$(grep -c "FAIL" "$log")
-echo "uart-loopback: exit $code, $pass passed, $fail failed"
+# The line FerroHAL's bench scripts print, which the rig's telemetry reads.
+echo "run uart-loopback: exit $code, $pass passed, $fail failed"
 grep -E "FAIL|WARN|panicked" "$log"
 [ "$code" -eq 0 ] && [ "$fail" -eq 0 ] && [ "$pass" -gt 0 ]
