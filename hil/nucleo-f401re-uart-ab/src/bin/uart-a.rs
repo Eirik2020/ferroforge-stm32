@@ -174,7 +174,7 @@ ferroforge::app! {
             .unwrap_or_else(|refused| defmt::panic!("USART6: {}", refused.error()));
         defmt::info!("variant A on the Nucleo-F401RE");
         checks::spawn().ok();
-        let start = Loop { limit: TOTAL, ..Loop::default() };
+        let start = Loop::new(TOTAL);
         let flood = Loop { flood: FLOOD, ..start };
         (Shared { usart1: usart1.uart, usart6: usart6.uart, loop1: flood, loop6: start }, Local {})
     }

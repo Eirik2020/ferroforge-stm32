@@ -24,7 +24,7 @@ ferroforge::app! {
     };
     use cortex_m_semihosting::debug::{self, EXIT_FAILURE, EXIT_SUCCESS};
     use ferroforge_stm32::uart_queue::{self, Handle, Port, Queues};
-    use nucleo_f401re_uart_ab::Loop;
+    use nucleo_f401re_uart_ab::{Loop, TAIL, report, report_split};
 
     /// 84 MHz from HSI, the F401's ceiling (DS10086 section 3.13): 16 MHz /
     /// 16 * 336 = 336 MHz VCO, / 4 = 84 MHz. APB1 at 42 MHz, its limit.
@@ -78,38 +78,6 @@ ferroforge::app! {
             }
             cortex_m::asm::delay(84_000);
         }
-    }
-
-    fn verdict(name: &str, pass: bool) -> u32 {
-        if pass {
-            defmt::info!("PASS {}", name);
-            0
-        } else {
-            defmt::error!("FAIL {}", name);
-            1
-        }
-    }
-
-    fn report(variant: &str, name: &str, l: &Loop) -> u32 {
-        defmt::info!(
-            "{} {}: sent {} read {} wrong {} chunks {} idle-ended {} gaps {} wakes {} all-sent {} longest step {} cycles oldest chunk {} cycles",
-            variant, name, l.sent, l.read, l.wrong, l.chunks, l.idles, l.gaps, l.wakes, l.all_sent, l.longest_step, l.oldest
-        );
-        let mut failed = 0;
-        if l.flood == 0 {
-            failed += verdict("main run: every byte back, in order", l.read == TOTAL && l.wrong == 0 && l.gaps == 0);
-        } else {
-            let (read0, gaps0) = l.before;
-            defmt::info!(
-                "{} {} slow: {} of {} flooded bytes read, {} gaps reported to the consumer",
-                variant, name, l.read - read0, l.flood, l.gaps - gaps0
-            );
-            failed += verdict("main run: every byte back before the flood", read0 >= TOTAL);
-            failed += verdict("slow: loss reported to the consumer as a gap", l.gaps > gaps0);
-        }
-        failed += verdict("frame ends reach the consumer (idle chunks)", l.idles > 0);
-        failed += verdict("the consumer learned everything was sent", l.all_sent > 0);
-        failed
     }
 
     fn finish(failed: u32) -> ! {
@@ -192,8 +160,10 @@ ferroforge::app! {
             usart6::kick, cycles,
         )
         .unwrap_or_else(|refused| defmt::panic!("USART6: {}", refused.error()));
-        let start = Loop { limit: TOTAL, ..Loop::default() };
-        let flood = Loop { flood: FLOOD, ..start };
+        // USART6 runs the tail (short, 64-byte and long frames); USART1
+        // floods.
+        let start = Loop { tail: true, ..Loop::new(TOTAL) };
+        let flood = Loop { flood: FLOOD, ..Loop::new(TOTAL) };
         // Boot-time binding: both handles have one type, so a run-time
         // value picks which task gets which UART.
         let (first, second) = if core::hint::black_box(SWAP) {
@@ -265,18 +235,18 @@ ferroforge::app! {
     async fn checks(cx: checks::Context) {
         let checks::SharedResources { mut port1, mut port6, mut loops, .. } = cx.shared;
         wait_for(8_000, || {
-            loops.lock(|l| l[0].flooding && !l[0].hold && l[0].read >= l[0].before.0 + 256 && l[1].read >= TOTAL)
+            loops.lock(|l| l[0].flooding && !l[0].hold && l[0].read >= l[0].before.0 + 256
+                && usize::from(l[1].phase) == TAIL.len() && l[1].read >= l[1].limit)
         });
         cortex_m::asm::delay(8_400_000);
         let l = loops.lock(|l| *l);
-        let mut failed = report("B", "USART1", &l[0]);
-        failed += report("B", "USART6", &l[1]);
-        let (h1, t1) = port1.lock(|p| (p.uart().health(), p.longest()));
-        let t6 = port6.lock(|p| p.longest());
-        defmt::info!(
-            "B USART1 FerroHAL buffer_overruns {}; longest port handler: USART1 {} cycles, USART6 {} cycles",
-            h1.buffer_overruns, t1, t6
-        );
+        let mut failed = report("B", "USART1", &l[0], false);
+        failed += report("B", "USART6", &l[1], false);
+        let (h1, s1) = port1.lock(|p| (p.uart().health(), p.split()));
+        let s6 = port6.lock(|p| p.split());
+        defmt::info!("B USART1 FerroHAL buffer_overruns {}", h1.buffer_overruns);
+        report_split("B", "USART1", &s1);
+        report_split("B", "USART6", &s6);
         finish(failed);
     }
 }

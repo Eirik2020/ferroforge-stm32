@@ -196,7 +196,7 @@ ferroforge::app! {
             usart6::kick, cycles,
         )
         .unwrap_or_else(|refused| defmt::panic!("USART6: {}", refused.error()));
-        let start = Loop { limit: TOTAL, ..Loop::default() };
+        let start = Loop::new(TOTAL);
         let flood = Loop { flood: FLOOD, ..start };
         // Boot-time binding: both handles have one type, so a run-time
         // value picks which task gets which UART.
