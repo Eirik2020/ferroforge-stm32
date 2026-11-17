@@ -16,6 +16,7 @@
 mod adc;
 mod exti;
 mod lanes;
+pub mod lanes_frame;
 mod spi;
 pub mod spi_lent;
 pub mod spi_queue;
