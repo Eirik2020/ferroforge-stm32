@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Every check that needs no hardware. Exits non-zero if any fails. The bench is
-# hil/run-f401.sh.
+# Every check that needs no hardware. Exits non-zero if any fails. The benches
+# are hil/run-*.sh.
 #
 # - formatting (rustfmt), the crate and the bench;
 # - clippy and rustdoc on the crate, per chip, with warnings as errors: one chip

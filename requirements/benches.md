@@ -16,6 +16,22 @@ byte; on each port every byte came back once and in order with no gap reported;
 the reader was woken by the group, at least once on an idle line; and the
 transmit vector reported frames sent [PORT-003].
 
+## Receive ports on the Nucleo-F401RE
+
+`hil/run-f401-rx.sh`, with FerroHAL's F401 links J1 (PA9 to PA10) and J2 (PA11 to
+PA12) fitted, as `hil/nucleo-f401re-rx-ports/src/main.rs` lists them. The
+firmware selects `uart_rx_port` on USART6 and on USART1, every vector bound,
+with SysTick as its monotonic at 1 kHz, and drives PA9 and PA11 as GPIO, timed
+by the cycle counter with interrupts masked a frame at a time. It sends 1024
+bytes, a counter wrapping at 256, in frames of 1 to 32 bytes, into USART6 at
+115 200 baud 8N1 and then into USART1 at 100 000 baud 8E2. Pass: every check
+prints `PASS`, none prints `FAIL`, and the script exits zero. The checks: every
+member's vector is enabled [PORT-101]; on each port every byte came back once
+and in order with no gap reported [PORT-101]; each port woke its reader on idle
+lines [PORT-101]; every wake's stamp lay within the run, no earlier than the
+wake before it and no later than its reader ran [PORT-102]; and USART6's wakes
+were all stamped no later than USART1's first [PORT-102].
+
 ## UART port on the Nucleo-H753ZI
 
 `hil/run-h753.sh`, with FerroHAL's H753 links Z2 (PC6 to PC7) and Z3 (PB6 to

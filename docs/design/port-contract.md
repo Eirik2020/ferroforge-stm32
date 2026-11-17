@@ -45,6 +45,31 @@ pub mod uart_port { .. }
   queued is dropped, and the task drains everything when it runs.
 - The constructor and the members build for the host (G2), so a tool can check a
   selection, and host tests can instantiate a constructor with a real wiring.
+- A receive-only port is its own group, not an optional half of the full one:
+  the contract has no optional members yet, and a receive-only UART has one
+  vector fewer. Its members are its own, because each also stamps the wake.
+- A receive member reads the firmware's monotonic in the interrupt and passes
+  the time with the events, so a reader can judge how old its data is. A wake
+  dropped because the reader was still queued leaves the queued wake's earlier
+  stamp, so data never looks newer than it is.
+- A port carries no protocol. Protocols are not hardware: a decoder or encoder
+  lives in the application or a protocol crate, as a task behind the port's
+  `events` call, never in a port group.
+
+## Receive constraints
+
+Two constraints the receive members hold, and that bind any protocol a firmware
+puts behind them:
+
+- A frame ends on an idle line and nowhere else. In circular reception a full
+  buffer means the ring wrapped, not that a frame ended, so a decoder above the
+  port treats a chunk ended by a full buffer or a line error as suspect whatever
+  its bytes.
+- The USART's error flags are the receive path's business, not diagnostics: an
+  uncleared overrun stops the peripheral requesting DMA at all, so ignoring one
+  wedges reception rather than degrading it. The members serve every vector
+  through `Service::on_interrupt` for this reason; skipping a vector is not an
+  optimisation.
 
 ## Not in the contract yet
 

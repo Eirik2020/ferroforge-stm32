@@ -14,8 +14,10 @@
 #![forbid(unsafe_code)]
 
 mod uart;
+mod uart_rx;
 
 pub use uart::uart_port;
+pub use uart_rx::uart_rx_port;
 
 #[cfg(test)]
 extern crate std;
