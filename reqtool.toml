@@ -13,3 +13,4 @@ tiers = ["HIL"]
 
 [board_tiers]
 nucleo-f401re-uart-loopback = "HIL"
+nucleo-h753zi-uart-loopback = "HIL"
