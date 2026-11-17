@@ -1,0 +1,180 @@
+//! PROTOTYPE 2, variant R with one device: `spi_lent_port` (lent buffers)
+//! on SPI1 of the Nucleo-H753ZI, to set against S and M1. The device has eight
+//! lent buffers, seven of 64 bytes and one of 256; FerroHAL's own buffers
+//! are 256 bytes.
+//!
+//! Routing as `nucleo-h753zi-spi-loopback`: SPI1 on AF5, SCK PA5, MISO PA6,
+//! MOSI PD7 over FerroHAL's link S1, CN9-2 into CN7-12 (DS12117 table 9;
+//! UM2407 tables 18 to 21). Through DMAMUX1 (RM0433 section 17.3): TX on
+//! DMA1 stream 5, RX on DMA1 stream 4. Chip select PD14 (CN7-16), nothing
+//! on it: the checks read back the level the port drives. The AXI SRAM
+//! holds every buffer, the data cache off (`memory.x`).
+//!
+//! | Vector | Serves | Priority |
+//! | --- | --- | --- |
+//! | `DMA1_STREAM4` | the port's member, also pended by the handle | 3 |
+//! | `SPI3` | RTIC: `checks` | 1 |
+
+#![no_std]
+#![no_main]
+
+use defmt_rtt as _;
+use panic_probe as _;
+
+ferroforge::app! {
+    device = ferrohal_stm32::device,
+    peripherals = true,
+    dispatchers = [SPI2, SPI3],
+
+    use ferrohal_stm32::{
+        chip::SPI1,
+        dma::Stream,
+        gpio::{Alternate, Output, Pin, Speed},
+        rcc::{
+            AhbPrescaler, ApbPrescaler, Clocks, Config, Pll, PllSource, Supply, Sysclk, VoltageScale,
+        },
+        spi::{self, Wiring},
+        time::Hertz,
+    };
+    use cortex_m_semihosting::debug::{self, EXIT_FAILURE, EXIT_SUCCESS};
+    use ferroforge_stm32::spi_lent::{self, LentHandle, LentMemory, LentPort};
+    use ferroforge_stm32::spi_queue::SubmitError;
+    use nucleo_h753zi_spi_sm as bench;
+
+    /// 400 MHz from HSI, as FerroHAL's H753 bench runs: 64 MHz / 4 = 16 MHz
+    /// reference, * 50 = 800 MHz VCO, / 2 = 400 MHz core; PLL1Q at 100 MHz
+    /// is SPI1's kernel clock (DS12117 table 23, VOS1).
+    const CLOCK_CONFIG: Config = Config {
+        hse: None,
+        pll1: Some(Pll {
+            source: PllSource::Hsi,
+            prediv: 4,
+            mul: 50,
+            divp: Some(2),
+            divq: Some(8),
+            divr: None,
+        }),
+        sys: Sysclk::Pll1P,
+        cpu_pre: AhbPrescaler::Div1,
+        ahb_pre: AhbPrescaler::Div2,
+        apb1_pre: ApbPrescaler::Div2,
+        apb2_pre: ApbPrescaler::Div2,
+        apb3_pre: ApbPrescaler::Div2,
+        apb4_pre: ApbPrescaler::Div2,
+        supply: Supply::Ldo,
+        voltage_scale: VoltageScale::Scale1,
+    };
+    const CLOCKS: Clocks = match CLOCK_CONFIG.validate() {
+        Ok(clocks) => clocks,
+        Err(_) => panic!("CLOCK_CONFIG breaks the H753's limits"),
+    };
+    const CPU_HZ: u32 = 400_000_000;
+
+    /// SPI1's slowest SCK, its 100 MHz kernel clock / 256 = 391 kHz
+    /// (RM0433 section 50.11.3).
+    const BUS: spi::Config = spi::Config::new(Hertz::khz(400));
+    const _: () = assert!(spi::check::<SPI1>(&CLOCKS, &BUS).is_ok());
+
+    type Af5<const P: char, const N: u8> = Pin<P, N, Alternate<5>>;
+    type Spi1Wiring = Wiring<SPI1, Af5<'A', 5>, Af5<'A', 6>, Af5<'D', 7>, Stream<1, 5>, Stream<1, 4>>;
+    type Cs = Pin<'D', 14, Output>;
+
+    /// The device's lent buffers, (device, length): as many as M1 queues.
+    /// `SLOTS` queue slots hold `SLOTS - 1` buffers.
+    static LENT: [(usize, usize); 8] =
+        [(0, 64), (0, 64), (0, 64), (0, 64), (0, 64), (0, 64), (0, 64), (0, 256)];
+    const POOL: usize = 7 * 64 + 256;
+    const SLOTS: usize = 9;
+
+    fn cycles() -> u32 {
+        cortex_m::peripheral::DWT::cycle_count()
+    }
+
+    #[shared]
+    struct Shared {
+        port: LentPort<Spi1Wiring, (Cs,)>,
+    }
+
+    #[local]
+    struct Local {
+        handle: LentHandle,
+    }
+
+    #[init(local = [
+        tx_buf: [u8; 256] = [0; 256],
+        rx_buf: [u8; 256] = [0; 256],
+        memory: LentMemory<SLOTS, 1> = LentMemory::new(),
+        pool: [u8; POOL] = [0; POOL],
+    ])]
+    fn init(cx: init::Context) -> (Shared, Local) {
+        let mut core = cx.core;
+        core.DCB.enable_trace();
+        core.DWT.enable_cycle_counter();
+        let p = cx.device;
+        let mut rcc = match p.RCC.freeze(&CLOCK_CONFIG) {
+            Ok(rcc) => rcc,
+            Err(refused) => defmt::panic!("clocks: {}", refused.error()),
+        };
+        let mut gpioa = p.GPIOA.split(&mut rcc);
+        let mut gpiod = p.GPIOD.split(&mut rcc);
+        let dma1 = p.DMA1.split(&mut rcc);
+        let ctrl = &mut gpioa.ctrl;
+        let mut sck = gpioa.p5.into_alternate::<5>(ctrl);
+        sck.set_speed(ctrl, Speed::Medium);
+        let miso = gpioa.p6.into_alternate::<5>(ctrl);
+        let mut mosi = gpiod.p7.into_alternate::<5>(&mut gpiod.ctrl);
+        mosi.set_speed(&mut gpiod.ctrl, Speed::Medium);
+        let cs = gpiod.p14.into_push_pull_output(&mut gpiod.ctrl);
+        let local = cx.local;
+        let wiring = Wiring { spi: p.SPI1, sck, miso, mosi, tx_dma: dma1.s5, rx_dma: dma1.s4 };
+        let Ok(built) = spi_lent::new_lent(
+            &mut rcc, wiring, (cs,), &[BUS], local.tx_buf, local.rx_buf, local.memory,
+            &mut bench::carve(local.pool, &LENT), spi1::kick, cycles,
+        ) else {
+            defmt::panic!("SPI1 refused");
+        };
+        let mut handles = built.handles;
+        let Some(handle) = handles.take(core::hint::black_box(0)) else {
+            defmt::panic!("no handle");
+        };
+        let port = built.port;
+        defmt::info!("R1 on the Nucleo-H753ZI, SCK {} Hz", port.stats().sck[0]);
+        checks::spawn().ok();
+        (Shared { port }, Local { handle })
+    }
+
+    #[group(from = ferroforge_stm32::spi_lent_port, shared = [port = port])]
+    mod spi1 {
+        #[task(binds = DMA1_STREAM4, priority = 3)]
+        fn r_on_spi_rx_dma;
+    }
+
+    #[task(priority = 1, local = [handle], shared = [port])]
+    async fn checks(cx: checks::Context) {
+        let mut port = cx.shared.port;
+        let h = cx.local.handle;
+        let mut failed = 0u32;
+        failed += bench::length("R1", h, &mut port, cycles, &[4, 64, 256]).await;
+        failed += bench::latency("R1", h, cycles, 1000).await;
+        failed += bench::multipart(h).await;
+        failed += bench::chip_select(h, &mut port).await;
+        // One buffer on the wire, seven queued, then none free.
+        failed += bench::full(h, cycles, 7, SubmitError::Outstanding).await;
+        // One device: the order submitted, priority not applied (recorded).
+        failed += bench::priority(&mut [&mut *h], [0, 0, 0, 0], cycles, false);
+        failed += bench::cancel(h, None, &mut port, cycles, 3).await;
+        failed += bench::closing("R1", &mut port);
+        finish(failed);
+    }
+
+    fn finish(failed: u32) -> ! {
+        if failed == 0 {
+            defmt::info!("all checks passed");
+        } else {
+            defmt::error!("{} checks failed", failed);
+        }
+        cortex_m::asm::delay(CPU_HZ / 5);
+        if failed == 0 { debug::exit(EXIT_SUCCESS) } else { debug::exit(EXIT_FAILURE) }
+        loop {}
+    }
+}

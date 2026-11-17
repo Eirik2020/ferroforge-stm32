@@ -137,8 +137,8 @@ ferroforge::app! {
         failed += bench::latency("M1", h, cycles, 1000).await;
         failed += bench::multipart(h).await;
         failed += bench::chip_select(h, &mut port).await;
-        failed += bench::full(h, cycles, QUEUE as u32).await;
-        failed += bench::priority(&mut [&mut *h], [0, 0, 0, 0], cycles);
+        failed += bench::full(h, cycles, QUEUE as u32, ferroforge_stm32::spi_queue::SubmitError::Full).await;
+        failed += bench::priority(&mut [&mut *h], [0, 0, 0, 0], cycles, true);
         failed += bench::cancel(h, None, &mut port, cycles, 3).await;
         failed += bench::closing("M1", &mut port);
         finish(failed);

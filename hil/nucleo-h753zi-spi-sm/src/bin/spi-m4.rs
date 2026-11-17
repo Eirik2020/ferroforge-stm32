@@ -189,19 +189,22 @@ ferroforge::app! {
         let [a, b] = main;
         let mut failed = 0u32;
         failed += bench::verdict("boot binding: the handles came from a run-time choice [D12]", a.device() == 0);
+        failed += bench::length("M4", a, &mut port, cycles, &[4, 64]).await;
         failed += bench::latency("M4", a, cycles, 1000).await;
         failed += bench::multipart(a).await;
         failed += bench::chip_select(a, &mut port).await;
         failed += bench::chip_select(b, &mut port).await;
-        failed += bench::full(a, cycles, QUEUE as u32).await;
+        failed += bench::full(a, cycles, QUEUE as u32, ferroforge_stm32::spi_queue::SubmitError::Full).await;
         {
             // Low and high on device 1, the mediums on device 0: the high
             // overtakes another device's queued work.
             let mut hs = [&mut *a, &mut *b];
-            failed += bench::priority(&mut hs, [1, 0, 0, 1], cycles);
+            failed += bench::priority(&mut hs, [1, 0, 0, 1], cycles, true);
         }
         failed += bench::switch(a, b, &mut port, CPU_HZ).await;
         failed += bench::cancel(a, Some(b), &mut port, cycles, 3).await;
+        // Device 0 fills the bus's one queue; device 1 is then refused.
+        failed += bench::isolation(a, b, cycles, false).await;
 
         // Two tasks at different priorities push into the one queue while
         // this one does too.
