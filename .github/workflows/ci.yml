@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_TOOLCHAIN: 1.98.1
+  # reqtool main after #10 (2026-11-17). Bump it on purpose.
+  REQTOOL_REV: 3bc2871cbcf22d08be916fc26371e61f827c8992
+
+jobs:
+  checks:
+    name: Checks without hardware
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          targets: thumbv7em-none-eabihf
+          components: clippy,rustfmt
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            hil/nucleo-f401re-uart-loopback -> target
+      - name: Install reqtool at its pinned revision
+        run: >
+          cargo install --git https://github.com/Eirik2020/reqtool
+          --rev "$REQTOOL_REV" --locked
+      - name: Run every check that needs no hardware
+        run: checks/run.sh

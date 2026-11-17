@@ -1,0 +1,36 @@
+[package]
+name = "ferroforge-stm32"
+version = "0.1.0"
+edition = "2024"
+description = "FerroForge task groups for STM32 hardware ports, built on FerroHAL"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Eirik2020/ferroforge-stm32"
+publish = false
+
+[dependencies]
+# Every dependency is pinned exactly, as FerroHAL's are: a bump needs a
+# reviewed diff analysis or reverification. FerroHAL and FerroForge 0.5 are not
+# on crates.io yet, so both come from git at an exact revision until they are.
+ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "d9ddc472eae17a335dd6fdd217af3c4dc4050d1b" }
+ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "96da6f1b74e1b2e8d8e67405db0179dba85f90cd" }
+# The lock a group member's shared resource arrives through (`rtic::Mutex`).
+# The backend is the firmware's choice in practice; naming one here lets the
+# crate check on its own, on the target and on the host.
+rtic = { version = "=2.4.0", default-features = false, features = ["thumbv7-backend"] }
+
+[features]
+default = []
+# A group needs a chip to compile, but must not be the one choosing it. These
+# forward to FerroHAL so the crate checks on its own; a firmware's own FerroHAL
+# chip feature wins through feature unification. One chip per USART IP version
+# is enough (FerroHAL's car rule): f401re for usart_v2, h753zi for usart_v4.
+stm32f401re = ["ferrohal-stm32/stm32f401re"]
+stm32f405rg = ["ferrohal-stm32/stm32f405rg"]
+stm32f407vg = ["ferrohal-stm32/stm32f407vg"]
+stm32h743vi = ["ferrohal-stm32/stm32h743vi"]
+stm32h753zi = ["ferrohal-stm32/stm32h753zi"]
+
+[dev-dependencies]
+# The host tests read this crate's own source as a host tool would.
+ferroforge-contracts = { git = "https://github.com/Eirik2020/ferroforge", rev = "96da6f1b74e1b2e8d8e67405db0179dba85f90cd" }
+syn = { version = "=2.0.119", features = ["full"] }

@@ -1,0 +1,55 @@
+schema_version: 2
+requirements:
+  - id: PORT-001
+    title: A port group states its contract
+    statement: >-
+      Every port group shall state its slots, vectors, resources and constructor
+      in its group declaration.
+    rationale: >-
+      A tool that writes firmware reads the contract from source and needs no
+      knowledge of which group it selects (FerroSmith design record v3, 6.1).
+    derived_from: [G2]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::tests::uart_port_states_its_contract
+
+  - id: PORT-002
+    title: A port's constructor is generic over FerroHAL's wiring
+    statement: >-
+      Every port constructor shall take any FerroHAL wiring the chip's routing
+      accepts, built for the target or for the host.
+    rationale: >-
+      The generated firmware then reduces to a wiring alias and a constructor
+      call per port, and a host tool can check a selection before any target
+      build.
+    derived_from: [G1, G2]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::tests::uart_port_builds_on_an_f401_wiring
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::tests::uart_port_builds_on_an_h753_wiring
+
+  - id: PORT-003
+    title: The UART port serves its vectors and wakes the firmware
+    statement: >-
+      Each of the UART port's vector members shall serve the UART and pass
+      the events of a nonempty service to the firmware's task.
+    rationale: >-
+      One owner served from every vector under the scheduler's lock is
+      FerroHAL's UART model; the group is how a firmware gets it
+      without writing the handlers.
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the Nucleo-F401RE
