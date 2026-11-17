@@ -158,7 +158,7 @@ mod tests {
             uart::{Config, RxWiring, UartRxRefused},
         };
         // USART6 RX on PA12, AF8 (DS10086 table 9), on DMA2 stream 1
-        // channel 5 (RM0368 table 28).
+        // channel 5 (RM0368 table 29).
         type Rx = Pin<'A', 12, Alternate<8>>;
         type W = RxWiring<USART6, Rx, Stream<2, 1>>;
         type Built = uart_rx_port::Resources<USART6, Rx, Stream<2, 1>>;
@@ -181,7 +181,7 @@ mod tests {
             rcc::Rcc,
             uart::{Config, RxWiring, UartRxRefused},
         };
-        // USART6 RX on PC7, AF7 (DS12117 tables 9 to 11), on any stream
+        // USART6 RX on PC7, AF7 (DS12117 table 9), on any stream
         // through DMAMUX1 (RM0433 section 17.3).
         type Rx = Pin<'C', 7, Alternate<7>>;
         type W = RxWiring<USART6, Rx, Stream<1, 0>>;

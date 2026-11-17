@@ -86,7 +86,7 @@ fn uart_port_builds_on_an_f401_wiring() {
         uart::{Config, UartRefused, Wiring},
     };
     type Af7<const P: char, const N: u8> = Pin<P, N, Alternate<7>>;
-    // USART1 on PA9/PA10, DMA2 streams 7 and 2 (RM0368 table 28).
+    // USART1 on PA9/PA10, DMA2 streams 7 and 2 (RM0368 table 29).
     type W = Wiring<USART1, Af7<'A', 9>, Af7<'A', 10>, Stream<2, 7>, Stream<2, 2>>;
     type Built =
         uart_port::Resources<USART1, Af7<'A', 9>, Af7<'A', 10>, Stream<2, 7>, Stream<2, 2>>;
@@ -196,7 +196,7 @@ fn spi_port_builds_on_an_f401_wiring() {
         spi::{Config, SpiRefused, Wiring},
     };
     type Af5<const P: char, const N: u8> = Pin<P, N, Alternate<5>>;
-    // SPI1 on PA5/PA6/PA7, DMA2 streams 3 (TX) and 0 (RX) (RM0368 table 28).
+    // SPI1 on PA5/PA6/PA7, DMA2 streams 3 (TX) and 0 (RX) (RM0368 table 29).
     type W = Wiring<SPI1, Af5<'A', 5>, Af5<'A', 6>, Af5<'A', 7>, Stream<2, 3>, Stream<2, 0>>;
     type Cs = Pin<'A', 4, Output>;
     type Built = spi_port::Resources<
@@ -233,7 +233,7 @@ fn spi_port_builds_on_an_h753_wiring() {
         spi::{Config, SpiRefused, Wiring},
     };
     type Af5<const P: char, const N: u8> = Pin<P, N, Alternate<5>>;
-    // SPI1 on PA5/PA6/PD7 (DS12117 table 10), DMA1 streams 5 and 4 through
+    // SPI1 on PA5/PA6/PD7 (DS12117 table 9), DMA1 streams 5 and 4 through
     // DMAMUX (RM0433 section 17.3).
     type W = Wiring<SPI1, Af5<'A', 5>, Af5<'A', 6>, Af5<'D', 7>, Stream<1, 5>, Stream<1, 4>>;
     type Cs = Pin<'D', 14, Output>;

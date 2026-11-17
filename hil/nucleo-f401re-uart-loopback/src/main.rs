@@ -15,7 +15,7 @@
 //! | J2 | CN10-14 (PA11) | CN10-12 (PA12) | USART6 TX into its own RX |
 //!
 //! Routing (RM0368 table 9, alternate functions in DS10086 table 9; DMA2
-//! request mapping in RM0368 table 28): USART1 on AF7, TX on DMA2 stream 7
+//! request mapping in RM0368 table 29): USART1 on AF7, TX on DMA2 stream 7
 //! channel 4, RX on DMA2 stream 2 channel 4; USART6 on AF8, TX on DMA2
 //! stream 6 channel 5, RX on DMA2 stream 1 channel 5. FerroHAL's routing
 //! traits refuse any other pairing at compile time.

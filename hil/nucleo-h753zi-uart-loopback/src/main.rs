@@ -10,7 +10,7 @@
 //! | Z2 | CN7-1 (PC6) | CN7-11 (PC7) | USART6 TX into its own RX |
 //!
 //! Routing: USART1 on PB6/PB7 and USART6 on PC6/PC7 are alternate function 7
-//! (DS12117 tables 9 to 11). Through DMAMUX1 any DMA1 or DMA2 stream serves
+//! (DS12117 table 9). Through DMAMUX1 any DMA1 or DMA2 stream serves
 //! any USART request (RM0433 section 17.3); these are the streams FerroHAL's
 //! run A gives the same ports: USART1 on DMA2 streams 5 (TX) and 4 (RX),
 //! USART6 on DMA1 streams 6 (TX) and 0 (RX).

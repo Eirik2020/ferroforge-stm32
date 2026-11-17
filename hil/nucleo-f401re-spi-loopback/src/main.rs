@@ -8,7 +8,7 @@
 //! | --- | --- | --- | --- |
 //! | S1 | CN10-15 (PA7) | CN10-13 (PA6) | SPI1 MOSI into its own MISO |
 //!
-//! Routing (DS10086 table 9, alternate functions; RM0368 table 28, DMA2
+//! Routing (DS10086 table 9, alternate functions; RM0368 table 29, DMA2
 //! requests): SPI1 on AF5, SCK PA5, MISO PA6, MOSI PA7; TX on DMA2 stream 3
 //! channel 3, RX on DMA2 stream 0 channel 3. Chip select is PA4, a plain
 //! push-pull output with nothing on it: the checks read back the level the

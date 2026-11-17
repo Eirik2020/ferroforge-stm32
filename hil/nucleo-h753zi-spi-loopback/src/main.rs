@@ -8,8 +8,8 @@
 //! | --- | --- | --- | --- |
 //! | S1 | CN9-2 (PD7) | CN7-12 (PA6) | SPI1 MOSI into its own MISO |
 //!
-//! Routing: SPI1 on AF5, SCK PA5, MISO PA6, MOSI PD7 (DS12117 tables 9 to
-//! 12). Through DMAMUX1 any DMA1 or DMA2 stream serves any SPI request
+//! Routing: SPI1 on AF5, SCK PA5, MISO PA6, MOSI PD7 (DS12117 table 9).
+//! Through DMAMUX1 any DMA1 or DMA2 stream serves any SPI request
 //! (RM0433 section 17.3): TX on DMA1 stream 5, RX on DMA1 stream 4. Chip
 //! select is PD14, a plain push-pull output with nothing on it: the checks
 //! read back the level the port drives.
@@ -81,7 +81,7 @@ ferroforge::app! {
     const MS: u32 = 400_000;
 
     /// SPI1's slowest SCK, its 100 MHz kernel clock (PLL1Q) / 256 = 391 kHz
-    /// (RM0433 section 50.11.2), so a full frame lasts long enough to see chip
+    /// (RM0433 section 50.11.3), so a full frame lasts long enough to see chip
     /// select held.
     const BUS: spi::Config = spi::Config::new(Hertz::khz(400));
     const _: () = assert!(spi::check::<SPI1>(&CLOCKS, &BUS).is_ok());
