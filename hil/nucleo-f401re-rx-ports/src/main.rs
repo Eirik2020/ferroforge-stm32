@@ -19,7 +19,7 @@
 //! The two ports differ in framing as well as instance, so the port is shown
 //! to carry a configuration with parity and two stop bits as well as the
 //! default 8N1; neither port decodes anything. Routing (RM0368 table 9, alternate functions in DS10086 table 9; DMA2
-//! request mapping in RM0368 table 28): USART1 RX on AF7 and DMA2 stream 2
+//! request mapping in RM0368 table 29): USART1 RX on AF7 and DMA2 stream 2
 //! channel 4; USART6 RX on AF8 and DMA2 stream 1 channel 5.
 //!
 //! | Vector | Serves | Priority |

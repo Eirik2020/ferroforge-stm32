@@ -31,7 +31,9 @@
     slots = [instance: U, rx: Rx, rx_dma: RxD],
     vectors = [on_rx_uart = instance, on_rx_stream = rx_dma],
     shared = [uart: Uart<RxWiring<U, Rx, RxD>>],
-    constructor = new,
+    buffers = [#[dma] ring: [u8]],
+    config = [config: Config @ platform],
+    constructor = new(rcc, wiring, config, ring),
 )]
 pub mod uart_rx_port {
     use ferrohal_stm32::{
@@ -134,7 +136,15 @@ mod tests {
         let shared: Vec<_> = contract.shared.iter().map(|r| r.name.to_string()).collect();
         assert_eq!(shared, ["uart"]);
         assert!(contract.local.is_empty());
-        assert!(contract.constructor.as_ref().unwrap().is_ident("new"));
+        let constructor = contract.constructor.as_ref().unwrap();
+        assert!(constructor.path.is_ident("new"));
+        let arguments: Vec<_> = constructor
+            .arguments
+            .iter()
+            .map(|a| a.to_string())
+            .collect();
+        assert_eq!(arguments, ["rcc", "wiring", "config", "ring"]);
+        assert!(contract.buffers[0].name == "ring" && contract.buffers[0].dma);
     }
 
     #[cfg(feature = "stm32f401re")]
@@ -148,7 +158,7 @@ mod tests {
             uart::{Config, RxWiring, UartRxRefused},
         };
         // USART6 RX on PA12, AF8 (DS10086 table 9), on DMA2 stream 1
-        // channel 5 (RM0368 table 28).
+        // channel 5 (RM0368 table 29).
         type Rx = Pin<'A', 12, Alternate<8>>;
         type W = RxWiring<USART6, Rx, Stream<2, 1>>;
         type Built = uart_rx_port::Resources<USART6, Rx, Stream<2, 1>>;
@@ -171,7 +181,7 @@ mod tests {
             rcc::Rcc,
             uart::{Config, RxWiring, UartRxRefused},
         };
-        // USART6 RX on PC7, AF7 (DS12117 tables 9 to 11), on any stream
+        // USART6 RX on PC7, AF7 (DS12117 table 9), on any stream
         // through DMAMUX1 (RM0433 section 17.3).
         type Rx = Pin<'C', 7, Alternate<7>>;
         type W = RxWiring<USART6, Rx, Stream<1, 0>>;

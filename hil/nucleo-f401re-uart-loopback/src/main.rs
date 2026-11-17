@@ -15,7 +15,7 @@
 //! | J2 | CN10-14 (PA11) | CN10-12 (PA12) | USART6 TX into its own RX |
 //!
 //! Routing (RM0368 table 9, alternate functions in DS10086 table 9; DMA2
-//! request mapping in RM0368 table 28): USART1 on AF7, TX on DMA2 stream 7
+//! request mapping in RM0368 table 29): USART1 on AF7, TX on DMA2 stream 7
 //! channel 4, RX on DMA2 stream 2 channel 4; USART6 on AF8, TX on DMA2
 //! stream 6 channel 5, RX on DMA2 stream 1 channel 5. FerroHAL's routing
 //! traits refuse any other pairing at compile time.
@@ -47,7 +47,7 @@ ferroforge::app! {
         gpio::{Alternate, Pin, Pull, Speed},
         rcc::{AhbPrescaler, ApbPrescaler, Clocks, Config, Pll, PllP, PllSource, Supply, Sysclk},
         time::Hertz,
-        uart::{self, Buffers, Uart, Wiring},
+        uart::{self, Uart, Wiring},
     };
     use cortex_m_semihosting::debug::{self, EXIT_FAILURE, EXIT_SUCCESS};
     use ferroforge_stm32::uart_port::{self, Events};
@@ -148,14 +148,16 @@ ferroforge::app! {
             &mut rcc,
             Wiring { uart: p.USART1, tx: tx1, rx: rx1, tx_dma: dma2.s7, rx_dma: dma2.s2 },
             &FRAME,
-            Buffers { tx: local.tx1, rx: local.rx1 },
+            local.tx1,
+            local.rx1,
         )
         .unwrap_or_else(|refused| defmt::panic!("USART1: {}", refused.error()));
         let usart6 = uart_port::new(
             &mut rcc,
             Wiring { uart: p.USART6, tx: tx6, rx: rx6, tx_dma: dma2.s6, rx_dma: dma2.s1 },
             &FRAME,
-            Buffers { tx: local.tx6, rx: local.rx6 },
+            local.tx6,
+            local.rx6,
         )
         .unwrap_or_else(|refused| defmt::panic!("USART6: {}", refused.error()));
 

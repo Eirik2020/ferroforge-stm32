@@ -32,6 +32,77 @@ lines [PORT-101]; every wake's stamp lay within the run, no earlier than the
 wake before it and no later than its reader ran [PORT-102]; and USART6's wakes
 were all stamped no later than USART1's first [PORT-102].
 
+## SPI port on the Nucleo-F401RE
+
+`hil/run-f401-spi.sh`, with FerroHAL's F401 link S1 (PA7 to PA6) fitted, as
+`hil/nucleo-f401re-spi-loopback/src/main.rs` lists it. The firmware selects
+`spi_port` on SPI1 at its slowest clock, 328 kHz, with PA4 as chip select and
+nothing on it, and runs 256 transfers one at a time, of 1 to 64 bytes, a counter
+carrying on from one to the next, then aborts a 64-byte transfer mid-frame and
+runs one more. Pass: every check prints `PASS`, none prints `FAIL`, and the
+script exits zero. The checks: the member's vector is enabled [PORT-201]; the
+device starts deselected [PORT-202]; every transfer's end reached the firmware's
+task, and completed with its length and the bytes sent [PORT-201]; chip select
+read low while each 64-byte transfer ran [PORT-202], and high when the
+firmware's task first ran for every transfer [PORT-202]; the abort left chip
+select high and the bus idle [PORT-202] and passed no outcome on [PORT-201];
+and the transfer after it completed [PORT-201].
+
+## SPI port on the Nucleo-H753ZI
+
+`hil/run-h753-spi.sh`, with FerroHAL's H753 link S1 (PD7 to PA6) fitted, as
+`hil/nucleo-h753zi-spi-loopback/src/main.rs` lists it. The same firmware and
+checks as on the Nucleo-F401RE, on `spi_v4` and DMAMUX: SPI1 at 391 kHz on DMA1
+streams 5 and 4, PD14 as chip select, the data cache off. Pass: every check
+prints `PASS`, none prints `FAIL`, and the script exits zero [PORT-201,
+PORT-202].
+
+## EXTI line on the Nucleo-F401RE
+
+`hil/run-f401-exti.sh`, with FerroHAL's F401 link J2 (PA11 to PA12) fitted, as
+`hil/nucleo-f401re-exti-line/src/main.rs` lists it. The firmware selects
+`exti_line` on line 12, PA12's rising edge, with SysTick at 1 kHz as the
+monotonic, and drives PA11 as a GPIO: 100 edges one at a time, each awaited;
+one edge while it holds the firmware's task off for 5 ms; three edges while it
+holds the task off, then one more. Pass: every check prints `PASS`, none prints
+`FAIL`, and the script exits zero. The checks: the member's vector is enabled
+[PORT-301]; every one of the 100 edges reached the firmware's task, none missed
+[PORT-301], each stamped within a tick of being driven and no later than its
+task ran [PORT-302]; the held edge's stamp is within a tick of its driving and
+at least 4 ms before its task ran [PORT-302]; of the three held edges one
+reached the task, and the edge after carried a count of 2 missed [PORT-301]; and
+the line is left clear [PORT-301].
+
+## EXTI line on the Nucleo-H753ZI
+
+`hil/run-h753-exti.sh`, with FerroHAL's H753 link Z1 (PD5 to PD6) fitted, as
+`hil/nucleo-h753zi-exti-line/src/main.rs` lists it. The same firmware and checks
+as on the Nucleo-F401RE, on line 6, PD6's rising edge, served from the shared
+`EXTI9_5` vector. Pass: every check prints `PASS`, none prints `FAIL`, and the
+script exits zero [PORT-301, PORT-302].
+
+## ADC sequence on the Nucleo-F401RE
+
+`hil/run-f401-adc.sh`, with FerroHAL's F401 link S1 (PA7 to PA6) fitted, as
+`hil/nucleo-f401re-adc-scan/src/main.rs` lists it. The firmware selects
+`adc_scan` on ADC1 and DMA2 stream 0, its channels PA6, VREFINT and the
+temperature sensor named before the converter opens, and runs 200 sequences one
+at a time, driving PA7 low and high in turn. Pass: every check prints `PASS`,
+none prints `FAIL`, and the script exits zero. The checks: the member's vector
+is enabled [PORT-401]; every sequence's end reached the firmware's task, and
+every one completed [PORT-401]; PA6's sample sat within 3% of the rail driven in
+every sequence [PORT-401]; and VREFINT gave VDDA between 3.0 and 3.6 V and the
+sensor a die temperature between 0 and 85 degrees in every sequence, so each
+sample landed in its channel's place [PORT-401].
+
+## ADC sequence on the Nucleo-H753ZI
+
+`hil/run-h753-adc.sh`, with FerroHAL's H753 link Z10 (PF7 to PF6) fitted, as
+`hil/nucleo-h753zi-adc-scan/src/main.rs` lists it. The same firmware and checks
+as on the Nucleo-F401RE, on `adc_v4` and DMAMUX: ADC3, which carries the
+internal pair, on DMA2 stream 0, reading PF6. Pass: every check prints `PASS`,
+none prints `FAIL`, and the script exits zero [PORT-401].
+
 ## UART port on the Nucleo-H753ZI
 
 `hil/run-h753.sh`, with FerroHAL's H753 links Z2 (PC6 to PC7) and Z3 (PB6 to
