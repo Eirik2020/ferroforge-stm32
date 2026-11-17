@@ -31,7 +31,9 @@
     slots = [instance: U, rx: Rx, rx_dma: RxD],
     vectors = [on_rx_uart = instance, on_rx_stream = rx_dma],
     shared = [uart: Uart<RxWiring<U, Rx, RxD>>],
-    constructor = new,
+    buffers = [#[dma] ring: [u8]],
+    config = [config: Config @ platform],
+    constructor = new(rcc, wiring, config, ring),
 )]
 pub mod uart_rx_port {
     use ferrohal_stm32::{
@@ -134,7 +136,15 @@ mod tests {
         let shared: Vec<_> = contract.shared.iter().map(|r| r.name.to_string()).collect();
         assert_eq!(shared, ["uart"]);
         assert!(contract.local.is_empty());
-        assert!(contract.constructor.as_ref().unwrap().is_ident("new"));
+        let constructor = contract.constructor.as_ref().unwrap();
+        assert!(constructor.path.is_ident("new"));
+        let arguments: Vec<_> = constructor
+            .arguments
+            .iter()
+            .map(|a| a.to_string())
+            .collect();
+        assert_eq!(arguments, ["rcc", "wiring", "config", "ring"]);
+        assert!(contract.buffers[0].name == "ring" && contract.buffers[0].dma);
     }
 
     #[cfg(feature = "stm32f401re")]

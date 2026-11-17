@@ -47,7 +47,7 @@ ferroforge::app! {
         gpio::{Alternate, Pin, Pull, Speed},
         rcc::{AhbPrescaler, ApbPrescaler, Clocks, Config, Pll, PllP, PllSource, Supply, Sysclk},
         time::Hertz,
-        uart::{self, Buffers, Uart, Wiring},
+        uart::{self, Uart, Wiring},
     };
     use cortex_m_semihosting::debug::{self, EXIT_FAILURE, EXIT_SUCCESS};
     use ferroforge_stm32::uart_port::{self, Events};
@@ -148,14 +148,16 @@ ferroforge::app! {
             &mut rcc,
             Wiring { uart: p.USART1, tx: tx1, rx: rx1, tx_dma: dma2.s7, rx_dma: dma2.s2 },
             &FRAME,
-            Buffers { tx: local.tx1, rx: local.rx1 },
+            local.tx1,
+            local.rx1,
         )
         .unwrap_or_else(|refused| defmt::panic!("USART1: {}", refused.error()));
         let usart6 = uart_port::new(
             &mut rcc,
             Wiring { uart: p.USART6, tx: tx6, rx: rx6, tx_dma: dma2.s6, rx_dma: dma2.s1 },
             &FRAME,
-            Buffers { tx: local.tx6, rx: local.rx6 },
+            local.tx6,
+            local.rx6,
         )
         .unwrap_or_else(|refused| defmt::panic!("USART6: {}", refused.error()));
 

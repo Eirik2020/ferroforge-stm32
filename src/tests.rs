@@ -43,7 +43,27 @@ fn uart_port_states_its_contract() {
     let shared: Vec<_> = contract.shared.iter().map(|r| r.name.to_string()).collect();
     assert_eq!(shared, ["uart"]);
     assert!(contract.local.is_empty());
-    assert!(contract.constructor.as_ref().unwrap().is_ident("new"));
+    let constructor = contract.constructor.as_ref().unwrap();
+    assert!(constructor.path.is_ident("new"));
+    let arguments: Vec<_> = constructor
+        .arguments
+        .iter()
+        .map(|a| a.to_string())
+        .collect();
+    assert_eq!(arguments, ["rcc", "wiring", "config", "tx_buf", "rx_buf"]);
+    let buffers: Vec<_> = contract
+        .buffers
+        .iter()
+        .map(|b| (b.name.to_string(), b.dma))
+        .collect();
+    assert_eq!(
+        buffers,
+        [("tx_buf".to_string(), true), ("rx_buf".to_string(), true)]
+    );
+    assert_eq!(
+        contract.config[0].layer,
+        ferroforge_contracts::Layer::Platform
+    );
     // Every vector's member is a hardware task defined in the group.
     for vector in &contract.vectors {
         let member = group
@@ -63,15 +83,20 @@ fn uart_port_builds_on_an_f401_wiring() {
         dma::Stream,
         gpio::{Alternate, Pin},
         rcc::Rcc,
-        uart::{Buffers, Config, UartRefused, Wiring},
+        uart::{Config, UartRefused, Wiring},
     };
     type Af7<const P: char, const N: u8> = Pin<P, N, Alternate<7>>;
-    // The golden app's USART1 (RM0368 table 28: DMA2 streams 7 and 2).
+    // USART1 on PA9/PA10, DMA2 streams 7 and 2 (RM0368 table 28).
     type W = Wiring<USART1, Af7<'A', 9>, Af7<'A', 10>, Stream<2, 7>, Stream<2, 2>>;
     type Built =
         uart_port::Resources<USART1, Af7<'A', 9>, Af7<'A', 10>, Stream<2, 7>, Stream<2, 2>>;
-    let constructor: fn(&mut Rcc, W, &Config, Buffers) -> Result<Built, UartRefused<W>> =
-        uart_port::new;
+    let constructor: fn(
+        &mut Rcc,
+        W,
+        &Config,
+        &'static mut [u8],
+        &'static mut [u8],
+    ) -> Result<Built, UartRefused<W>> = uart_port::new;
     let _ = constructor;
 }
 
@@ -83,14 +108,20 @@ fn uart_port_builds_on_an_h753_wiring() {
         dma::Stream,
         gpio::{Alternate, Pin},
         rcc::Rcc,
-        uart::{Buffers, Config, UartRefused, Wiring},
+        uart::{Config, UartRefused, Wiring},
     };
     type Af7<const P: char, const N: u8> = Pin<P, N, Alternate<7>>;
     // FerroHAL's H753 bench USART1 (its Z3): DMA2 streams 5 and 4 through
     // DMAMUX.
     type W = Wiring<USART1, Af7<'B', 6>, Af7<'B', 7>, Stream<2, 5>, Stream<2, 4>>;
     type Built = uart_port::Resources<USART1, Af7<'B', 6>, Af7<'B', 7>, Stream<2, 5>, Stream<2, 4>>;
-    let constructor: fn(&mut Rcc, W, &Config, Buffers) -> Result<Built, UartRefused<W>> =
-        uart_port::new;
+    let constructor: fn(
+        &mut Rcc,
+        W,
+        &Config,
+        &'static mut [u8],
+        &'static mut [u8],
+    ) -> Result<Built, UartRefused<W>> = uart_port::new;
     let _ = constructor;
 }
+

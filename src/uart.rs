@@ -28,7 +28,9 @@
     slots = [instance: U, tx: Tx, rx: Rx, tx_dma: TxD, rx_dma: RxD],
     vectors = [on_uart = instance, on_rx_dma = rx_dma, on_tx_dma = tx_dma],
     shared = [uart: Uart<Wiring<U, Tx, Rx, TxD, RxD>>],
-    constructor = new,
+    buffers = [#[dma] tx_buf: [u8], #[dma] rx_buf: [u8]],
+    config = [config: Config @ platform],
+    constructor = new(rcc, wiring, config, tx_buf, rx_buf),
 )]
 pub mod uart_port {
     use ferrohal_stm32::{
@@ -47,14 +49,17 @@ pub mod uart_port {
         pub uart: Uart<Wiring<U, Tx, Rx, TxD, RxD>>,
     }
 
-    /// Opens the UART on `wiring` and starts reception. A refusal is
-    /// FerroHAL's, with the wiring and buffers handed back.
+    /// Opens the UART on `wiring` and starts reception: `tx_buf` holds a
+    /// frame being sent, `rx_buf` is the receive ring (FerroHAL's
+    /// `uart::Buffers` states their limits). A refusal is FerroHAL's, with the
+    /// wiring and buffers handed back.
     #[allow(clippy::type_complexity)]
     pub fn new<U, Tx, Rx, TxD, RxD>(
         rcc: &mut Rcc,
         wiring: Wiring<U, Tx, Rx, TxD, RxD>,
         config: &Config,
-        buffers: Buffers,
+        tx_buf: &'static mut [u8],
+        rx_buf: &'static mut [u8],
     ) -> Result<Resources<U, Tx, Rx, TxD, RxD>, UartRefused<Wiring<U, Tx, Rx, TxD, RxD>>>
     where
         U: Instance,
@@ -63,6 +68,10 @@ pub mod uart_port {
         TxD: TxDma<U>,
         RxD: RxDma<U>,
     {
+        let buffers = Buffers {
+            tx: tx_buf,
+            rx: rx_buf,
+        };
         Uart::new(rcc, wiring, config, buffers).map(|uart| Resources { uart })
     }
 

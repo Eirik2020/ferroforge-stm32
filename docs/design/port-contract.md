@@ -13,7 +13,9 @@ uses them.
     slots = [instance: U, tx: Tx, rx: Rx, tx_dma: TxD, rx_dma: RxD],
     vectors = [on_uart = instance, on_rx_dma = rx_dma, on_tx_dma = tx_dma],
     shared = [uart: Uart<Wiring<U, Tx, Rx, TxD, RxD>>],
-    constructor = new,
+    buffers = [#[dma] tx_buf: [u8], #[dma] rx_buf: [u8]],
+    config = [config: Config @ platform],
+    constructor = new(rcc, wiring, config, tx_buf, rx_buf),
 )]
 pub mod uart_port { .. }
 ```
@@ -28,10 +30,17 @@ pub mod uart_port { .. }
 - **Resources** are every resource the members leave to the firmware, with its
   type over the slots' parameters. The firmware declares each as a `#[shared]` or
   `#[local]` field and binds it in the selection.
-- **Constructor** builds the resources. It is generic over the slots, takes the
-  wiring and whatever else it needs (the RCC, the frame, the buffers), and
-  returns a struct with one public field per resource, of the same name, or the
-  driver's refusal.
+- **Buffers** are the memory the constructor takes, each a slice of an integer
+  type. The firmware sets each one's length, because the device or the traffic
+  fixes it, not the port; a tool writes it as a zeroed array in
+  `init(local = [..])`. A buffer a DMA stream reads or writes is `#[dma]`.
+- **Config** fields are the constructor's other inputs, each with the input
+  layer that supplies it: a UART's frame from the platform.
+- **Constructor** builds the resources. It is generic over the slots, and its
+  arguments are listed in order: `rcc`, `wiring` (FerroHAL's wiring of the
+  slots), a slot FerroHAL's wiring does not hold, the buffers and the config
+  fields. It returns a struct with one public field
+  per resource, of the same name, or the driver's refusal.
 
 ## Rules for a port group
 
@@ -73,8 +82,6 @@ puts behind them:
 
 ## Not in the contract yet
 
-Decided content of the descriptor that this first cut leaves out, to settle on
-the next group rather than guess on this one: buffers (sizes as Rust expressions,
-emitted verbatim), config fields and the layer that supplies each, and optional
-members behind a feature. Today a firmware writes the buffers in
-`init(local = [..])` and passes the frame to the constructor.
+Optional members behind a feature, from the FerroSmith descriptor, wait for a
+port that has one; until then a variant is its own group, as the receive-only
+UART is.
