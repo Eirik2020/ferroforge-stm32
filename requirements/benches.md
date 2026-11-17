@@ -46,7 +46,9 @@ task, and completed with its length and the bytes sent [PORT-201]; chip select
 read low while each 64-byte transfer ran [PORT-202], and high when the
 firmware's task first ran for every transfer [PORT-202]; the abort left chip
 select high and the bus idle [PORT-202] and passed no outcome on [PORT-201];
-and the transfer after it completed [PORT-201].
+the transfer after it completed [PORT-201]; and with the firmware's task held
+off past a transfer's end, a second start was refused and the waiting outcome
+was then taken intact [PORT-203].
 
 ## SPI port on the Nucleo-H753ZI
 
@@ -55,7 +57,7 @@ and the transfer after it completed [PORT-201].
 checks as on the Nucleo-F401RE, on `spi_v4` and DMAMUX: SPI1 at 391 kHz on DMA1
 streams 5 and 4, PD14 as chip select, the data cache off. Pass: every check
 prints `PASS`, none prints `FAIL`, and the script exits zero [PORT-201,
-PORT-202].
+PORT-202, PORT-203].
 
 ## EXTI line on the Nucleo-F401RE
 
@@ -93,7 +95,9 @@ is enabled [PORT-401]; every sequence's end reached the firmware's task, and
 every one completed [PORT-401]; PA6's sample sat within 3% of the rail driven in
 every sequence [PORT-401]; and VREFINT gave VDDA between 3.0 and 3.6 V and the
 sensor a die temperature between 0 and 85 degrees in every sequence, so each
-sample landed in its channel's place [PORT-401].
+sample landed in its channel's place [PORT-401]; and with the firmware's task
+held off past a sequence's end, a second start was refused and the waiting
+outcome was then taken with PA6 on the high rail [PORT-402].
 
 ## ADC sequence on the Nucleo-H753ZI
 
@@ -101,7 +105,7 @@ sample landed in its channel's place [PORT-401].
 `hil/nucleo-h753zi-adc-scan/src/main.rs` lists it. The same firmware and checks
 as on the Nucleo-F401RE, on `adc_v4` and DMAMUX: ADC3, which carries the
 internal pair, on DMA2 stream 0, reading PF6. Pass: every check prints `PASS`,
-none prints `FAIL`, and the script exits zero [PORT-401].
+none prints `FAIL`, and the script exits zero [PORT-401, PORT-402].
 
 ## UART port on the Nucleo-H753ZI
 

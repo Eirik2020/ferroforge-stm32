@@ -9,19 +9,23 @@
 //! stream completes last, and the transmit stream raises no interrupt
 //! (FerroHAL's `spi::stream_dma`). Serving it deselects the device at once,
 //! inside the interrupt, so the select line is held no longer than the
-//! transfer, whatever priority the firmware's task runs at. The member then
-//! hands the outcome to the firmware's task through the `done` call, and that
-//! task reads the bytes with [`Device::received`](spi_port::Device::received).
+//! transfer, whatever priority the firmware's task runs at. The device keeps
+//! the outcome, and the member wakes the firmware's task through the `done`
+//! call; that task takes the outcome, and the bytes with it, with
+//! [`Device::take`](spi_port::Device::take).
 //!
 //! What goes over the bus, a device's registers and framing, is the
 //! firmware's: this port moves bytes and frames them with chip select, and
 //! nothing else. A stuck transfer is the firmware's watchdog's to end, with
 //! [`Device::abort`](spi_port::Device::abort) under the same lock.
 //!
-//! A transfer ends once, so `done` is not coalesced: the driver refuses a
-//! second start while one is running, so at most one outcome is in flight.
+//! The device refuses a start while a transfer runs, and also while the last
+//! one's outcome waits to be taken, so a task that starts transfers at a
+//! higher priority than the one that takes them cannot overwrite bytes not yet
+//! read, or end a transfer whose `done` would find the last one still queued.
+//! At most one outcome is in flight, so `done` is never coalesced.
 //!
-//! Requirements: PORT-001, PORT-002, PORT-201, PORT-202
+//! Requirements: PORT-001, PORT-002, PORT-201, PORT-202, PORT-203
 
 /// The SPI port group. A firmware selects it once per device:
 ///
@@ -61,19 +65,27 @@ pub mod spi_port {
     pub struct Device<W: Parts, Cs> {
         spi: Spi<W>,
         cs: Cs,
+        /// The last transfer's outcome, until the firmware's task takes it.
+        outcome: Option<Result<usize, Error>>,
     }
 
     impl<W: Parts, Cs: OutputPin> Device<W, Cs> {
         /// Pairs an opened driver with its chip select, deselected.
         pub fn new(spi: Spi<W>, mut cs: Cs) -> Self {
             let _ = cs.set_high();
-            Self { spi, cs }
+            Self {
+                spi,
+                cs,
+                outcome: None,
+            }
         }
 
         /// Selects the device and starts one full-duplex transfer of
-        /// `tx.len()` bytes. A refusal leaves the device deselected.
+        /// `tx.len()` bytes. Refused with `Error::Busy` while a transfer runs
+        /// or the last one's outcome has not been taken. A refusal leaves the
+        /// device deselected.
         pub fn start(&mut self, tx: &[u8]) -> Result<(), Error> {
-            if self.spi.is_busy() {
+            if self.spi.is_busy() || self.outcome.is_some() {
                 return Err(Error::Busy);
             }
             let _ = self.cs.set_low();
@@ -84,9 +96,19 @@ pub mod spi_port {
             started
         }
 
-        /// The bytes the last completed transfer clocked in.
-        pub fn received(&self) -> &[u8] {
-            self.spi.received()
+        /// Takes the last transfer's outcome: the bytes it clocked in, or why
+        /// it failed. `None` when there is none to take. Taking it lets the
+        /// next transfer start; the bytes stay readable only until then.
+        ///
+        /// A `done` task that starts the next transfer itself takes again
+        /// before it returns: a transfer that ends while that task still runs
+        /// cannot wake it, and its outcome waits here, refusing further starts,
+        /// until it is taken.
+        pub fn take(&mut self) -> Option<Result<&[u8], Error>> {
+            match self.outcome.take()? {
+                Ok(_) => Some(Ok(self.spi.received())),
+                Err(error) => Some(Err(error)),
+            }
         }
 
         /// Whether a transfer is running.
@@ -94,10 +116,11 @@ pub mod spi_port {
             self.spi.is_busy()
         }
 
-        /// Stops a running transfer, if any, and deselects the device: the
-        /// firmware watchdog's recovery.
+        /// Stops a running transfer, if any, drops an outcome not yet taken,
+        /// and deselects the device: the firmware watchdog's recovery.
         pub fn abort(&mut self) {
             self.spi.abort();
+            self.outcome = None;
             let _ = self.cs.set_high();
         }
 
@@ -130,12 +153,14 @@ pub mod spi_port {
     impl<W: Parts, Cs: OutputPin> Service for Device<W, Cs> {
         type Event = Event;
 
-        /// Serves the driver, and deselects the device when a transfer ends,
-        /// whether it completed or failed.
+        /// Serves the driver, and when a transfer ends, whether it completed
+        /// or failed, deselects the device and keeps the outcome for
+        /// [`take`](Device::take).
         fn on_interrupt(&mut self) -> Event {
             let event = self.spi.on_interrupt();
-            if event.is_some() {
+            if let Some(outcome) = event {
                 let _ = self.cs.set_high();
+                self.outcome = Some(outcome);
             }
             event
         }
@@ -183,15 +208,18 @@ pub mod spi_port {
     }
 
     /// The receive stream's vector: a transfer's end, or a DMA error. The
-    /// device is deselected before the outcome is passed on.
+    /// device is deselected and keeps the outcome before the firmware's task
+    /// is woken to take it.
     #[ferroforge::task(
         shared = [spi],
         bounds = [spi: Service<Event = Event>],
-        spawn = [done(result: Result<usize, Error>)],
+        spawn = [done()],
     )]
     pub fn on_spi_rx_dma(mut cx: on_spi_rx_dma::Context) {
-        if let Some(result) = cx.shared.spi.lock(|spi| spi.on_interrupt()) {
-            let _: Result<(), Result<usize, Error>> = cx.spawn.done(result);
+        if cx.shared.spi.lock(|spi| spi.on_interrupt()).is_some() {
+            // The device refuses a start until the outcome is taken, so the
+            // last `done` has run and this one cannot find it queued.
+            let _: Result<(), ()> = cx.spawn.done();
         }
     }
 }

@@ -37,7 +37,7 @@ ferroforge::app! {
 
     use cortex_m::peripheral::DWT;
     use cortex_m_semihosting::debug::{self, EXIT_FAILURE, EXIT_SUCCESS};
-    use ferroforge_stm32::adc_scan::{self, AdcScan, Channel, Error};
+    use ferroforge_stm32::adc_scan::{self, Channel, Error};
     use ferrohal_stm32::{
         adc,
         chip::ADC3,
@@ -81,7 +81,7 @@ ferroforge::app! {
     /// CPU cycles in a millisecond, for the busy waits.
     const MS: u32 = 400_000;
 
-    type Scan = AdcScan<ADC3, Stream<2, 0>>;
+    type Scan = adc_scan::Scan<ADC3, Stream<2, 0>>;
     /// Channels in the sequence: the driven pin, VREFINT, temperature.
     const CHANNELS: usize = 3;
     /// Sequences run one at a time, the drive alternating low and high.
@@ -148,17 +148,28 @@ ferroforge::app! {
 
     /// The firmware's task: takes each sequence's outcome and its samples.
     #[task(priority = 2, shared = [adc3, log])]
-    async fn adc3_done(cx: adc3_done::Context, result: Result<(), Error>) {
+    async fn adc3_done(cx: adc3_done::Context) {
         let adc3_done::SharedResources { mut adc3, mut log, .. } = cx.shared;
         let mut samples = [0u16; CHANNELS];
-        adc3.lock(|scan| {
-            for (to, from) in samples.iter_mut().zip(scan.samples()) {
-                *to = *from;
+        let completed = adc3.lock(|scan| match scan.take() {
+            Some(Ok(taken)) => {
+                for (to, from) in samples.iter_mut().zip(taken) {
+                    *to = *from;
+                }
+                true
+            }
+            Some(Err(error)) => {
+                defmt::warn!("sequence: {}", error);
+                false
+            }
+            None => {
+                defmt::warn!("woken with no outcome to take");
+                false
             }
         });
         log.lock(|log| {
             log.ended += 1;
-            if result.is_ok() {
+            if completed {
                 log.completed += 1;
                 log.samples = samples;
             }
@@ -232,6 +243,30 @@ ferroforge::app! {
         failed += verdict(
             "the internal pair read in range, in their places in the sequence [PORT-401]",
             wrong_internal == 0,
+        );
+
+        // A sequence ends while the firmware's task is held off: a second
+        // start, as a task at a higher priority would make it, is refused,
+        // and the waiting outcome survives it for the task to take.
+        drive.set_high();
+        wait(MS);
+        let (first, ended, second) = log.lock(|_| {
+            let first = adc3.lock(|scan| scan.start()).is_ok();
+            wait(2 * MS);
+            // The sequence has ended, so only its waiting outcome can refuse.
+            adc3.lock(|scan| (first, !scan.is_busy(), scan.start()))
+        });
+        wait(MS);
+        let held = log.lock(|log| *log);
+        let pin = u32::from(held.samples[0]);
+        failed += verdict(
+            "a start is refused while the last outcome waits untaken [PORT-402]",
+            first
+                && ended
+                && matches!(second, Err(Error::Busy))
+                && held.ended == SEQUENCES + 1
+                && held.completed == SEQUENCES + 1
+                && pin * 100 >= full * 97,
         );
 
         if failed == 0 {

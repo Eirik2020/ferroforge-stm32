@@ -171,9 +171,10 @@ ferroforge::app! {
     }
 
     /// The firmware's task behind the port: first sees whether the device
-    /// was released before it ran, then checks what came back.
+    /// was released before it ran, then takes the outcome and checks what
+    /// came back.
     #[task(priority = 2, shared = [spi1, tally, sent])]
-    async fn spi1_done(cx: spi1_done::Context, result: Result<usize, Error>) {
+    async fn spi1_done(cx: spi1_done::Context) {
         let spi1_done::SharedResources { mut spi1, mut tally, mut sent, .. } = cx.shared;
         let sent = sent.lock(|sent| *sent);
         tally.lock(|tally| {
@@ -182,17 +183,21 @@ ferroforge::app! {
                 if !spi.chip_select().is_set_high() {
                     tally.selected_at_end += 1;
                 }
-                match result {
-                    Ok(len) => {
+                match spi.take() {
+                    Some(Ok(bytes)) => {
                         tally.completed += 1;
-                        if len != sent.len {
+                        if bytes.len() != sent.len {
                             tally.wrong_length += 1;
-                        } else if spi.received() != &sent.bytes[..sent.len] {
+                        } else if bytes != &sent.bytes[..sent.len] {
                             tally.wrong_bytes += 1;
                         }
                     }
-                    Err(error) => {
+                    Some(Err(error)) => {
                         defmt::warn!("transfer: {}", error);
+                        tally.faults += 1;
+                    }
+                    None => {
+                        defmt::warn!("woken with no outcome to take");
                         tally.faults += 1;
                     }
                 }
@@ -286,6 +291,26 @@ ferroforge::app! {
         failed += verdict("the bus runs again after an abort [PORT-201]",
             restarted && t.ended == TRANSFERS + 1 && t.completed == TRANSFERS + 1
                 && t.wrong_bytes == 0 && t.selected_at_end == 0);
+
+        // A transfer ends while the firmware's task is held off: a second
+        // start, as a task at a higher priority would make it, is refused,
+        // and the waiting outcome survives it for the task to take.
+        let mut frame = Sent { bytes: [0; FRAME], len: FRAME };
+        for (i, byte) in frame.bytes.iter_mut().enumerate() {
+            *byte = (i as u8) ^ 0x5a;
+        }
+        sent.lock(|sent| *sent = frame);
+        let (first, ended, second) = tally.lock(|_| {
+            let first = spi1.lock(|spi| spi.start(&frame.bytes)).is_ok();
+            cortex_m::asm::delay(5 * MS);
+            // The transfer has ended, so only its waiting outcome can refuse.
+            spi1.lock(|spi| (first, !spi.is_busy(), spi.start(&[0xff; FRAME])))
+        });
+        cortex_m::asm::delay(5 * MS);
+        let t = tally.lock(|t| *t);
+        failed += verdict("a start is refused while the last outcome waits untaken [PORT-203]",
+            first && ended && matches!(second, Err(Error::Busy)) && t.ended == TRANSFERS + 2
+                && t.completed == TRANSFERS + 2 && t.wrong_bytes == 0 && t.faults == 0);
 
         if failed == 0 {
             defmt::info!("all checks passed");

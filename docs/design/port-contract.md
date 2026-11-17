@@ -62,6 +62,14 @@ pub mod uart_port { .. }
   the time with the events, so a reader can judge how old its data is. A wake
   dropped because the reader was still queued leaves the queued wake's earlier
   stamp, so data never looks newer than it is.
+- A port whose transfers end once, the SPI port and the ADC sequence, does not
+  coalesce: the driver keeps each outcome until the firmware's task takes it,
+  and refuses a start until then. Without that, a start made at a higher
+  priority than the task that takes the outcome would overwrite the buffer
+  before it is read, and the next end's wake would find the last one queued
+  and be dropped. The wake carries no data; the outcome is taken from the
+  driver. A task that starts the next transfer itself takes again before it
+  returns, because an end that comes while it still runs cannot wake it.
 - A port may frame its transfers with hardware FerroHAL's driver does not
   hold, such as the SPI port's chip select. The port drives it inside the
   vector that ends a transfer, so the line is held no longer than the

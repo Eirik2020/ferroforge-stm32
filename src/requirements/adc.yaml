@@ -20,3 +20,25 @@ requirements:
           environment: development
           method:
             procedure: requirements/benches.md#ADC sequence on the Nucleo-H753ZI
+
+  - id: PORT-402
+    title: The ADC sequence port starts no sequence over an outcome not yet taken
+    statement: >-
+      The ADC sequence port shall refuse to start a sequence while the last
+      sequence's outcome has not been taken by the firmware's task.
+    rationale: >-
+      A task that starts sequences at a higher priority than the one that
+      takes them would otherwise overwrite samples not yet read, and end a
+      sequence whose wake finds the last one's still queued, losing its
+      outcome without a trace.
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#ADC sequence on the Nucleo-F401RE
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#ADC sequence on the Nucleo-H753ZI

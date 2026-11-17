@@ -2,21 +2,26 @@
 //! converting a fixed list of channels over a DMA stream, served from that
 //! stream's vector.
 //!
-//! The scan has one owner, a shared resource. The firmware's own task starts
-//! each sequence under the lock, at whatever rate its source needs, and the
-//! group's member serves the stream's vector, which ends it. The member hands
-//! the outcome to the firmware's task through the `done` call, and that task
-//! reads the samples, in channel order, with `AdcScan::samples`.
+//! The scan has one owner, a shared [`Scan`](adc_scan::Scan). The firmware's
+//! own task starts each sequence under the lock, at whatever rate its source
+//! needs, and the group's member serves the stream's vector, which ends it.
+//! The scan keeps the outcome, and the member wakes the firmware's task
+//! through the `done` call; that task takes the outcome, and the samples in
+//! channel order with it, with [`Scan::take`](adc_scan::Scan::take).
 //!
 //! What the samples mean, a divider's ratio or a sensor's scale, is the
-//! firmware's: this port converts and nothing else. A sequence ends once, so
-//! `done` is not coalesced: the driver refuses a second start while one runs.
+//! firmware's: this port converts and nothing else. The scan refuses a start
+//! while a sequence runs, and also while the last one's outcome waits to be
+//! taken, so a task that starts sequences at a higher priority than the one
+//! that takes them cannot overwrite samples not yet read, or end a sequence
+//! whose `done` would find the last one still queued. At most one outcome is
+//! in flight, so `done` is never coalesced.
 //!
 //! The channels are the board's configuration, named with FerroHAL's
 //! `Channel::of(&pin)` for an analog pin, or `Channel::temperature()` and
 //! `Channel::vrefint()` for the internal pair, before the converter opens.
 //!
-//! Requirements: PORT-001, PORT-002, PORT-401
+//! Requirements: PORT-001, PORT-002, PORT-401, PORT-402
 
 /// The ADC sequence group. A firmware selects it once per converter:
 ///
@@ -30,30 +35,106 @@
 #[ferroforge::group(
     slots = [instance: A, stream: S],
     vectors = [on_adc_dma = stream],
-    shared = [scan: AdcScan<A, S>],
+    shared = [scan: Scan<A, S>],
     buffers = [#[dma] samples: [u16]],
     config = [config: Config @ board, channels: [Channel<A>] @ board],
     constructor = new(rcc, instance, stream, config, channels, samples),
 )]
 pub mod adc_scan {
     use ferrohal_stm32::{
-        adc::{Adc, Dma, Instance},
+        adc::{Adc, AdcScan, Dma, Instance},
         rcc::Rcc,
+        resource::Vectors,
     };
 
     pub use ferrohal_stm32::{
         Service,
-        adc::{AdcScan, Channel, Config, ConfigError, Error},
+        adc::{Channel, Config, ConfigError, Error},
     };
 
     /// What one service of the stream found: `None` when nothing ended, else
     /// whether the sequence completed.
     pub type Event = Option<Result<(), Error>>;
 
+    /// One ADC sequence: FerroHAL's scan, and the last sequence's outcome
+    /// until the firmware's task takes it.
+    pub struct Scan<A, S> {
+        scan: AdcScan<A, S>,
+        outcome: Option<Result<(), Error>>,
+    }
+
+    impl<A: Instance, S> Scan<A, S> {
+        /// Converts the sequence once; returns at once. Refused with
+        /// `Error::Busy` while a sequence runs or the last one's outcome has
+        /// not been taken.
+        pub fn start(&mut self) -> Result<(), Error> {
+            if self.outcome.is_some() {
+                return Err(Error::Busy);
+            }
+            self.scan.start()
+        }
+
+        /// Takes the last sequence's outcome: its samples, in channel order,
+        /// or why it failed. `None` when there is none to take. Taking it lets
+        /// the next sequence start; the samples stay readable only until then.
+        ///
+        /// A `done` task that starts the next sequence itself takes again
+        /// before it returns: a sequence that ends while that task still runs
+        /// cannot wake it, and its outcome waits here, refusing further
+        /// starts, until it is taken.
+        pub fn take(&mut self) -> Option<Result<&[u16], Error>> {
+            match self.outcome.take()? {
+                Ok(()) => Some(Ok(self.scan.samples())),
+                Err(error) => Some(Err(error)),
+            }
+        }
+
+        /// Whether a sequence is running.
+        pub const fn is_busy(&self) -> bool {
+            self.scan.is_busy()
+        }
+
+        /// Stops a sequence that never finished, and drops an outcome not yet
+        /// taken: the firmware watchdog's recovery.
+        pub fn abort(&mut self) {
+            self.scan.abort();
+            self.outcome = None;
+        }
+
+        /// The largest sample: the full scale.
+        pub const fn max_sample(&self) -> u16 {
+            self.scan.max_sample()
+        }
+
+        /// The vector the group's member must be bound to.
+        pub fn vectors(&self) -> Vectors {
+            self.scan.vectors()
+        }
+
+        /// FerroHAL's scan, back.
+        pub fn free(self) -> AdcScan<A, S> {
+            self.scan
+        }
+    }
+
+    impl<A: Instance, S> Service for Scan<A, S> {
+        type Event = Event;
+
+        /// Serves the scan, and keeps the outcome of a sequence that ends for
+        /// [`take`](Scan::take).
+        fn on_interrupt(&mut self) -> Event {
+            let event = self.scan.on_interrupt();
+            if event.is_some() {
+                self.outcome = event;
+            }
+            event
+        }
+    }
+
     /// What [`new`] builds: the port's one resource.
     pub struct Resources<A, S> {
         /// The firmware's shared resource, bound as the group's `scan`.
-        pub scan: AdcScan<A, S>,
+        pub scan: Scan<A, S>,
     }
 
     /// Why [`new`] refused, with everything it took handed back: the ADC
@@ -93,7 +174,12 @@ pub mod adc_scan {
             }
         };
         match adc.into_scan(stream, channels, samples) {
-            Ok(scan) => Ok(Resources { scan }),
+            Ok(scan) => Ok(Resources {
+                scan: Scan {
+                    scan,
+                    outcome: None,
+                },
+            }),
             Err(refused) => {
                 let (error, (adc, stream, samples)) = refused.into_inner();
                 Err(Refusal {
@@ -106,15 +192,18 @@ pub mod adc_scan {
         }
     }
 
-    /// The stream's vector: a sequence's end, or a DMA error.
+    /// The stream's vector: a sequence's end, or a DMA error. The scan keeps
+    /// the outcome before the firmware's task is woken to take it.
     #[ferroforge::task(
         shared = [scan],
         bounds = [scan: Service<Event = Event>],
-        spawn = [done(result: Result<(), Error>)],
+        spawn = [done()],
     )]
     pub fn on_adc_dma(mut cx: on_adc_dma::Context) {
-        if let Some(result) = cx.shared.scan.lock(|scan| scan.on_interrupt()) {
-            let _: Result<(), Result<(), Error>> = cx.spawn.done(result);
+        if cx.shared.scan.lock(|scan| scan.on_interrupt()).is_some() {
+            // The scan refuses a start until the outcome is taken, so the last
+            // `done` has run and this one cannot find it queued.
+            let _: Result<(), ()> = cx.spawn.done();
         }
     }
 }

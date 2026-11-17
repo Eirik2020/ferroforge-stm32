@@ -42,3 +42,25 @@ requirements:
           environment: development
           method:
             procedure: requirements/benches.md#SPI port on the Nucleo-H753ZI
+
+  - id: PORT-203
+    title: The SPI port starts no transfer over an outcome not yet taken
+    statement: >-
+      The SPI port shall refuse to start a transfer while the last transfer's
+      outcome has not been taken by the firmware's task.
+    rationale: >-
+      A task that starts transfers at a higher priority than the one that
+      takes them would otherwise overwrite bytes not yet read, and end a
+      transfer whose wake finds the last one's still queued, losing its
+      outcome without a trace.
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#SPI port on the Nucleo-F401RE
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#SPI port on the Nucleo-H753ZI
