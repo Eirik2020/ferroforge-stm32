@@ -13,9 +13,11 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
+mod spi;
 mod uart;
 mod uart_rx;
 
+pub use spi::spi_port;
 pub use uart::uart_port;
 pub use uart_rx::uart_rx_port;
 

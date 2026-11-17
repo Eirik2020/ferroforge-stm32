@@ -1,0 +1,44 @@
+schema_version: 2
+requirements:
+  - id: PORT-201
+    title: The SPI port ends each transfer from its vector and wakes the firmware
+    statement: >-
+      The SPI port's vector member shall serve the SPI and pass the outcome of
+      each transfer that ends, its length or its fault, to the firmware's task.
+    rationale: >-
+      FerroHAL's SPI ends a transfer when its receive stream completes; serving
+      that one vector is all a firmware needs to run transfers without polling,
+      under the scheduler's lock, as FerroHAL's single-owner model expects.
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#SPI port on the Nucleo-F401RE
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#SPI port on the Nucleo-H753ZI
+
+  - id: PORT-202
+    title: The SPI port selects its device only while a transfer runs
+    statement: >-
+      The SPI port shall drive its chip select active when a transfer starts,
+      and inactive when that transfer is aborted or when the vector that ends
+      it is served.
+    rationale: >-
+      Chip select frames a transfer on the wire. Releasing it inside the
+      vector, rather than in the firmware's later task, holds the device
+      selected only for the transfer, at any task priority.
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#SPI port on the Nucleo-F401RE
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#SPI port on the Nucleo-H753ZI

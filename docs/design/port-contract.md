@@ -35,11 +35,12 @@ pub mod uart_port { .. }
   fixes it, not the port; a tool writes it as a zeroed array in
   `init(local = [..])`. A buffer a DMA stream reads or writes is `#[dma]`.
 - **Config** fields are the constructor's other inputs, each with the input
-  layer that supplies it: a UART's frame from the platform.
+  layer that supplies it: a UART's frame from the platform, an SPI bus's clock
+  and mode from the board's device.
 - **Constructor** builds the resources. It is generic over the slots, and its
   arguments are listed in order: `rcc`, `wiring` (FerroHAL's wiring of the
-  slots), a slot FerroHAL's wiring does not hold, the buffers and the config
-  fields. It returns a struct with one public field
+  slots), a slot FerroHAL's wiring does not hold (the SPI port's chip select),
+  the buffers and the config fields. It returns a struct with one public field
   per resource, of the same name, or the driver's refusal.
 
 ## Rules for a port group
@@ -61,6 +62,13 @@ pub mod uart_port { .. }
   the time with the events, so a reader can judge how old its data is. A wake
   dropped because the reader was still queued leaves the queued wake's earlier
   stamp, so data never looks newer than it is.
+- A port may frame its transfers with hardware FerroHAL's driver does not
+  hold, such as the SPI port's chip select. The port drives it inside the
+  vector that ends a transfer, so the line is held no longer than the
+  transfer at any priority of the firmware's task.
+- Member names are unique in this crate: FerroForge exports each task's
+  callback at the crate's root, so two `on_rx_dma` would collide. A member is
+  named for its port, `on_spi_rx_dma`.
 - A port carries no protocol. Protocols are not hardware: a decoder or encoder
   lives in the application or a protocol crate, as a task behind the port's
   `events` call, never in a port group.
