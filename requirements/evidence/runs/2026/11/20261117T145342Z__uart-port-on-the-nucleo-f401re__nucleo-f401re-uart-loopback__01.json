@@ -1,0 +1,124 @@
+{
+  "schema_version": 5,
+  "run_id": "20261117T145342Z__uart-port-on-the-nucleo-f401re__nucleo-f401re-uart-loopback__01",
+  "recorded_at_utc": "2026-11-17T14:53:42Z",
+  "board": "nucleo-f401re-uart-loopback",
+  "tier": "HIL",
+  "revision": "ae5a0870621c8ce0937815bc6ce182dede45f5a8",
+  "working_tree": "clean",
+  "configuration": {
+    "board": "nucleo-f401re-uart-loopback",
+    "features": [],
+    "files": {
+      "hil/nucleo-f401re-uart-loopback/.cargo/config.toml": "2fb6c8648a6ca90449e9b35fb962adec336a248a30bd53ae7fa67fcbb13ab0fd",
+      "hil/nucleo-f401re-uart-loopback/Cargo.toml": "49fa89b8257756002db0bef58f8c534566a5633af0a6640eb14521651fa426a3",
+      "hil/nucleo-f401re-uart-loopback/src/main.rs": "a7b9a35f171876350d9fca9d2e4c2f66f3b9d6b77117cfc5969b92f1cf1a2e60",
+      "src/lib.rs": "fa4d014e692a2a7e56e5f0ecd0f0fc1801a00f1d4ddfa2e3c719d4ea9dd8ec88",
+      "src/uart.rs": "bbb115f856cc4925e4bfa27cdd5214860b1aecb62c35741f86f30c0fc3793ba4"
+    },
+    "externals": {
+      "bare-metal": "0.2.5",
+      "bitfield": "0.13.2",
+      "bitflags": "1.3.2",
+      "cortex-m": "0.7.10",
+      "cortex-m-macros": "0.7.8",
+      "cortex-m-rt": "0.7.7",
+      "cortex-m-rt-macros": "0.7.7",
+      "cortex-m-semihosting": "0.5.0",
+      "critical-section": "1.2.0",
+      "defmt": "0.3.101, 1.2.0",
+      "defmt-macros": "1.2.0",
+      "defmt-parser": "1.1.0",
+      "defmt-rtt": "1.3.1",
+      "embedded-hal": "0.2.7, 1.0.0",
+      "embedded-io": "0.7.1",
+      "equivalent": "1.0.3",
+      "ferroforge": "0.4.0+96da6f1b74e1b2e8d8e67405db0179dba85f90cd",
+      "ferroforge-contracts": "0.4.0+96da6f1b74e1b2e8d8e67405db0179dba85f90cd",
+      "ferroforge-macros": "0.4.0+96da6f1b74e1b2e8d8e67405db0179dba85f90cd",
+      "ferrohal-stm32": "0.1.0+d9ddc472eae17a335dd6fdd217af3c4dc4050d1b",
+      "hashbrown": "0.17.1",
+      "indexmap": "2.14.2",
+      "nb": "0.1.3, 1.1.0",
+      "panic-probe": "1.0.0",
+      "portable-atomic": "1.15.0",
+      "proc-macro2": "1.0.107",
+      "quote": "1.0.47",
+      "rtic": "2.4.0",
+      "rtic-core": "1.0.0",
+      "rtic-macros": "2.4.0",
+      "rustc_version": "0.2.3",
+      "semver": "0.9.0",
+      "semver-parser": "0.7.0",
+      "stm32-metapac": "21.0.0",
+      "syn": "2.0.119, 3.0.10",
+      "thiserror": "2.0.21",
+      "thiserror-impl": "2.0.21",
+      "unicode-ident": "1.0.27",
+      "vcell": "0.1.3",
+      "void": "1.0.2",
+      "volatile-register": "0.2.2"
+    },
+    "environment": {
+      "DEFMT_LOG": "info"
+    }
+  },
+  "results": [
+    {
+      "requirement": "PORT-003",
+      "method": {
+        "procedure": "requirements/benches.md#UART port on the Nucleo-F401RE"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "397653f481d6be118040c39ac2d998e4d59ab5aa7d4e82feff2a84334f507fda",
+      "result": "pass"
+    }
+  ],
+  "note": null,
+  "supersedes": [],
+  "ruling": null,
+  "details": {
+    "execution": {
+      "performed_by": "agent",
+      "user_confirmed": false
+    },
+    "conditions": {
+      "actuators": "none on this bench",
+      "image": "release profile, thumbv7em-none-eabihf, no extra features; firmware hash not captured",
+      "links": "FerroHAL's F401 links J1 (PA9-PA10) and J2 (PA11-PA12) fitted",
+      "equipment": [
+        "Nucleo-F401RE (MB1136) through its ST-LINK",
+        "probe-rs"
+      ],
+      "environment": [
+        "development bench"
+      ]
+    },
+    "commands": [
+      {
+        "command": "hil/run-f401.sh",
+        "exit_code": 0
+      }
+    ],
+    "measurements": {
+      "checks_failed": 0,
+      "checks_passed": 8,
+      "clocks": "sysclk 84 MHz, pclk1 42 MHz, pclk2 84 MHz",
+      "exit": 0,
+      "usart1": "4096 bytes read, 0 wrong, 0 gaps, 193 wakes, 161 with frames sent",
+      "usart6": "4096 bytes read, 0 wrong, 0 gaps, 185 wakes, 153 with frames sent"
+    },
+    "observations": [
+      "Run by an agent on ubuntu-beefcake at the coordinator's board grant.",
+      "Every member's vector was enabled; both ports queued every byte; the group woke the reader on an idle line; the transmit vector reported frames sent; the firmware exited through semihosting with success."
+    ],
+    "limitations": [
+      "Built and run from revision 51fcd9d.",
+      "The run was on 51fcd9d; this record is made at the next commit, which changes only hil/run-f401.sh's summary line, outside the bench crate.",
+      "The RTT log stayed on the rig PC (hil/logs/f401-uart-loopback.log in the runner's clone) and is not attached; the figures above are as the runner reported them.",
+      "usart_v2 only; no H7 bench."
+    ]
+  }
+}
