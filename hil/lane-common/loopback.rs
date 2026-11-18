@@ -29,8 +29,11 @@ pub const LAST: u32 = 8;
 pub const REPLY: [u32; 8] = [12, 4, 12, 12, 4, 4, 12, 4];
 /// The longest delay, in periods: 60 us at 600 kHz.
 pub const D_MAX: usize = 36;
-/// Receive samples a period of the send rate.
-pub const RX_PER_PERIOD: u32 = 4;
+/// Receive samples a period of the send rate. The reply's short pulse is a
+/// quarter period, so at 4 a period it lasts one capture and a receive
+/// catches it or not by phase, as the first H753 run showed; at 8 every
+/// pulse spans at least one whole capture.
+pub const RX_PER_PERIOD: u32 = 8;
 /// A receive long enough for the latest reply, and some.
 pub const RX_COUNT: usize = RX_PER_PERIOD as usize * (D_MAX + REPLY.len() + 6);
 /// Exchanges at each delay.
@@ -198,21 +201,58 @@ pub fn gap_ns(d: usize, rate: Hertz) -> u32 {
     (rest + period_ns * d as u64) as u32
 }
 
-/// Whether `samples` hold the whole reply on `pin`: exactly its eight
-/// samples, each within one capture and a sixteenth of a period. A reply
-/// that began before the first capture is skipped by `recover`, so it reads
-/// as seven.
+/// Whether `samples` hold the whole reply on `pin`: exactly its eight low
+/// pulses, each as long as its sample within a capture and a half. A reply
+/// that began before the first capture has a short first pulse, so it is
+/// not whole.
 pub fn whole(samples: &[u16], pin: u8, rx: Hertz, rate: Hertz, period: u32) -> bool {
-    let per16 = (u64::from(rx.0) * 16 / u64::from(rate.0.max(1))) as u32;
-    let mut out = [0u32; REPLY.len() + 4];
-    let found = recover(samples, pin, true, per16, period, &mut out);
-    if found != REPLY.len() || per16 == 0 {
-        return false;
+    let mut want = [0u32; REPLY.len()];
+    for (w, r) in want.iter_mut().zip(REPLY) {
+        *w = period * r / 16;
     }
-    let tolerance = period * 16 / per16 + period / 16;
-    out.iter()
-        .zip(REPLY)
-        .all(|(got, want)| got.abs_diff(period * want / 16) <= tolerance)
+    widths_match(samples, pin, rx, rate, period, &want)
+}
+
+/// Whether the low pulses on `pin` are exactly `want`, one pulse a sample,
+/// each pulse's width within a capture and a half of its sample's. Each
+/// pulse is measured on its own, so a capture rate a little off the one
+/// asked for costs a fraction of a capture a pulse, never a drift that
+/// grows along the frame as `recover`'s windows do. Every sample in `want`
+/// has to be between 0 and a whole period, exclusive, so that each is one
+/// pulse.
+pub fn widths_match(
+    samples: &[u16],
+    pin: u8,
+    captures: Hertz,
+    rate: Hertz,
+    period: u32,
+    want: &[u32],
+) -> bool {
+    let Some(mask) = 1u16.checked_shl(u32::from(pin)) else {
+        return false;
+    };
+    // A width in captures, against a sample in counts: width / (captures /
+    // rate) periods against sample / period periods.
+    let scale = u64::from(period) * u64::from(rate.0);
+    let per = u64::from(captures.0);
+    let tolerance = scale * 3 / 2;
+    let mut next = want.iter();
+    let mut begun = None;
+    for (i, s) in samples.iter().enumerate() {
+        match (s & mask == 0, begun) {
+            (true, None) => begun = Some(i),
+            (false, Some(b)) => {
+                begun = None;
+                let Some(&w) = next.next() else { return false };
+                let got = (i - b) as u64 * scale;
+                if got.abs_diff(u64::from(w) * per) > tolerance {
+                    return false;
+                }
+            }
+            _ => {}
+        }
+    }
+    begun.is_none() && next.next().is_none()
 }
 
 /// Prints what a lane's receive read on `pin`, for the margin sweep's
@@ -603,16 +643,8 @@ pub fn run<P: Port, R: Responder, W: Witness>(
         );
         let wr = witness.rate();
         if sampled && let Some(samples) = witness.wait() {
-            let per16 = (u64::from(wr.0) * 16 / u64::from(rate.0.max(1))) as u32;
-            let mut out = [0u32; LONG + 4];
             let pin = board.witnessed.first().copied().flatten().unwrap_or(0);
-            let found = recover(samples, pin, true, per16, period, &mut out);
-            let tolerance = period * 16 / per16.max(1) + period / 16;
-            let right = found == LONG
-                && out
-                    .iter()
-                    .zip(long.iter())
-                    .all(|(g, w)| g.abs_diff(*w) <= tolerance);
+            let right = widths_match(samples, pin, wr, rate, period, &long);
             failed += verdict(
                 "the 500-sample frame reads back whole on the wire [lane prototype]",
                 right,
