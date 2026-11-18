@@ -137,6 +137,10 @@ pub struct Reply {
 }
 
 impl Responder for Reply {
+    fn period(&self) -> u32 {
+        self.pwm.period()
+    }
+
     fn arm(&mut self, wave: &[u32]) -> bool {
         self.pwm.stop();
         if self.lane.arm(&self.pwm, wave).is_err() {

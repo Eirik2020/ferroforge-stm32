@@ -48,7 +48,9 @@ pub const LONG_RX: usize = 1024;
 pub const RESPONDER_BUFFER: usize = FRAME + D_MAX + REPLY.len() + 2;
 /// Witness captures a period of the send rate.
 pub const WITNESS_PER_PERIOD: u32 = 8;
-pub const WITNESS_BUFFER: usize = WITNESS_PER_PERIOD as usize * (LONG + 60);
+/// Enough for the longest frame and the lead from its submit to its play,
+/// which on the F407 with four lanes in F is over 80 us.
+pub const WITNESS_BUFFER: usize = WITNESS_PER_PERIOD as usize * (LONG + 120);
 
 /// How an exchange ended, as the bench sees it.
 #[derive(Clone, Copy, PartialEq, Eq, defmt::Format)]
@@ -123,6 +125,11 @@ pub trait Port {
 pub trait Responder {
     /// Arms `wave` to start with the lane timer.
     fn arm(&mut self, wave: &[u32]) -> bool;
+    /// The responder timer's period in its own counts. It plays at the
+    /// lanes' rate, but its timer may count a different clock (on the F407,
+    /// TIM3 counts APB1's 84 MHz against TIM1's 168 MHz), so its waveform is
+    /// built in these counts, not the lanes'.
+    fn period(&self) -> u32;
     /// Waits for the waveform to end and stops the timer; whether it ended.
     fn finish(&mut self) -> bool;
     /// Stops it wherever it is, line inactive.
@@ -468,7 +475,7 @@ pub fn run<P: Port, R: Responder, W: Witness>(
         for index in 0..EXCHANGES {
             frames_of(index, lanes, period, &mut store);
             let refs: [&[u32]; 8] = core::array::from_fn(|l| &store[l][..]);
-            if !responder.arm(responder_wave(d, period, &mut wave)) {
+            if !responder.arm(responder_wave(d, responder.period(), &mut wave)) {
                 bad_outcome += 1;
                 continue;
             }
@@ -642,7 +649,7 @@ pub fn run<P: Port, R: Responder, W: Witness>(
         "1000 send-only exchanges, each sent once [lane prototype]",
         send_cycle.count == EXCHANGES,
     );
-    if witness.start(WITNESS_PER_PERIOD as usize * (2 * FRAME + 60)) {
+    if witness.start(WITNESS_PER_PERIOD as usize * (2 * FRAME + 120)) {
         frames_of(1, lanes, period, &mut store);
         let first: [&[u32]; 8] = core::array::from_fn(|l| &store[l][..]);
         let wr = witness.rate();
@@ -680,7 +687,7 @@ pub fn run<P: Port, R: Responder, W: Witness>(
         }
         let mut refs: [&[u32]; 8] = [&[]; 8];
         refs[0] = &long;
-        let sampled = witness.start(WITNESS_PER_PERIOD as usize * (LONG + 40));
+        let sampled = witness.start(WITNESS_PER_PERIOD as usize * (LONG + 120));
         let mut took = Took::default();
         let outcome = exchange(port, now, per_us, &refs[..1], None, &mut |_, t, _| {
             took = *t
@@ -793,7 +800,7 @@ pub fn run<P: Port, R: Responder, W: Witness>(
             frames_of(7, lanes, period, &mut store);
             let next: [&[u32]; 8] = core::array::from_fn(|l| &store[l][..]);
             let mut ok = false;
-            let armed = responder.arm(responder_wave(D_MAX, period, &mut wave));
+            let armed = responder.arm(responder_wave(D_MAX, responder.period(), &mut wave));
             let _ = exchange(
                 port,
                 now,
