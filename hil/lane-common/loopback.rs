@@ -505,8 +505,11 @@ pub fn run<P: Port, R: Responder, W: Witness>(
                             p[FRAME.min(shown)..shown]
                         );
                     }
-                    if n >= FRAME + 1 {
-                        let captures = p[FRAME].0.saturating_sub(p[FRAME - 1].1);
+                    // The reply is the last eight pulses: anything between
+                    // the frame and the reply (a turn-around glitch) is not
+                    // the reply's first edge.
+                    if n >= FRAME + REPLY.len() && n <= p.len() {
+                        let captures = p[n - REPLY.len()].0.saturating_sub(p[FRAME - 1].1);
                         wire_gaps[d] = (u64::from(captures) * 1_000_000_000
                             / u64::from(witness.rate().0.max(1)))
                             as u32;
@@ -683,7 +686,6 @@ pub fn run<P: Port, R: Responder, W: Witness>(
         refs[0] = &long;
         let mut results = [None; 2];
         for (which, receive) in [(0usize, None), (1, Some((rx, LONG_RX)))] {
-            let sampled = witness.start(WITNESS_PER_PERIOD as usize * 40);
             if !port.submit(&refs[..1], receive) {
                 continue;
             }
@@ -697,11 +699,14 @@ pub fn run<P: Port, R: Responder, W: Witness>(
                 port.poll(&mut |o, _, _| got = Some(o))
             });
             results[which] = got;
+            // The witness watches the 40 periods after the cancel came back,
+            // so the line it judges is the one the cancel left.
+            let sampled = witness.start(WITNESS_PER_PERIOD as usize * 40);
             if sampled
                 && let Some(samples) = witness.wait()
                 && let Some(Some(pin)) = board.witnessed.first().copied()
             {
-                let tail = &samples[samples.len().saturating_sub(64)..];
+                let tail = samples;
                 failed += verdict(
                     if which == 0 {
                         "after a cancel mid-frame, lane 0's line is idle [lane prototype]"
