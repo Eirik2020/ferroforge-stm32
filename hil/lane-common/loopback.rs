@@ -576,6 +576,38 @@ pub fn run<P: Port, R: Responder, W: Witness>(
         idle_faults == 0,
     );
     failed += verdict("every exchange came back [lane prototype]", lost == 0);
+
+    // Finding 4, the short low pulse after the frame: the same exchange with
+    // a receive, but the responder never armed. A pulse that stays is the
+    // lane's own, from its switch to listening; one that goes was the
+    // responder's.
+    if witness.start(WITNESS_PER_PERIOD as usize * (FRAME + D_MAX + 40)) {
+        frames_of(0, lanes, period, &mut store);
+        let refs: [&[u32]; 8] = core::array::from_fn(|l| &store[l][..]);
+        let outcome = exchange(
+            port,
+            now,
+            per_us,
+            &refs[..lanes],
+            Some((rx, RX_COUNT)),
+            &mut |_, _, _| {},
+        );
+        if let Some(samples) = witness.wait()
+            && let Some(Some(pin)) = board.witnessed.first().copied()
+        {
+            let mut p = [(0u32, 0u32); FRAME + REPLY.len() + 4];
+            let n = pulses(samples, pin, &mut p);
+            let shown = n.min(p.len());
+            defmt::info!(
+                "responder unarmed, {}: {} low pulses on pin {} (the frame has {}); after the frame: {}",
+                outcome,
+                n,
+                pin,
+                FRAME,
+                p[FRAME.min(shown)..shown]
+            );
+        }
+    }
     span_us("turn-around in code", &first_block.turn, per_us);
     span_us("listen alone", &first_block.listen, per_us);
     span_us("load and play", &first_block.start, per_us);
