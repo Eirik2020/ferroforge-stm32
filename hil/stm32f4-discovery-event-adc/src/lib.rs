@@ -71,6 +71,11 @@ pub const MS: u32 = 168_000;
 /// The APB1 timers' clock, which TIM4 and TIM5 count.
 pub const TIMER_HZ: u32 = 84_000_000;
 
+/// VDDA as the internal-pair check accepts it, in millivolts. The board feeds
+/// VDD from its 3V rail (UM1472 Rev 9 section 7.4, through SB17 or JP1: section 7.10, table
+/// 6), so the band is 3 V less and more 10 %, the bench's own tolerance.
+pub const VDDA_MV: core::ops::RangeInclusive<u32> = 2_700..=3_300;
+
 /// The tick's rate for this image.
 pub const TICK_HZ: u32 = tick_hz(option_env!("TICK_HZ"));
 pub const TICK: Hertz = Hertz(TICK_HZ);

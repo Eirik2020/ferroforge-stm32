@@ -36,6 +36,42 @@ pub fn ns(cycles: u32) -> u32 {
     (u64::from(cycles) * 1_000 / u64::from(crate::PER_US)) as u32
 }
 
+/// Set by [`check_link`] when a bench link fails to carry a level.
+static LINK_FAILED: AtomicBool = AtomicBool::new(false);
+
+/// Drives a bench link's far end high, then low, and reads its near end as a
+/// digital input each time, before the image's checks. A missing or
+/// misplaced wire then reads as a failed link, not as the port failing.
+pub fn check_link<D, S>(name: &str, drive: &mut D, sense: &mut S)
+where
+    D: embedded_hal::digital::OutputPin,
+    S: embedded_hal::digital::InputPin,
+{
+    let _ = drive.set_high();
+    wait(10 * crate::PER_US);
+    let high = sense.is_high().unwrap_or(false);
+    let _ = drive.set_low();
+    wait(10 * crate::PER_US);
+    let low = sense.is_low().unwrap_or(false);
+    defmt::info!(
+        "link {}: far end high read high {}, far end low read low {}",
+        name,
+        high,
+        low
+    );
+    if !(high && low) {
+        LINK_FAILED.store(true, Relaxed);
+    }
+}
+
+/// The verdict on every [`check_link`] this image made.
+pub fn link_verdict() -> u32 {
+    verdict(
+        "the bench link carries both levels",
+        !LINK_FAILED.load(Relaxed),
+    )
+}
+
 /// Prints the check's verdict; 1 for a failure, to count them.
 pub fn verdict(name: &str, pass: bool) -> u32 {
     if pass {

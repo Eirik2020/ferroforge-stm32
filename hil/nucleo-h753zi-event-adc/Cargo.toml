@@ -25,6 +25,7 @@ ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "a3e8c0b02
 ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "ceaedbf97e6d059e168fd3eaecddf5fe39f7b7a9", features = ["stm32h753zi", "rt", "rtic", "defmt"] }
 
 cortex-m = { version = "0.7.7", features = ["critical-section-single-core"] }
+embedded-hal = "=1.0.0"
 cortex-m-rt = "0.7.6"
 cortex-m-semihosting = "0.5.0"
 rtic = { version = "2.4.0", features = ["thumbv7-backend"] }

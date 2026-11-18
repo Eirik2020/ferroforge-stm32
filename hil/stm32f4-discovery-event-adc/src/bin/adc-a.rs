@@ -67,7 +67,9 @@ ferroforge::app! {
         let dma2 = p.DMA2.split(&mut rcc);
         let mut drive = gpioa.p2.into_push_pull_output(&mut gpioa.ctrl);
         drive.set_low();
-        let analog = gpioa.p3.into_analog(&mut gpioa.ctrl);
+        let mut sense = gpioa.p3.into_input(&mut gpioa.ctrl);
+        bench::check_link("A1 PA2 to PA3", &mut drive, &mut sense);
+        let analog = sense.into_analog(&mut gpioa.ctrl);
         let channels: [Channel<ADC1>; CHANNELS] =
             [Channel::of(&analog), Channel::vrefint(), Channel::temperature()];
         let adc1 = adc_scan::new(
@@ -119,7 +121,7 @@ ferroforge::app! {
     async fn checks(cx: checks::Context) {
         let checks::SharedResources { mut adc1, mut log, .. } = cx.shared;
         let drive = cx.local.drive;
-        let mut failed = 0u32;
+        let mut failed = bench::link_verdict();
         failed += verdict("A: the member's vector is enabled", adc1.lock(|scan| scan.vectors().verify()).is_ok());
 
         // The existing bench's checks, with the start's cost.
@@ -148,7 +150,13 @@ ferroforge::app! {
             wrong_rail += u32::from(!if high { pin * 100 >= full * 97 } else { pin * 100 <= full * 3 });
             let vdda = adc::vdda_from_vrefint(vrefint).unwrap_or(0);
             let die = adc::temperature_from_samples(temperature, vdda).unwrap_or(i32::MIN);
-            wrong_internal += u32::from(!(3_000..=3_600).contains(&vdda) || !(0..=850).contains(&die));
+            wrong_internal += u32::from(!bench::VDDA_MV.contains(&vdda) || !(0..=850).contains(&die));
+            if index < 2 {
+                defmt::info!(
+                    "A: raw, drive high {}: pin {} of {}, VREFINT {}, temperature {}; VDDA {} mV, die {} dC",
+                    high, pin, full, vrefint, temperature, vdda, die
+                );
+            }
         }
         let seen = log.lock(|log| *log);
         defmt::info!(

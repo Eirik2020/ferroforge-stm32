@@ -79,7 +79,9 @@ ferroforge::app! {
         let dma2 = p.DMA2.split(&mut rcc);
         let mut drive = gpioa.p2.into_push_pull_output(&mut gpioa.ctrl);
         drive.set_low();
-        let analog = gpioa.p3.into_analog(&mut gpioa.ctrl);
+        let mut sense = gpioa.p3.into_input(&mut gpioa.ctrl);
+        bench::check_link("A1 PA2 to PA3", &mut drive, &mut sense);
+        let analog = sense.into_analog(&mut gpioa.ctrl);
         // The driven pin, VREFINT and temperature, then the pin again.
         let mut channels = [Channel::of(&analog); CHANNELS];
         channels[1] = Channel::vrefint();
@@ -126,7 +128,7 @@ ferroforge::app! {
         let mut log = cx.shared.log;
         let drive = cx.local.drive;
         let kick = *cx.local.kick;
-        let mut failed = 0u32;
+        let mut failed = bench::link_verdict();
         let full = u32::from(*cx.local.full);
         defmt::info!("P: a sequence moves {} bytes by value", core::mem::size_of::<Sequence>());
 
@@ -152,7 +154,13 @@ ferroforge::app! {
             }
             let vdda = adc::vdda_from_vrefint(samples[1]).unwrap_or(0);
             let die = adc::temperature_from_samples(samples[2], vdda).unwrap_or(i32::MIN);
-            wrong_internal += u32::from(!(3_000..=3_600).contains(&vdda) || !(0..=850).contains(&die));
+            wrong_internal += u32::from(!bench::VDDA_MV.contains(&vdda) || !(0..=850).contains(&die));
+            if index < 2 {
+                defmt::info!(
+                    "P: raw, drive high {}: pin {} of {}, VREFINT {}, temperature {}; VDDA {} mV, die {} dC",
+                    high, samples[0], full, samples[1], samples[2], vdda, die
+                );
+            }
         }
         let seen = log.lock(|log| *log);
         defmt::info!(

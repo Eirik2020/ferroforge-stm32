@@ -454,6 +454,7 @@ dependencies = [
  "cortex-m-semihosting",
  "defmt 1.2.0",
  "defmt-rtt",
+ "embedded-hal 1.0.0",
  "ferroforge",
  "ferroforge-stm32",
  "ferrohal-stm32",

@@ -82,6 +82,7 @@ ferroforge::app! {
         drive.set_low();
         let mut sense = gpiod.p6.into_input(ctrl);
         sense.set_pull(ctrl, Pull::Down);
+        bench::check_link("Z1 PD5 to PD6", &mut drive, &mut sense);
         let mut exti_ctrl = exti.ctrl;
         let routed = exti.l6.route::<'D'>(&mut exti_ctrl, Edge::Rising);
         let line6 = exti_line::new(routed);
@@ -119,7 +120,7 @@ ferroforge::app! {
         let mut log = cx.shared.log;
         let drive = cx.local.drive;
         let probe_line = *cx.local.probe;
-        let mut failed = 0u32;
+        let mut failed = bench::link_verdict();
 
         failed += verdict("E: the member's vector is enabled", probe_line.vectors().verify().is_ok());
         stamp_quality();
