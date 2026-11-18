@@ -113,8 +113,12 @@ pub mod adc_scan {
         spawn = [done(result: Result<(), Error>)],
     )]
     pub fn on_adc_dma(mut cx: on_adc_dma::Context) {
+        // PROTOTYPE (ADC port): the bench's marks; nothing without
+        // `prototype-timing`.
+        let entered = crate::probe::cycles();
         if let Some(result) = cx.shared.scan.lock(|scan| scan.on_interrupt()) {
             let _: Result<(), Result<(), Error>> = cx.spawn.done(result);
+            crate::probe::SCAN.served(entered);
         }
     }
 }

@@ -30,6 +30,10 @@ rtic = { version = "=2.4.0", default-features = false, features = ["thumbv7-back
 # instant, as every FerroForge task taking `monotonic = Mono` is.
 rtic-monotonics = { version = "=2.2.1", default-features = false }
 fugit = { version = "=0.3.9", default-features = false }
+# PROTOTYPE (event and ADC ports): the cycle counter the benches' marks read,
+# and the format they print them in; only with `prototype-timing`.
+cortex-m = { version = "=0.7.10", optional = true }
+defmt = { version = "=1.2.0", optional = true }
 
 [features]
 default = []
@@ -45,6 +49,9 @@ stm32h753zi = ["ferrohal-stm32/stm32h753zi"]
 # PROTOTYPE (SPI ports): compiles out the bench's chip-select readback at each
 # transfer's end, so the port's longest run is measured without it.
 prototype-quiet = []
+# PROTOTYPE (event and ADC ports): the members' cycle-counter marks
+# (`probe`), which the event and ADC port benches read.
+prototype-timing = ["dep:cortex-m", "dep:defmt"]
 
 [dev-dependencies]
 # PROTOTYPE: rtic-sync's Signal needs a critical section on the host.

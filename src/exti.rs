@@ -82,6 +82,9 @@ pub mod exti_line {
         monotonic = Mono,
     )]
     pub fn on_exti_line(cx: on_exti_line::Context) {
+        // PROTOTYPE (event ports): the bench's marks; nothing without
+        // `prototype-timing`.
+        let entered = crate::probe::cycles();
         let at_us = Mono::now().duration_since_epoch().to_micros();
         let line = *cx.local.line;
         if !line.is_pending() {
@@ -93,6 +96,7 @@ pub mod exti_line {
             Ok(()) => *cx.local.missed = 0,
             Err(_) => *cx.local.missed = missed.saturating_add(1),
         }
+        crate::probe::EXTI.served(entered);
     }
 }
 

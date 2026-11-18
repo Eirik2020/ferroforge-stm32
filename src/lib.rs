@@ -14,23 +14,31 @@
 #![forbid(unsafe_code)]
 
 mod adc;
+// PROTOTYPE (event and ADC ports): the ADC event port P.
+pub mod adc_port;
 mod exti;
 mod lanes;
 pub mod lanes_frame;
+// PROTOTYPE (event and ADC ports): the benches' cycle-counter marks.
+pub mod probe;
 mod spi;
+// PROTOTYPE (event port K): the timer tick.
 pub mod spi_lent;
 pub mod spi_queue;
+mod tick;
 mod uart;
 pub mod uart_lent;
 pub mod uart_queue;
 mod uart_rx;
 
 pub use adc::adc_scan;
+pub use adc_port::adc_event_port;
 pub use exti::exti_line;
 pub use lanes::compare_lanes;
 pub use spi::spi_port;
 pub use spi_lent::spi_lent_port;
 pub use spi_queue::{spi_multi_port, spi_single_port};
+pub use tick::timer_tick;
 pub use uart::uart_port;
 pub use uart_lent::uart_lent_port;
 pub use uart_queue::uart_queue_port;
