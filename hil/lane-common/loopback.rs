@@ -215,6 +215,32 @@ pub fn whole(samples: &[u16], pin: u8, rx: Hertz, rate: Hertz, period: u32) -> b
         .all(|(got, want)| got.abs_diff(period * want / 16) <= tolerance)
 }
 
+/// Prints what a lane's receive read on `pin`, for the margin sweep's
+/// diagnosis: its length, its low pulses, and what `recover` makes of them
+/// against the reply `whole` expects.
+pub fn show_receive(d: usize, samples: &[u16], pin: u8, rx: Hertz, rate: Hertz, period: u32) {
+    let per16 = (u64::from(rx.0) * 16 / u64::from(rate.0.max(1))) as u32;
+    let mut p = [(0u32, 0u32); REPLY.len() + 4];
+    let n = pulses(samples, pin, &mut p);
+    let mut out = [0u32; REPLY.len() + 4];
+    let found = recover(samples, pin, true, per16, period, &mut out);
+    let want: [u32; REPLY.len()] = core::array::from_fn(|i| period * REPLY[i] / 16);
+    defmt::info!(
+        "d {} receive: {} captures at {} Hz, first {=u16:#x}, {} low pulses on pin {}: {}; recover found {} (want {}): {}; want {}",
+        d,
+        samples.len(),
+        rx.0,
+        samples.first().copied().unwrap_or(0),
+        n,
+        pin,
+        p[..n.min(p.len())],
+        found,
+        REPLY.len(),
+        out[..found.min(out.len())],
+        want
+    );
+}
+
 /// Whether every sample has `pin` high: the line idle.
 pub fn idle(samples: &[u16], pin: u8) -> bool {
     !samples.is_empty() && samples.iter().all(|s| s & (1 << pin) != 0)
@@ -402,6 +428,9 @@ pub fn run<P: Port, R: Responder, W: Witness>(
                     took = *t;
                     if o == Outcome::Received {
                         ok = whole(s.lane(0), board.pins[0], rx, rate, period);
+                        if index == 0 && (d == D_MAX || d == D_MAX / 2) {
+                            show_receive(d, s.lane(0), board.pins[0], rx, rate, period);
+                        }
                         for lane in 1..lanes {
                             idle_ok &= idle(s.lane(lane), board.pins[lane]);
                         }
@@ -425,6 +454,17 @@ pub fn run<P: Port, R: Responder, W: Witness>(
                 if let Some(pin) = board.witnessed.first().copied().flatten() {
                     let mut p = [(0u32, 0u32); FRAME + REPLY.len() + 4];
                     let n = pulses(samples, pin, &mut p);
+                    if d == D_MAX || d == D_MAX / 2 {
+                        let shown = n.min(p.len());
+                        defmt::info!(
+                            "d {} witness: {} low pulses on pin {} at {} Hz (begin, end in captures); after the frame: {}",
+                            d,
+                            n,
+                            pin,
+                            witness.rate().0,
+                            p[FRAME.min(shown)..shown]
+                        );
+                    }
                     if n >= FRAME + 1 {
                         let captures = p[FRAME].0.saturating_sub(p[FRAME - 1].1);
                         wire_gaps[d] = (u64::from(captures) * 1_000_000_000
