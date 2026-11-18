@@ -228,31 +228,52 @@ pub fn widths_match(
     period: u32,
     want: &[u32],
 ) -> bool {
+    first_mismatch(samples, pin, captures, rate, period, want).is_none()
+}
+
+/// Where [`widths_match`] fails: the pulse's index, its width in captures
+/// (0 for a pulse missing at the end, `u32::MAX` for one too many or a line
+/// left low) and the sample it was held against; `None` if it matches.
+pub fn first_mismatch(
+    samples: &[u16],
+    pin: u8,
+    captures: Hertz,
+    rate: Hertz,
+    period: u32,
+    want: &[u32],
+) -> Option<(usize, u32, u32)> {
     let Some(mask) = 1u16.checked_shl(u32::from(pin)) else {
-        return false;
+        return Some((0, u32::MAX, 0));
     };
     // A width in captures, against a sample in counts: width / (captures /
     // rate) periods against sample / period periods.
     let scale = u64::from(period) * u64::from(rate.0);
     let per = u64::from(captures.0);
     let tolerance = scale * 3 / 2;
-    let mut next = want.iter();
+    let mut index = 0;
     let mut begun = None;
     for (i, s) in samples.iter().enumerate() {
         match (s & mask == 0, begun) {
             (true, None) => begun = Some(i),
             (false, Some(b)) => {
                 begun = None;
-                let Some(&w) = next.next() else { return false };
-                let got = (i - b) as u64 * scale;
-                if got.abs_diff(u64::from(w) * per) > tolerance {
-                    return false;
+                let Some(&w) = want.get(index) else {
+                    return Some((index, u32::MAX, 0));
+                };
+                let width = (i - b) as u64;
+                if (width * scale).abs_diff(u64::from(w) * per) > tolerance {
+                    return Some((index, width as u32, w));
                 }
+                index += 1;
             }
             _ => {}
         }
     }
-    begun.is_none() && next.next().is_none()
+    match (begun, want.get(index)) {
+        (Some(_), _) => Some((index, u32::MAX, want.get(index).copied().unwrap_or(0))),
+        (None, Some(&w)) => Some((index, 0, w)),
+        (None, None) => None,
+    }
 }
 
 /// Prints what a lane's receive read on `pin`, for the margin sweep's
@@ -647,7 +668,27 @@ pub fn run<P: Port, R: Responder, W: Witness>(
         let wr = witness.rate();
         if sampled && let Some(samples) = witness.wait() {
             let pin = board.witnessed.first().copied().flatten().unwrap_or(0);
-            let right = widths_match(samples, pin, wr, rate, period, &long);
+            let mismatch = first_mismatch(samples, pin, wr, rate, period, &long);
+            if let Some((index, width, want)) = mismatch {
+                let mut p = [(0u32, 0u32); LONG + 4];
+                let n = pulses(samples, pin, &mut p);
+                let from = index.saturating_sub(2).min(n);
+                let to = (index + 3).min(n).min(p.len());
+                defmt::warn!(
+                    "long frame on the wire: pulse {} of {} is {} captures against a sample of {} counts ({} captures a period at {} Hz); {} pulses seen; pulses {} to {}: {}",
+                    index,
+                    LONG,
+                    width,
+                    want,
+                    wr.0 / rate.0.max(1),
+                    wr.0,
+                    n,
+                    from,
+                    to,
+                    p[from..to]
+                );
+            }
+            let right = mismatch.is_none();
             failed += verdict(
                 "the 500-sample frame reads back whole on the wire [lane prototype]",
                 right,
