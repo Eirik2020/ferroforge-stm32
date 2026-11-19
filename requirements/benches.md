@@ -132,17 +132,6 @@ kept a stamp within a period and a monotonic tick of the hold's start, at least
 3 ms before its task ran [PORT-702]; and the tick after it carried the 4 that
 found the task queued [PORT-701].
 
-## Timer tick on the Nucleo-H753ZI
-
-`hil/run-h753-tick.sh`, with no link, as
-`hil/nucleo-h753zi-timer-tick/src/main.rs` lists it. The same firmware and
-checks as on the STM32F4 Discovery, on `timer_v3` at 400 MHz, TIM4 counting at
-200 MHz. It runs because the port rests on `Tick::on_interrupt` clearing its
-update flag and answering `false` for another timer's pass, which no FerroHAL
-requirement covers yet, and `timer_v3` is the other timer IP version. Pass:
-every check prints `PASS`, none prints `FAIL`, and the script exits zero
-[PORT-701, PORT-702].
-
 ## ADC port on the STM32F4 Discovery
 
 `hil/run-discovery-adc.sh`, with link A1 (PA2 to PA3) fitted, as

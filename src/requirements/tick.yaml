@@ -21,11 +21,11 @@ requirements:
         - level: target
           environment: development
           method:
-            procedure: requirements/benches.md#Timer tick on the Nucleo-H753ZI
+            library: ferrohal-stm32:TIMER-001
         - level: target
           environment: development
           method:
-            library: ferrohal-stm32:TIMER-001
+            library: ferrohal-stm32:TIMER-006
 
   - id: PORT-702
     title: The timer tick stamps each tick in its vector
@@ -43,7 +43,3 @@ requirements:
           environment: development
           method:
             procedure: requirements/benches.md#Timer tick on the STM32F4 Discovery
-        - level: target
-          environment: development
-          method:
-            procedure: requirements/benches.md#Timer tick on the Nucleo-H753ZI
