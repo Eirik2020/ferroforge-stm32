@@ -43,21 +43,3 @@ bench proves them.
   does not reach the wait: FerroHAL fails at once. Fixed in FerroHAL: a
   bound in real time, or an end of frame that does not wait inside the
   interrupt. *Spawned:* the SPI port variant bench, 2026-11-19.
-- **U1 (code, FerroHAL).** `uart_port` infers which transmit frames finished
-  from FerroHAL's `queued()` and the deltas of `tx_health()`, and restates
-  FerroHAL's private queue depth of 8 (`IN_FLIGHT`). FerroHAL states no
-  requirement for those counters, so PORT-009 has no `library:` entry for them,
-  and a call that finishes a sent and a failed frame together reports both
-  failed (`Port::unsure`, zero in every run). Fixed by a per-frame completion
-  from FerroHAL with its depth exported (the review's recommendation), then a
-  `library:` entry on PORT-009. *Spawned:* UART prototype 2 results, finding 1
-  (2026-11-17); the car rule check of the UART port, 2026-11-19.
-- **U2 (code, FerroHAL).** The UART port has no line-idle completion. A frame's
-  `Sent` is FerroHAL's DMA completion; on the Discovery bench it reached the
-  consumer about 1.6 characters before the line went quiet
-  (`docs/design/uart-port.md`). The owner decided on 2026-11-19 that "sent"
-  stays there and D15 is met by a separate completion on the USART's
-  transmission complete, for a consumer that turns a line around (RS-485, half
-  duplex). Fixed by FerroHAL's TC completion, then the port passing it to the
-  handle. *Spawned:* UART prototype 2 results, finding 4 (2026-11-17); the
-  owner's answer, 2026-11-19.

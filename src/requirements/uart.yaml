@@ -178,11 +178,7 @@ requirements:
         - level: unit
           environment: host
           method:
-            test: ferroforge_stm32::uart::tests::frames_finished_together_are_never_reported_sent_unless_known
-        - level: unit
-          environment: host
-          method:
-            test: ferroforge_stm32::uart::tests::a_halted_transmitter_returns_every_frame_in_flight_failed
+            test: ferroforge_stm32::uart::tests::each_frame_takes_ferrohal_s_outcome_in_order_and_a_lost_outcome_is_counted
         - level: target
           environment: development
           method:
@@ -199,6 +195,18 @@ requirements:
           environment: development
           method:
             library: ferrohal-stm32:UARTDMA-012
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:UARTDMA-013
+        - level: unit
+          environment: host
+          method:
+            library: ferrohal-stm32:UARTDMA-014
+        - level: unit
+          environment: host
+          method:
+            library: ferrohal-stm32:UARTDMA-015
 
   - id: PORT-010
     title: A frame with no buffer free is refused
@@ -240,3 +248,29 @@ requirements:
           environment: development
           method:
             library: ferrohal-stm32:UART-004
+
+  - id: PORT-012
+    title: The consumer learns when the line has gone quiet
+    statement: >-
+      The UART port shall tell its consumer when every frame submitted has
+      finished and the last one's stop bit has left the wire.
+    rationale: >-
+      A frame's outcome comes at its DMA completion, up to two characters
+      before the line goes quiet; a consumer that turns a line around
+      (RS-485, half duplex) needs the quiet itself, as the owner decided for
+      D15.
+    derived_from: [PORT-009]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::uart::tests::a_submitted_frame_ends_the_line_s_quiet_until_the_port_sees_it_again
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the STM32F4 Discovery
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:UART-023

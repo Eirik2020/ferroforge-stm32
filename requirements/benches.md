@@ -147,6 +147,9 @@ from the monotonic, in order and no later than its read [PORT-005]; every frame
 came back sent, in order, with every byte, and no buffer was lost [PORT-009];
 the 280-byte frame came back whole with one frame end [PORT-008]; with every
 buffer out a frame was refused as `Outstanding` and every byte was still sent
-[PORT-010]; and each consumer drove the UART bound to it at boot [PORT-004].
-The run also prints how long before the last stop bit each 64-byte frame's
-outcome arrived; that figure is measured, not judged.
+[PORT-010]; each consumer drove the UART bound to it at boot [PORT-004]; and
+the consumer learned the line went quiet after its 64-byte frames, never
+sooner after a submit than the frame's time on the wire [PORT-012]. The run
+also prints how long before the last stop bit each 64-byte frame's outcome
+arrived, and how long after it the quiet; those figures are measured, not
+judged.

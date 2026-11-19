@@ -58,19 +58,25 @@ buffer stays out until its frame has finished and its outcome is taken.
 
 ## How "sent" is known
 
-FerroHAL finishes transmit frames in order. `queued()` counts those not yet
-finished, so after each FerroHAL call the oldest `in_flight - queued` frames
-are done. The deltas of `tx_health()`'s `sent` and `dma_errors` say how each
-ended. A frame dropped without a count failed `Halted`. When one call finishes
-a sent and a failed frame together, which is which is unknown, and both are
-reported failed (`Port::unsure`). The in-flight depth restates FerroHAL's
-private limit of 8 (`IN_FLIGHT`).
+FerroHAL gives each transmit frame's outcome back once, in queue order
+(`Uart::take_outcome`, FerroHAL's UARTDMA-013). In each service the port takes
+every outcome there is and gives the oldest frame in flight back with it:
+`Sent`, `Failed` (a DMA error), `Dropped` (FerroHAL dropped its queue) or
+`Lost`, for an outcome FerroHAL overwrote before it was taken (UARTDMA-015),
+which the port's taking every outcome each service rules out unless something
+is broken (`Port::lost_outcomes`). The in-flight depth is FerroHAL's
+`TX_FRAMES` (UARTDMA-014).
 
-"Sent" is FerroHAL's DMA completion, not the USART's transmission complete.
-Measured on the Discovery at 115 200 baud, the outcome of a 64-byte frame
-reached the consumer about 23 300 cycles (139 us at 168 MHz, about 1.6
-characters) before the last stop bit, with the port's and the wake's latency
-included.
+"Sent" is FerroHAL's DMA completion, which comes before the USART's
+transmission complete. The owner decided for D15 (2026-11-19) that it stays
+there, and that the line's quiet is its own signal: the port turns on
+FerroHAL's TC interrupt (`set_tx_idle_interrupt`, UART-023), and
+`Handle::drained` is true, with a wake, once FerroHAL reports the line quiet
+and no frame is lent or in flight. Submitting a frame clears it at once.
+Measured on the Discovery at 115 200 baud for 64-byte frames: the outcome
+reached the consumer about 22 000 to 23 200 cycles (about 1.5 characters at
+168 MHz) before the last stop bit, and the quiet 5 200 to 6 600 cycles after
+it, with the port's and the wake's latency included in both.
 
 ## Flight controller routes (D29)
 

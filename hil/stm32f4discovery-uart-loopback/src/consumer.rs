@@ -89,6 +89,12 @@ pub struct Loop {
     /// shortest and longest from submit to its outcome taken.
     pub submitted: u32,
     pub sent_cycles: (u32, u32),
+    /// The same, from submit to the handle saying the line went quiet, and
+    /// whether this frame's quiet is still to come.
+    pub quiet_cycles: (u32, u32),
+    pub awaiting_quiet: bool,
+    /// Times the consumer saw the line quiet with every frame back.
+    pub quiet: u32,
     /// The handle's count of lost buffers, as last read.
     pub lost: u32,
 }
@@ -99,6 +105,7 @@ impl Loop {
             limit,
             len: FRAME,
             sent_cycles: (u32::MAX, 0),
+            quiet_cycles: (u32::MAX, 0),
             first_us: u64::MAX,
             ..Self::default()
         }
@@ -166,6 +173,15 @@ impl Loop {
             if self.phase == TIMED && bytes.len() == TAIL[1].1 {
                 let took = cycles().wrapping_sub(self.submitted);
                 self.sent_cycles = (self.sent_cycles.0.min(took), self.sent_cycles.1.max(took));
+                self.awaiting_quiet = true;
+            }
+        }
+        if handle.drained() && handle.outstanding() == 0 {
+            self.quiet += 1;
+            if self.awaiting_quiet {
+                self.awaiting_quiet = false;
+                let took = cycles().wrapping_sub(self.submitted);
+                self.quiet_cycles = (self.quiet_cycles.0.min(took), self.quiet_cycles.1.max(took));
             }
         }
     }
@@ -285,7 +301,7 @@ pub fn verdict(name: &str, pass: bool) -> u32 {
 
 /// Judges one port. `pool` is the bytes its receive pool holds; `frame_cycles`
 /// one character's time on the wire, in CPU cycles.
-pub fn report(name: &str, l: &Loop, unsure: u32, pool: u32, frame_cycles: u32) -> u32 {
+pub fn report(name: &str, l: &Loop, lost_outcomes: u32, pool: u32, frame_cycles: u32) -> u32 {
     defmt::info!(
         "{}: sent {} read {} wrong {} chunks {} idle-ended {} gaps {} wakes {} all-back {} stamps {}..{} us",
         name,
@@ -301,7 +317,7 @@ pub fn report(name: &str, l: &Loop, unsure: u32, pool: u32, frame_cycles: u32) -
         l.last_us
     );
     defmt::info!(
-        "{} frames back {} failed {} out of order {} bytes {}; refused {} (last {}); buffers lost {}, outcomes unsure {}",
+        "{} frames back {} failed {} out of order {} bytes {}; refused {} (last {}); buffers lost {}, outcomes lost {}",
         name,
         l.back.frames,
         l.back.failed,
@@ -315,7 +331,7 @@ pub fn report(name: &str, l: &Loop, unsure: u32, pool: u32, frame_cycles: u32) -
             Some(FrameError::Empty) => "Empty",
         },
         l.lost,
-        unsure
+        lost_outcomes
     );
     let mut failed = 0;
     if l.flood == 0 {
@@ -365,7 +381,7 @@ pub fn report(name: &str, l: &Loop, unsure: u32, pool: u32, frame_cycles: u32) -
             && l.back.disorder == 0
             && l.back.bytes == l.sent
             && l.all_back > 0
-            && unsure == 0,
+            && lost_outcomes == 0,
     );
     failed += verdict("no buffer was lost [PORT-009]", l.lost == 0);
     if l.tail {
@@ -392,6 +408,19 @@ pub fn report(name: &str, l: &Loop, unsure: u32, pool: u32, frame_cycles: u32) -
             longest,
             wire as i64 - longest as i64,
             wire as i64 - shortest as i64
+        );
+        let (q_short, q_long) = l.quiet_cycles;
+        defmt::info!(
+            "{} quiet timing: submit to the line quiet {}..{} cycles, {}..{} cycles after the last stop bit",
+            name,
+            q_short,
+            q_long,
+            q_short as i64 - wire as i64,
+            q_long as i64 - wire as i64
+        );
+        failed += verdict(
+            "the consumer learned the line went quiet only after each frame's last stop bit [PORT-012]",
+            l.quiet > 0 && q_long > 0 && q_short >= wire && q_short >= l.sent_cycles.0,
         );
     }
     if l.flood > 0 {

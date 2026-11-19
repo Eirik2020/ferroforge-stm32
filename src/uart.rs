@@ -9,9 +9,11 @@
 //!   ([`FrameError`]); the consumer writes the frame in place, and
 //!   [`Frame::submit`] lends it to the port and pends the port. The port hands
 //!   the bytes to FerroHAL's `try_send`, the one copy left, and keeps the
-//!   frame in flight until FerroHAL counts it finished. The buffer then comes
-//!   back through [`Handle::sent`], in the order submitted, with its
-//!   [`Outcome`].
+//!   frame in flight until FerroHAL gives its outcome back. The buffer then
+//!   comes back through [`Handle::sent`], in the order submitted, with that
+//!   [`Outcome`]. [`Handle::drained`] says when the line has gone quiet: the
+//!   last frame's stop bit has left the wire, which comes up to two
+//!   characters after its `Sent`.
 //! - **Receive: the port lends.** The port takes a buffer from its pool and
 //!   has FerroHAL's `read_chunk` copy the ring straight into it, the one copy
 //!   left, and lends it to the consumer with FerroHAL's [`Chunk`] (its
@@ -32,13 +34,13 @@
 //! The port carries no protocol: a decoder or encoder sits behind the handle.
 //!
 //! Requirements: PORT-001, PORT-002, PORT-003, PORT-004, PORT-005, PORT-006,
-//! PORT-007, PORT-008, PORT-009, PORT-010, PORT-011
+//! PORT-007, PORT-008, PORT-009, PORT-010, PORT-011, PORT-012
 
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 use ferrohal_stm32::uart::{
-    Chunk, ChunkEnd, Error, Instance, RxDma, RxPin, SendError, TxDma, TxPin, Uart, UartRefused,
-    Wiring,
+    Chunk, ChunkEnd, Error, Instance, RxDma, RxPin, SendError, TX_FRAMES, TxDma, TxOutcome, TxPin,
+    Uart, UartRefused, Wiring,
 };
 use heapless::{
     Deque, Vec, VecView,
@@ -47,8 +49,8 @@ use heapless::{
 use rtic_sync::signal::{Signal, SignalReader, SignalWriter};
 
 /// The most frames the port keeps in FerroHAL's transmit queue: FerroHAL's
-/// own limit, private to it at the pinned revision, restated here.
-pub const IN_FLIGHT: usize = 8;
+/// own depth.
+pub const IN_FLIGHT: usize = TX_FRAMES;
 
 /// The most chunks, and the most frames, one service moves, so a service is
 /// bounded however fast the line runs.
@@ -60,12 +62,16 @@ pub enum Outcome {
     /// FerroHAL's transmit stream finished it: every byte was handed to the
     /// USART. The last one or two may still be on the wire.
     Sent,
-    /// It was lost: a DMA error, or the transmitter halted first. Also given
-    /// to each frame of a batch FerroHAL finished in one call with a sent and
-    /// a failed frame among them, since FerroHAL's counters do not say which
-    /// was which ([`Port::unsure`]): a frame is never reported sent unless it
-    /// was.
-    Failed(Error),
+    /// A DMA error ended it; part of it may have gone out.
+    Failed,
+    /// FerroHAL dropped its queue first, by a timeout or a transmit stream
+    /// that would not run; part of it may have gone out.
+    Dropped,
+    /// FerroHAL overwrote its outcome before the port took it, so how it
+    /// ended is not known ([`Port::lost_outcomes`]). The port takes every
+    /// outcome in each service, so this does not happen unless something is
+    /// broken.
+    Lost,
     /// FerroHAL refused it: only `TooLarge`, which the constructor's length
     /// check rules out.
     Refused(SendError),
@@ -106,6 +112,9 @@ struct RxLent {
 struct Status {
     /// The port had bytes to read and no buffer: the next release pends it.
     starved: AtomicBool,
+    /// The line has gone quiet: FerroHAL saw the last stop bit leave, and
+    /// no frame is lent or in flight. Set by the port at each service.
+    drained: AtomicBool,
     /// Buffers a queue could not take. Zero by construction, since each
     /// queue holds every buffer of its kind; counted so a fault is not
     /// hidden.
@@ -136,6 +145,7 @@ impl<const RX: usize, const TX: usize> Memory<RX, TX> {
             back: Queue::new(),
             status: Status {
                 starved: AtomicBool::new(false),
+                drained: AtomicBool::new(false),
                 lost: AtomicU32::new(0),
             },
             wake: Signal::new(),
@@ -238,6 +248,14 @@ impl Handle {
         self.buffers.saturating_sub(free)
     }
 
+    /// Whether the line has gone quiet: every frame submitted has finished,
+    /// and FerroHAL saw the USART's transmission complete after the last, so
+    /// its last stop bit has left the wire. The port wakes the handle when
+    /// it becomes so. A frame's `Sent` comes up to two characters earlier.
+    pub fn drained(&self) -> bool {
+        self.status.drained.load(Ordering::Acquire)
+    }
+
     /// Transmit buffers given at boot.
     pub fn buffers(&self) -> u8 {
         self.buffers
@@ -337,6 +355,8 @@ impl Frame<'_> {
     /// through [`Handle::sent`].
     pub fn submit(mut self) {
         let Some(buf) = self.buf.take() else { return };
+        // Not quiet any more, before the port can see the frame.
+        self.handle.status.drained.store(false, Ordering::Release);
         if let Err(back) = self.handle.frames.enqueue(TxLent { buf, len: self.len }) {
             // Cannot happen: the queue holds every buffer the handle has.
             self.handle.give_back(back.buf);
@@ -383,63 +403,38 @@ impl Drop for SentFrame<'_> {
     }
 }
 
-/// The port's transmit side: the frames lent to it, those in FerroHAL's
-/// queue, and FerroHAL's counters as last read.
+/// The port's transmit side: the frames lent to it and those in FerroHAL's
+/// queue.
 struct TxEnd {
     frames: Consumer<'static, TxLent>,
     sent: Producer<'static, TxBack>,
-    /// In FerroHAL's queue, oldest first: the order FerroHAL finishes them.
+    /// In FerroHAL's queue, oldest first: the order FerroHAL gives their
+    /// outcomes back.
     in_flight: Deque<TxLent, IN_FLIGHT>,
-    /// FerroHAL's `sent` and `dma_errors` at the last settle.
-    seen: (u32, u32),
-    unsure: u32,
+    /// Frames whose outcome FerroHAL overwrote before it was taken.
+    lost_outcomes: u32,
 }
 
 impl TxEnd {
-    /// Returns the frames FerroHAL has finished since the last settle.
-    /// `queued`, `sent` and `failed` are FerroHAL's queue length and counters
-    /// now.
-    ///
-    /// FerroHAL finishes frames in order, and `queued` counts those not yet
-    /// finished, so the oldest `in_flight - queued` are done. Its counters
-    /// say how each ended: a frame dropped without being counted failed
-    /// `Halted` (FerroHAL's halt clears its queue). When frames sent and
-    /// failed finish in one settle, which one failed is not known: all are
-    /// reported failed and counted in `unsure`.
-    fn settle(&mut self, queued: usize, sent: u32, failed: u32, status: &Status) -> usize {
-        let mut sent_new = sent.wrapping_sub(self.seen.0);
-        let mut failed_new = failed.wrapping_sub(self.seen.1);
-        self.seen = (sent, failed);
-        let finished = self.in_flight.len().saturating_sub(queued);
-        let mixed = sent_new > 0 && failed_new > 0;
+    /// Returns the oldest frame in flight with FerroHAL's outcome for it. One
+    /// `Lost(n)` stands for the oldest `n` frames. Returns the frames given
+    /// back.
+    fn settle(&mut self, outcome: TxOutcome, status: &Status) -> usize {
+        let (frames, outcome) = match outcome {
+            TxOutcome::Sent => (1, Outcome::Sent),
+            TxOutcome::Failed => (1, Outcome::Failed),
+            TxOutcome::Dropped => (1, Outcome::Dropped),
+            TxOutcome::Lost(n) => {
+                self.lost_outcomes = self.lost_outcomes.saturating_add(n);
+                (n, Outcome::Lost)
+            }
+        };
         let mut returned = 0;
-        for _ in 0..finished {
+        for _ in 0..frames {
             let Some(lent) = self.in_flight.pop_front() else {
                 break;
             };
-            let outcome = if mixed {
-                self.unsure = self.unsure.saturating_add(1);
-                Outcome::Failed(Error::Dma)
-            } else if sent_new > 0 {
-                sent_new -= 1;
-                Outcome::Sent
-            } else if failed_new > 0 {
-                failed_new -= 1;
-                Outcome::Failed(Error::Dma)
-            } else {
-                Outcome::Failed(Error::Halted)
-            };
             self.give_back(lent, outcome, status);
-            returned += 1;
-        }
-        returned
-    }
-
-    /// Returns every frame in flight as failed: the transmitter halted.
-    fn halted(&mut self, status: &Status) -> usize {
-        let mut returned = 0;
-        while let Some(lent) = self.in_flight.pop_front() {
-            self.give_back(lent, Outcome::Failed(Error::Halted), status);
             returned += 1;
         }
         returned
@@ -524,20 +519,23 @@ where
         &self.uart
     }
 
-    /// Frames reported failed because FerroHAL finished a sent and a failed
-    /// frame in one call, and its counters do not say which was which.
-    pub fn unsure(&self) -> u32 {
-        self.tx.unsure
+    /// Frames whose outcome FerroHAL overwrote before the port took it:
+    /// zero unless something is broken.
+    pub fn lost_outcomes(&self) -> u32 {
+        self.tx.lost_outcomes
     }
 
+    /// Gives back every frame FerroHAL has finished, with its outcome.
     fn settle(&mut self) -> usize {
-        let health = self.uart.tx_health();
-        self.tx.settle(
-            self.uart.queued(),
-            health.sent,
-            health.dma_errors,
-            self.status,
-        )
+        let mut returned = 0;
+        // Bounded: FerroHAL keeps at most `TX_FRAMES` outcomes.
+        for _ in 0..=TX_FRAMES {
+            let Some(outcome) = self.uart.take_outcome() else {
+                break;
+            };
+            returned += self.tx.settle(outcome, self.status);
+        }
+        returned
     }
 
     /// Lent frames into FerroHAL, in order. Returns the frames returned.
@@ -560,14 +558,12 @@ where
                     Ok(()) => {
                         // Room was checked above.
                         if let Err(lent) = self.tx.in_flight.push_back(lent) {
-                            self.tx
-                                .give_back(lent, Outcome::Failed(Error::Halted), self.status);
+                            self.tx.give_back(lent, Outcome::Dropped, self.status);
                             returned += 1;
                         }
                     }
                     Err(SendError::Halted) => {
-                        self.tx
-                            .give_back(lent, Outcome::Failed(Error::Halted), self.status);
+                        self.tx.give_back(lent, Outcome::Dropped, self.status);
                         returned += 1;
                     }
                     Err(refused) => {
@@ -634,14 +630,14 @@ where
         let events = self.uart.on_interrupt();
         let mut returned = self.settle();
         returned += self.pump_tx();
-        // A halted transmitter keeps its queue and never finishes it; an
-        // empty `try_send` says so without touching the queue.
-        if !self.tx.in_flight.is_empty() && self.uart.try_send(&[]) == Err(SendError::Halted) {
-            returned += self.tx.halted(self.status);
-        }
         let (chunks, back) = self.pump_rx(at_us);
         returned += back;
-        if chunks > 0 || returned > 0 || events.fault {
+        // Quiet: FerroHAL saw the last stop bit leave, and nothing is lent or
+        // waiting to go.
+        let drained =
+            self.uart.tx_drained() && self.tx.in_flight.is_empty() && !self.tx.frames.ready();
+        let was = self.status.drained.swap(drained, Ordering::AcqRel);
+        if chunks > 0 || returned > 0 || events.fault || (drained && !was) {
             self.wake.write(());
         }
     }
@@ -746,8 +742,7 @@ fn split_memory<const RX: usize, const TX: usize>(
             frames: frames_out,
             sent: sent_in,
             in_flight: Deque::new(),
-            seen: (0, 0),
-            unsure: 0,
+            lost_outcomes: 0,
         },
         RxEnd {
             chunks: chunks_in,
@@ -865,7 +860,10 @@ pub mod uart_port {
             tx: tx_buf,
             rx: rx_buf,
         };
-        let uart = Uart::new(rcc, wiring, config, buffers).map_err(Refused::Open)?;
+        let mut uart = Uart::new(rcc, wiring, config, buffers).map_err(Refused::Open)?;
+        // The line's quiet comes by the USART's interrupt, which `on_uart`
+        // serves; the port never moves the UART out of its members' reach.
+        uart.set_tx_idle_interrupt(true);
         Ok(Resources {
             port: Port {
                 uart,
@@ -951,15 +949,14 @@ mod tests {
         g.submit();
         assert_eq!(h.frame(1).err(), Some(FrameError::Outstanding));
         assert_eq!(h.outstanding(), 2);
-        // The port: both into FerroHAL, then FerroHAL finishes one sent and
-        // one failed in separate calls.
+        // The port: both into FerroHAL, then FerroHAL gives one back sent
+        // and one failed.
         for _ in 0..2 {
             let lent = tx.frames.dequeue().unwrap();
             assert!(tx.in_flight.push_back(lent).is_ok());
         }
-        assert_eq!(tx.settle(2, 0, 0, status), 0);
-        assert_eq!(tx.settle(1, 1, 0, status), 1);
-        assert_eq!(tx.settle(0, 1, 1, status), 1);
+        assert_eq!(tx.settle(TxOutcome::Sent, status), 1);
+        assert_eq!(tx.settle(TxOutcome::Failed, status), 1);
         let first = h.sent().unwrap();
         assert_eq!(
             (first.outcome, first.bytes()),
@@ -967,7 +964,7 @@ mod tests {
         );
         drop(first);
         let second = h.sent().unwrap();
-        assert_eq!(second.outcome, Outcome::Failed(Error::Dma));
+        assert_eq!(second.outcome, Outcome::Failed);
         assert_eq!((second.bytes().len(), second.bytes()[0]), (20, b'B'));
         drop(second);
         assert_eq!(h.outstanding(), 0);
@@ -978,41 +975,32 @@ mod tests {
     }
 
     #[test]
-    fn frames_finished_together_are_never_reported_sent_unless_known() {
+    fn each_frame_takes_ferrohal_s_outcome_in_order_and_a_lost_outcome_is_counted() {
         let (mut tx, _rx, status, _w, mut h) = ends(1, &[8, 8, 8]);
         for _ in 0..3 {
             h.frame(4).unwrap().submit();
             let lent = tx.frames.dequeue().unwrap();
             assert!(tx.in_flight.push_back(lent).is_ok());
         }
-        // Two finished in one call, one sent and one failed: unknown which.
-        assert_eq!(tx.settle(1, 1, 1, status), 2);
-        assert_eq!(tx.unsure, 2);
-        // FerroHAL halted and cleared its queue: no count moved.
-        assert_eq!(tx.settle(0, 1, 1, status), 1);
+        assert_eq!(tx.settle(TxOutcome::Dropped, status), 1);
+        // One `Lost(1)` stands for the next frame.
+        assert_eq!(tx.settle(TxOutcome::Lost(1), status), 1);
+        assert_eq!(tx.lost_outcomes, 1);
+        assert_eq!(tx.settle(TxOutcome::Sent, status), 1);
+        // An outcome with nothing in flight gives nothing back.
+        assert_eq!(tx.settle(TxOutcome::Lost(2), status), 0);
         let outcomes: StdVec<_> = core::iter::from_fn(|| h.sent().map(|s| s.outcome)).collect();
-        assert_eq!(
-            outcomes,
-            [
-                Outcome::Failed(Error::Dma),
-                Outcome::Failed(Error::Dma),
-                Outcome::Failed(Error::Halted)
-            ]
-        );
+        assert_eq!(outcomes, [Outcome::Dropped, Outcome::Lost, Outcome::Sent]);
+        assert_eq!(h.outstanding(), 0);
     }
 
     #[test]
-    fn a_halted_transmitter_returns_every_frame_in_flight_failed() {
-        let (mut tx, _rx, status, _w, mut h) = ends(1, &[8, 8]);
-        for _ in 0..2 {
-            h.frame(4).unwrap().submit();
-            let lent = tx.frames.dequeue().unwrap();
-            assert!(tx.in_flight.push_back(lent).is_ok());
-        }
-        assert_eq!(tx.halted(status), 2);
-        let outcomes: StdVec<_> = core::iter::from_fn(|| h.sent().map(|s| s.outcome)).collect();
-        assert_eq!(outcomes, [Outcome::Failed(Error::Halted); 2]);
-        assert_eq!(h.outstanding(), 0);
+    fn a_submitted_frame_ends_the_line_s_quiet_until_the_port_sees_it_again() {
+        let (_tx, _rx, status, _w, mut h) = ends(1, &[8]);
+        status.drained.store(true, Ordering::Release);
+        assert!(h.drained());
+        h.frame(4).unwrap().submit();
+        assert!(!h.drained());
     }
 
     #[test]

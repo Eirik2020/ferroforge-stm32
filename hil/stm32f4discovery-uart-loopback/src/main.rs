@@ -298,8 +298,8 @@ ferroforge::app! {
         }
         cortex_m::asm::delay(CPU_HZ / 10);
         let l = loops.lock(|l| *l);
-        let (unsure1, overruns) = port1.lock(|p| (p.unsure(), p.uart().health().buffer_overruns));
-        let unsure6 = port6.lock(|p| p.unsure());
+        let (unsure1, overruns) = port1.lock(|p| (p.lost_outcomes(), p.uart().health().buffer_overruns));
+        let unsure6 = port6.lock(|p| p.lost_outcomes());
         defmt::info!("USART3 FerroHAL buffer overruns {}", overruns);
         failed += report("USART3", &l[0], unsure1, (POOL * 64) as u32, CHAR_CYCLES);
         failed += report("UART5", &l[1], unsure6, (POOL * 256) as u32, CHAR_CYCLES);
