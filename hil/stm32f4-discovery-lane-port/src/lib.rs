@@ -77,15 +77,16 @@ pub fn cycles() -> u32 {
     feature = "paced-reader"
 )))]
 compile_error!("pick one layout: reader-ahead, own-streams or paced-reader");
-#[cfg(any(
-    all(feature = "reader-ahead", feature = "own-streams"),
-    all(feature = "reader-ahead", feature = "paced-reader"),
-    all(feature = "own-streams", feature = "paced-reader"),
-))]
-compile_error!("pick one layout only");
+// `reader-ahead` is the default: a layout chosen beside it wins, so a build
+// with the defaults and one more layout is that layout.
+#[cfg(all(feature = "own-streams", feature = "paced-reader"))]
+compile_error!("pick one layout only: own-streams or paced-reader");
 
 /// Lanes on two timers and three ports, read ahead or on their own streams.
-#[cfg(any(feature = "reader-ahead", feature = "own-streams"))]
+#[cfg(all(
+    any(feature = "reader-ahead", feature = "own-streams"),
+    not(feature = "paced-reader")
+))]
 #[path = "layout_three_ports.rs"]
 mod layout;
 /// Lanes on TIM3 and TIM2, sending on DMA1, read by a reader TIM8 paces.

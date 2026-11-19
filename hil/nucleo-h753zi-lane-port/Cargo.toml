@@ -13,8 +13,8 @@ test = false
 bench = false
 
 [features]
-# checks/run.sh builds the default; the run scripts pick a layout with
-# --no-default-features.
+# checks/run.sh builds the default; a layout chosen beside it wins over it,
+# and the run scripts pass --no-default-features as well.
 default = ["reader-ahead"]
 # The layout, by shape (docs/design/lane-port.md): one of these.
 # Lanes on TIM1 and TIM8 over three ports, each port read by a reader armed

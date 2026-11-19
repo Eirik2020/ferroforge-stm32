@@ -184,7 +184,7 @@ pub fn setup(p: Peripherals, buffers: Buffers) -> (Gen, Reply, Probe) {
     // stream 1 for port C.
     // Mixed: ports A and B ahead, port C (the linked lane 3) on its lane's
     // stream.
-    #[cfg(feature = "reader-ahead")]
+    #[cfg(all(feature = "reader-ahead", not(feature = "own-streams")))]
     {
         let (Ok(()), Ok(()), Ok(())) = (
             generator.read_ahead_first_update::<_, 'A'>(dma2.s5),

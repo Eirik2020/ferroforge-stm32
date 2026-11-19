@@ -105,8 +105,8 @@ type WitnessTimer = ferrohal_stm32::chip::TIM2;
 
 #[cfg(not(any(feature = "reader-ahead", feature = "own-streams")))]
 compile_error!("pick one layout: reader-ahead or own-streams");
-#[cfg(all(feature = "reader-ahead", feature = "own-streams"))]
-compile_error!("pick one layout only");
+// `reader-ahead` is the default: `own-streams` beside it wins, so a build
+// with the defaults and `own-streams` is that layout.
 
 pub fn board(variant: &'static str) -> Board {
     Board {
@@ -269,7 +269,7 @@ pub fn setup(p: Peripherals, buffers: Buffers) -> (Gen, Reply, Probe) {
     // the frame plays: TIM1_UP for port E on stream 4, TIM8_UP for port C on
     // stream 5, through DMAMUX1 (RM0433 table 124: requests 15 and 51).
     // Mixed: port C ahead, port E (the linked lane 0) on its lane's stream.
-    #[cfg(feature = "reader-ahead")]
+    #[cfg(all(feature = "reader-ahead", not(feature = "own-streams")))]
     {
         let (Ok(()), Ok(())) = (
             generator.read_ahead_first_update::<_, 'E'>(dma2.s4),
