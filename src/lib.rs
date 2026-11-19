@@ -21,6 +21,8 @@ mod uart_rx;
 #[cfg(feature = "usb")]
 mod usb;
 #[cfg(feature = "usb")]
+mod usb_lock;
+#[cfg(feature = "usb")]
 mod usb_poll;
 #[cfg(feature = "usb")]
 mod usb_signal;
@@ -32,6 +34,8 @@ pub use uart::uart_port;
 pub use uart_rx::uart_rx_port;
 #[cfg(feature = "usb")]
 pub use usb::usb_device;
+#[cfg(feature = "usb")]
+pub use usb_lock::usb_locked;
 #[cfg(feature = "usb")]
 pub use usb_poll::usb_polled;
 #[cfg(feature = "usb")]

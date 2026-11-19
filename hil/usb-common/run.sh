@@ -26,10 +26,12 @@ if [ ! -f "$host_script" ]; then
 fi
 mkdir -p "$here/logs"
 status=0
-for variant in ${*:-deferred signalled polled}; do
+for variant in ${*:-deferred signalled locked polled}; do
+    features=()
+    [ "$variant" = locked ] && features=(--features no-fifo-cs)
     log="$here/logs/$prefix-usb-$variant.log"
     : > "$log"
-    (cd "$here/$crate" && timeout 300 cargo build --release --bin "usb-$variant") >> "$log" 2>&1
+    (cd "$here/$crate" && timeout 300 cargo build --release --bin "usb-$variant" "${features[@]}") >> "$log" 2>&1
     code=$?
     host=""
     if [ "$code" -eq 0 ]; then
@@ -38,7 +40,7 @@ for variant in ${*:-deferred signalled polled}; do
         FERROHAL_SERIAL_GLOB="/dev/serial/by-id/*FerroForge*$prefix-usb-$variant*" \
             python3 -I "$host_script" --fresh 30 > "$log.host" 2>&1 &
         host=$!
-        (cd "$here/$crate" && timeout 120 cargo run --release --bin "usb-$variant") >> "$log" 2>&1
+        (cd "$here/$crate" && timeout 120 cargo run --release --bin "usb-$variant" "${features[@]}") >> "$log" 2>&1
         code=$?
     fi
     if [ -n "$host" ]; then

@@ -25,6 +25,7 @@ pub const NAME: &str = "STM32F4 Discovery CN5";
 pub const SERIAL_DEFERRED: &str = "f407-usb-deferred";
 pub const SERIAL_POLLED: &str = "f407-usb-polled";
 pub const SERIAL_SIGNALLED: &str = "f407-usb-signalled";
+pub const SERIAL_LOCKED: &str = "f407-usb-locked";
 
 /// 168 MHz from the ST-LINK's 8 MHz MCO in bypass (UM1472 section 6.11.1):
 /// 8 MHz / 8 * 336 = 336 MHz VCO, / 2 = 168 MHz core, / 7 = 48 MHz for
