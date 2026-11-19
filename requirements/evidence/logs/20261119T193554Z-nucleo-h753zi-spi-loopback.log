@@ -1,0 +1,104 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling critical-section v1.2.0
+   Compiling semver-parser v0.7.0
+   Compiling embedded-hal v1.0.0
+   Compiling cortex-m v0.7.10
+   Compiling thiserror v2.0.21
+   Compiling defmt v1.2.0
+   Compiling defmt-macros v1.2.0
+   Compiling cortex-m-macros v0.7.8
+   Compiling nb v1.1.0
+   Compiling portable-atomic v1.15.0
+   Compiling vcell v0.1.3
+   Compiling void v1.0.2
+   Compiling bitflags v1.3.2
+   Compiling nb v0.1.3
+   Compiling volatile-register v0.2.2
+   Compiling embedded-hal-async v1.0.0
+   Compiling bitfield v0.13.2
+   Compiling cortex-m-rt v0.7.7
+   Compiling embedded-hal v0.2.7
+   Compiling hashbrown v0.17.1
+   Compiling gcd v2.3.0
+   Compiling semver v0.9.0
+   Compiling futures-task v0.3.34
+   Compiling equivalent v1.0.3
+   Compiling stm32-metapac v21.0.0
+   Compiling heapless v0.9.3
+   Compiling rtic-macros v2.4.0
+   Compiling futures-core v0.3.34
+   Compiling byteorder v1.5.0
+   Compiling pin-project-lite v0.2.17
+   Compiling fugit v0.3.9
+   Compiling stable_deref_trait v1.2.1
+   Compiling rtic-monotonics v2.2.1
+   Compiling futures-util v0.3.34
+   Compiling rtic v2.4.0
+   Compiling cortex-m-semihosting v0.5.0
+   Compiling rustc_version v0.2.3
+   Compiling cfg-if v1.0.5
+   Compiling hash32 v0.3.1
+   Compiling embedded-io v0.7.1
+   Compiling rtic-core v1.0.0
+   Compiling panic-probe v1.0.0
+   Compiling defmt-rtt v1.3.1
+   Compiling embedded-hal-bus v0.3.0
+   Compiling bare-metal v0.2.5
+   Compiling indexmap v2.14.2
+   Compiling rtic-common v1.3.0
+   Compiling syn v3.0.10
+   Compiling syn v2.0.119
+   Compiling rtic-sync v1.6.1
+   Compiling rtic-time v2.0.1
+   Compiling ferroforge-contracts v0.4.0 (https://github.com/Eirik2020/ferroforge?rev=eded9269ebeb0852090b9174d1c416feb7ef6cc3#eded9269)
+   Compiling thiserror-impl v2.0.21
+   Compiling cortex-m-rt-macros v0.7.7
+   Compiling ferroforge-macros v0.4.0 (https://github.com/Eirik2020/ferroforge?rev=eded9269ebeb0852090b9174d1c416feb7ef6cc3#eded9269)
+   Compiling defmt-parser v1.1.0
+   Compiling ferroforge v0.4.0 (https://github.com/Eirik2020/ferroforge?rev=eded9269ebeb0852090b9174d1c416feb7ef6cc3#eded9269)
+   Compiling defmt v0.3.101
+   Compiling ferrohal-stm32 v0.1.0 (https://github.com/Eirik2020/ferrohal-stm32?rev=c5b5d57e8ea296e0086818e82b05300a4e3480a9#c5b5d57e)
+   Compiling ferroforge-stm32 v0.1.0 (/home/kaldstrand/ws/ferro/ferroforge-stm32-usb)
+   Compiling nucleo-h753zi-spi-loopback v0.1.0 (/home/kaldstrand/ws/ferro/ferroforge-stm32-usb/hil/nucleo-h753zi-spi-loopback)
+    Finished `release` profile [optimized + debuginfo] target(s) in 20.59s
+     Running `probe-rs run --chip STM32H753ZI target/thumbv7em-none-eabihf/release/spi-loopback`
+     [38;5;10m[1mFinished[0m in 3.74s
+[INFO ] spi_port with four devices on the Nucleo-H753ZI, clocks: Clocks { sysclk: Hertz(400000000), cpu: Hertz(400000000), hclk: Hertz(200000000), pclk1: Hertz(100000000), pclk2: Hertz(100000000), pclk3: Hertz(100000000), pclk4: Hertz(100000000), timclk1: Hertz(200000000), timclk2: Hertz(200000000), pll1_q: Some(Hertz(100000000)), setup: Setup { flash_latency: 2, flash_wrhighfreq: 2, pll_range: 3, pll_wide_vco: true } } (spi_loopback nucleo-h753zi-spi-loopback/src/main.rs:199)
+[INFO ] PASS the member's vector is enabled [PORT-201] (nucleo_h753zi_spi_loopback ../common/spi_port.rs:190)
+[INFO ] PASS boot binding: every handle one type, bound to its task by a run-time choice [PORT-207] (nucleo_h753zi_spi_loopback ../common/spi_port.rs:190)
+[INFO ] PASS every device starts deselected [PORT-202] (nucleo_h753zi_spi_loopback ../common/spi_port.rs:190)
+[INFO ] length 4 bytes, cycles over 100: submit to start min 1994 mean 2012 max 2046; submit to result min 49174 mean 49257 max 49300; longest port run so far 4630 (nucleo_h753zi_spi_loopback ../common/spi_port.rs:276)
+[INFO ] PASS length: every message came back done with the bytes clocked in [PORT-201] (nucleo_h753zi_spi_loopback ../common/spi_port.rs:190)
+[INFO ] length 64 bytes, cycles over 100: submit to start min 1994 mean 2011 max 2024; submit to result min 542534 mean 542570 max 542582; longest port run so far 4778 (nucleo_h753zi_spi_loopback ../common/spi_port.rs:276)
+[INFO ] PASS length: every message came back done with the bytes clocked in [PORT-201] (nucleo_h753zi_spi_loopback ../common/spi_port.rs:190)
+[INFO ] length 256 bytes, cycles over 100: submit to start min 1994 mean 2011 max 2024; submit to result min 2121224 mean 2121242 max 2121256; longest port run so far 5378 (nucleo_h753zi_spi_loopback ../common/spi_port.rs:276)
+[INFO ] PASS length: every message came back done with the bytes clocked in [PORT-201] (nucleo_h753zi_spi_loopback ../common/spi_port.rs:190)
+[INFO ] latency over 1000 messages of 4 bytes, cycles: submit to start min 1994 mean 2011 max 2024; submit to result taken min 49224 mean 49256 max 49286 (nucleo_h753zi_spi_loopback ../common/spi_port.rs:298)
+[INFO ] PASS latency: every message came back done, in order, with its bytes [PORT-201] (nucleo_h753zi_spi_loopback ../common/spi_port.rs:190)
+[INFO ] multi-part: 8 bytes on the wire, 5 kept, as expected true (nucleo_h753zi_spi_loopback ../common/spi_port.rs:357)
+[INFO ] PASS multi-part: one message, only the read and transfer parts kept, in place [PORT-209] (nucleo_h753zi_spi_loopback ../common/spi_port.rs:190)
+[INFO ] PASS write-only: done, nothing kept [PORT-209] (nucleo_h753zi_spi_loopback ../common/spi_port.rs:190)
+[INFO ] chip select on device 0: while running own Some(true) others high true; once back, all high true (nucleo_h753zi_spi_loopback ../common/spi_port.rs:385)
+[INFO ] PASS chip select: own line low and no other while running, all high once back [PORT-202] (nucleo_h753zi_spi_loopback ../common/spi_port.rs:190)
+[INFO ] chip select on device 1: while running own Some(true) others high true; once back, all high true (nucleo_h753zi_spi_loopback ../common/spi_port.rs:385)
+[INFO ] PASS chip select: own line low and no other while running, all high once back [PORT-202] (nucleo_h753zi_spi_loopback ../common/spi_port.rs:190)
+[INFO ] full: 7 lent behind a running transfer, then refused Outstanding; 8 of 8 came back done and in order; the last waited 779812 cycles (nucleo_h753zi_spi_loopback ../common/spi_port.rs:472)
+[INFO ] PASS full: refused Outstanding with every buffer out, nothing lent lost, usable after [PORT-205] (nucleo_h753zi_spi_loopback ../common/spi_port.rs:190)
+[INFO ] priority: ends in cycles from the low's submit: low 536462 high 672448 medium 582148 medium 627332; the high waited 613404 cycles (nucleo_h753zi_spi_loopback ../common/spi_port.rs:556)
+[INFO ] PASS order within one device: as submitted (low, medium, medium, high) [PORT-203] (nucleo_h753zi_spi_loopback ../common/spi_port.rs:190)
+[INFO ] priority: ends in cycles from the low's submit: low 140496 high 157753 medium 203912 medium 248944; the high waited 126134 cycles (nucleo_h753zi_spi_loopback ../common/spi_port.rs:556)
+[INFO ] PASS priority across devices: low (running), then high, then the mediums as submitted [PORT-204] (nucleo_h753zi_spi_loopback ../common/spi_port.rs:190)
+[INFO ] switch: 199 switches in 200 alternating messages, longest 1190 cycles; device 0 SCK 390625 Hz (298646 bit/s on the wire), device 1 SCK 1562500 Hz (902298 bit/s) (nucleo_h753zi_spi_loopback ../common/spi_port.rs:610)
+[INFO ] PASS switch: each device's own settings in force for its messages, data intact [PORT-208] (nucleo_h753zi_spi_loopback ../common/spi_port.rs:190)
+[INFO ] cancel: running true; 4 of 4 aborted; line high after true; the other device's done true; the message submitted after the cancel done true (nucleo_h753zi_spi_loopback ../common/spi_port.rs:667)
+[INFO ] PASS cancel: running and queued aborted, chip select high, the other device untouched, the next message runs [PORT-206] (nucleo_h753zi_spi_loopback ../common/spi_port.rs:190)
+[INFO ] isolation: device 0 held 7 behind a running transfer, then refused Outstanding; device 1 then submitted: none (accepted); back: device 0 8 of 8, device 1 true (nucleo_h753zi_spi_loopback ../common/spi_port.rs:710)
+[INFO ] PASS isolation: a device with every buffer out does not stop another's message [PORT-205] (nucleo_h753zi_spi_loopback ../common/spi_port.rs:190)
+[INFO ] concurrent: checker 500 done 0 wrong 0 retried; priority 2 task 500 done 0 wrong 0 retried; priority 3 task 500 done 0 wrong 0 retried (spi_loopback nucleo-h753zi-spi-loopback/src/main.rs:249)
+[INFO ] PASS concurrent: three tasks at three priorities, every message back done with its bytes [PORT-201] (nucleo_h753zi_spi_loopback ../common/spi_port.rs:190)
+[INFO ] port: longest run 10322 cycles; switches 211 longest 1234 cycles; lost 0; FerroHAL transfers 3032 dma_errors 0 overruns 0 mode_faults 0 aborts 1 (nucleo_h753zi_spi_loopback ../common/spi_port.rs:769)
+[INFO ] PASS port: no message lost, no bus fault [PORT-201] (nucleo_h753zi_spi_loopback ../common/spi_port.rs:190)
+[INFO ] all checks passed (spi_loopback nucleo-h753zi-spi-loopback/src/main.rs:275)
+Firmware exited successfully
