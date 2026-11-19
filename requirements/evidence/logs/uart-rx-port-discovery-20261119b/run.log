@@ -1,0 +1,20 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.05s
+     Running `probe-rs run --chip STM32F407VGTx target/thumbv7em-none-eabihf/release/uart-rx`
+     [38;5;10m[1mFinished[0m in 2.18s
+[INFO ] uart_rx_port on the STM32F4 Discovery, clocks Clocks { sysclk: Hertz(168000000), cpu: Hertz(168000000), hclk: Hertz(168000000), pclk1: Hertz(42000000), pclk2: Hertz(84000000), timclk1: Hertz(84000000), timclk2: Hertz(168000000), pll_q: Some(Hertz(48000000)), flash_wait_states: 5 }; first consumer bound to UART5 at boot (uart_rx stm32f4discovery-uart-rx/src/main.rs:293)
+[INFO ] PASS every member's vector is enabled [PORT-101] (uart_rx stm32f4discovery-uart-rx/src/main.rs:509)
+[INFO ] USART3, 100 000 8E2: read 1024 wrong 0 chunks 63 idle-ended 62 gaps 0 wakes 64; stamps 75000..149000 us, 0 backwards, 0 ahead; buffers lost 0; line Health { overruns: 0, framing_errors: 0, parity_errors: 0, noise_errors: 0, dma_errors: 0, dma_overruns: 0, buffer_overruns: 0, restarts: 0, marks_lost: 0 } (uart_rx stm32f4discovery-uart-rx/src/main.rs:379)
+[INFO ] UART5, 115 200 8N1: read 1092 wrong 0 chunks 76 idle-ended 74 gaps 1 wakes 109; stamps 0..237000 us, 0 backwards, 0 ahead; buffers lost 0; line Health { overruns: 0, framing_errors: 0, parity_errors: 0, noise_errors: 0, dma_errors: 0, dma_overruns: 0, buffer_overruns: 1, restarts: 0, marks_lost: 45 } (uart_rx stm32f4discovery-uart-rx/src/main.rs:379)
+[INFO ] PASS every 8E2 byte came back once, in order, no gap [PORT-101] (uart_rx stm32f4discovery-uart-rx/src/main.rs:509)
+[INFO ] PASS every 8N1 byte came back once, in order, before the hold [PORT-101] (uart_rx stm32f4discovery-uart-rx/src/main.rs:509)
+[INFO ] PASS frame ends reached each consumer as idle chunks [PORT-005] (uart_rx stm32f4discovery-uart-rx/src/main.rs:509)
+[INFO ] PASS no generation change before the first gap [PORT-005] (uart_rx stm32f4discovery-uart-rx/src/main.rs:509)
+[INFO ] PASS every chunk was stamped from the monotonic, in order, within the run, no later than its read [PORT-005] (uart_rx stm32f4discovery-uart-rx/src/main.rs:509)
+[INFO ] PASS the 8N1 port's main run was stamped before the 8E2 port's, as sent [PORT-005] (uart_rx stm32f4discovery-uart-rx/src/main.rs:509)
+[INFO ] UART5 held: 4 chunks (10 bytes) kept by the pool and read before the gap, 58 bytes after (uart_rx stm32f4discovery-uart-rx/src/main.rs:416)
+[INFO ] PASS the loss while held reached the consumer as a gap, the stream in order on both sides [PORT-006] (uart_rx stm32f4discovery-uart-rx/src/main.rs:509)
+[INFO ] PASS while held, the bytes the pool took were kept and read first, the rest after the gap [PORT-007] (uart_rx stm32f4discovery-uart-rx/src/main.rs:509)
+[INFO ] PASS no buffer was lost [PORT-101] (uart_rx stm32f4discovery-uart-rx/src/main.rs:509)
+[INFO ] PASS each consumer drained the port init bound it to at run time [PORT-102] (uart_rx stm32f4discovery-uart-rx/src/main.rs:509)
+[INFO ] all checks passed (uart_rx stm32f4discovery-uart-rx/src/main.rs:432)
+Firmware exited successfully
