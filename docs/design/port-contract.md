@@ -12,10 +12,17 @@ uses them.
 #[ferroforge::group(
     slots = [instance: U, tx: Tx, rx: Rx, tx_dma: TxD, rx_dma: RxD],
     vectors = [on_uart = instance, on_rx_dma = rx_dma, on_tx_dma = tx_dma],
-    shared = [uart: Uart<Wiring<U, Tx, Rx, TxD, RxD>>],
+    shared = [port: Port<U, Tx, Rx, TxD, RxD>],
     buffers = [#[dma] tx_buf: [u8], #[dma] rx_buf: [u8]],
-    config = [config: Config @ platform],
-    constructor = new(rcc, wiring, config, tx_buf, rx_buf),
+    config = [
+        config: Config @ platform,
+        rx_pool: &mut dyn Iterator<Item = &'static mut [u8]> @ software,
+        tx_lent: &mut dyn Iterator<Item = &'static mut [u8]> @ software,
+    ],
+    memory = [memory: Memory],
+    handles = [handle: Handle],
+    pends = [kick = on_tx_dma],
+    constructor = new(rcc, wiring, config, tx_buf, rx_buf, memory, rx_pool, tx_lent, kick),
 )]
 pub mod uart_port { .. }
 ```
