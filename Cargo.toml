@@ -11,14 +11,15 @@ publish = false
 # Every dependency is pinned exactly, as FerroHAL's are: a bump needs a
 # reviewed diff analysis or reverification. FerroHAL and FerroForge 0.5 are not
 # on crates.io yet, so both come from git at an exact revision until they are.
-ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "4e24a5a07e7dbc2694cbc8acdd2f4f5799c8d082" }
+ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "c83c123a97f72ca17ffe18828536e4629d02770e" }
 ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "eded9269ebeb0852090b9174d1c416feb7ef6cc3" }
 # The chip-select pin's trait, as FerroHAL's GPIO implements it.
 embedded-hal = "=1.0.0"
 # The SPI port's per-device queues (single producer, single consumer, no
 # critical section) and free lists.
 heapless = "=0.9.3"
-# The SPI port's wake of each device's holder (`Signal`). Its short critical
+# The SPI port's wake of each device's holder, and the USB port's wake of
+# the firmware's task (`Signal`). Its short critical
 # section is the firmware's implementation (cortex-m's single-core one).
 rtic-sync = "=1.6.1"
 # The lock a group member's shared resource arrives through (`rtic::Mutex`).

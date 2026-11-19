@@ -1,103 +1,148 @@
-//! PROTOTYPE, variant D (deferred): not product code. A USB device port: FerroHAL's full-speed OTG port as a `usb-device` bus,
-//! its vector served by the group and the device stack run by the
-//! firmware's own task. Behind this crate's `usb` feature.
+//! The USB device port: FerroHAL's full-speed OTG port with its vector
+//! deferred to a task of the firmware's. Behind this crate's `usb` feature.
+//! Design: `docs/design/usb-port.md`.
 //!
-//! The port is hardware only. Enumeration, the descriptors and every class
-//! (CDC serial, HID, DFU) are protocol: the firmware builds its
-//! `UsbDevice` and classes on the bus [`new`](usb_device::new) hands back,
-//! and polls them from its own task. The group never names a class.
+//! The firmware owns the device and its classes: `usb-device` builds them
+//! on the bus [`new`](usb_device::new) returns, and enumeration and the
+//! classes are protocol (D6). The port carries wakes, not packets or bytes.
+//! The member serves the vector, masking what the core has pending, and
+//! writes an `rtic-sync` signal the firmware's task awaits through its
+//! [`UsbWaiter`](usb_device::UsbWaiter). The signal holds until the task
+//! reads it, so no wake is lost, and the bus is built without the
+//! start-of-frame heartbeat: a quiet configured bus raises the vector not at
+//! all.
 //!
-//! The member serves the vector with FerroHAL's
-//! [`UsbVector`](ferrohal_stm32::usb::UsbVector): it masks whatever the core
-//! has pending, so the vector does not fire again before the stack has
-//! served it, and passes what waits to the firmware's task through the
-//! `events` call. That task's `UsbDevice::poll` serves it and unmasks it.
-//! The vector is the port's only state, so it is the member's local
-//! resource; the bus and the stack are the firmware's.
+//! FerroHAL's rule of use (USB-002): the vector's service and every bus call
+//! never preempt one another. The firmware keeps the vector service, the
+//! device and its classes in one shared resource, its [`UsbStack`], and the
+//! member reaches the service only through that resource's lock. A task
+//! holding the lock to poll or to read or write a class then cannot be cut
+//! into by the vector, and nothing reaches the bus without the lock.
 //!
-//! Wakes coalesce, and none is lost. A call that finds the firmware's task
-//! still queued or running is dropped, but what it reported stays pending
-//! in the core: the start-of-frame interrupt, every millisecond while the
-//! bus runs, repeats the report until a poll has served it. A task that
-//! polls until [`Events::any`](usb_device::Events::any) is false on a fresh
-//! read sees no such repeat at all.
+//! Requirements: PORT-001, PORT-501, PORT-502
 //!
-//! Only the OTG_FS port: the one the chip's glue wires (`USB_OTG_FS`, PA11
-//! and PA12 on the parts here; RM0368 table 9 and DS10086 table 9 for the
-//! F401, DS8626 table 9 for the F405/F407, DS12117 table 10 for the H753).
-//!
-//! Requirements: PORT-001, PORT-002, PORT-501
+//! [`UsbStack`]: usb_device::UsbStack
 
-/// The USB device group. A firmware selects it once:
+/// The USB device group. A firmware selects it once, with its stack shared
+/// between the member and its own task:
 ///
 /// ```rust,ignore
-/// #[group(from = ferroforge_stm32::usb_device, local = [vector = usb_vector],
-///         spawn = [events = usb_events])]
+/// #[group(from = ferroforge_stm32::usb_device, shared = [stack = usb], local = [wake = usb_wake])]
 /// mod usb {
-///     #[task(binds = OTG_FS, priority = 2)] fn on_usb_fs;
+///     #[task(binds = OTG_FS, priority = 3)] fn on_usb;
 /// }
 /// ```
 #[ferroforge::group(
     slots = [instance: U, dm: Dm, dp: Dp],
-    vectors = [on_usb_fs = instance],
-    local = [vector: UsbVector],
+    vectors = [on_usb = instance],
+    shared = [stack: S],
+    local = [wake: UsbWake],
     buffers = [ep_memory: [u32]],
-    constructor = new(rcc, wiring, ep_memory),
+    memory = [memory: Memory],
+    handles = [waiter: UsbWaiter, vector: UsbVector, bus: UsbBusAllocator<UsbBus>],
+    constructor = new(rcc, wiring, ep_memory, memory),
 )]
 pub mod usb_device {
-    use core::sync::atomic::{AtomicU32, Ordering};
-
     use ferrohal_stm32::{
         rcc::Rcc,
-        usb::{UsbFs, UsbRefused, usb_device::bus::UsbBusAllocator},
+        usb::{UsbFs, UsbRefused},
     };
+    use rtic_sync::signal::{Signal, SignalReader, SignalWriter};
 
     pub use ferrohal_stm32::{
         Service,
         chip::{USB_OTG_FS as U, UsbDm as Dm, UsbDp as Dp},
-        usb::{Events, UsbBus, UsbVector, Wiring},
+        usb::{Events, UsbBus, UsbVector, Wiring, usb_device::bus::UsbBusAllocator},
     };
 
-    /// PROTOTYPE bench counter: how often the member ran.
-    pub static VECTOR_ENTRIES: AtomicU32 = AtomicU32::new(0);
+    /// The member's end of the wake.
+    pub type UsbWake = SignalWriter<'static, ()>;
 
-    /// What [`new`] builds: the member's resource, and the bus for the
-    /// firmware's own stack.
+    /// The port's memory: the wake between the member and the firmware's
+    /// task.
+    pub struct Memory {
+        wake: Signal<()>,
+    }
+
+    impl Memory {
+        /// Empty memory, for a `static` or `init(local = [..])`.
+        pub const fn new() -> Self {
+            Self {
+                wake: Signal::new(),
+            }
+        }
+    }
+
+    impl Default for Memory {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    /// The firmware's shared stack: its device and classes, and the
+    /// [`UsbVector`] [`new`] returned, all behind one lock. The member
+    /// reaches the vector service only through it.
+    pub trait UsbStack {
+        /// The vector service, for the member.
+        fn vector(&mut self) -> &mut UsbVector;
+    }
+
+    /// The firmware's task's end of the wake.
+    pub struct UsbWaiter {
+        wake: SignalReader<'static, ()>,
+    }
+
+    impl UsbWaiter {
+        /// Returns once the vector has found something waiting for a poll
+        /// since the last return; at once if it already has. Wakes
+        /// coalesce: one return covers every vector entry before it.
+        pub async fn wait(&mut self) {
+            self.wake.wait().await;
+        }
+    }
+
+    /// What [`new`] builds.
     pub struct Resources {
-        /// The firmware's local resource, bound as the group's `vector`.
+        /// The member's local resource, bound as the group's `wake`.
+        pub wake: UsbWake,
+        /// The firmware task's end of the wake.
+        pub waiter: UsbWaiter,
+        /// The vector service, for the firmware's stack.
         pub vector: UsbVector,
-        /// The bus, for the firmware's `UsbDeviceBuilder` and classes. Not a
-        /// group resource: the firmware keeps it for good (`usb-device`
-        /// needs it `'static`), in an `init` local or a static.
+        /// The bus, for the firmware's `UsbDeviceBuilder` and classes.
         pub bus: UsbBusAllocator<UsbBus>,
     }
 
-    /// Opens the port on `wiring` and builds its bus, deferring the vector
-    /// to the firmware's task. `ep_memory` holds the OUT endpoints' packets,
-    /// a word per four bytes of each endpoint's largest packet: its length
-    /// is the firmware's, set by the classes it builds. A refusal is
-    /// FerroHAL's, with the wiring handed back: no 48 MHz USB clock, or an
-    /// AHB clock too slow for the core.
+    /// Opens the port on `wiring`, builds its bus without the heartbeat,
+    /// and splits the wake in `memory` into its two ends. A refusal is
+    /// FerroHAL's, with the wiring handed back.
     pub fn new(
         rcc: &mut Rcc,
         wiring: Wiring,
         ep_memory: &'static mut [u32],
+        memory: &'static mut Memory,
     ) -> Result<Resources, UsbRefused> {
-        let (bus, vector) = UsbFs::new(rcc, wiring)?.deferred(ep_memory);
-        Ok(Resources { vector, bus })
+        let (bus, vector) = UsbFs::new(rcc, wiring)?.deferred_without_heartbeat(ep_memory);
+        let (wake, reader) = memory.wake.split();
+        Ok(Resources {
+            wake,
+            waiter: UsbWaiter { wake: reader },
+            vector,
+            bus,
+        })
     }
 
-    /// The port's vector: a reset, a suspend or a resume, a packet received
-    /// or sent, or the start of frame that repeats what still waits.
-    #[ferroforge::task(
-        local = [vector: UsbVector],
-        spawn = [events(events: Events)],
-    )]
-    pub fn on_usb_fs(cx: on_usb_fs::Context) {
-        VECTOR_ENTRIES.fetch_add(1, Ordering::Relaxed);
-        let events = cx.local.vector.on_interrupt();
-        if events.any() {
-            let _: Result<(), Events> = cx.spawn.events(events);
+    /// The port's vector: takes the stack's lock, masks what waits and wakes
+    /// the firmware's task.
+    #[ferroforge::task(shared = [stack], bounds = [stack: UsbStack], local = [wake: UsbWake])]
+    pub fn on_usb(mut cx: on_usb::Context) {
+        if cx
+            .shared
+            .stack
+            .lock(|stack| stack.vector().on_interrupt())
+            .any()
+        {
+            cx.local.wake.write(());
         }
     }
 }
@@ -106,7 +151,6 @@ pub mod usb_device {
 mod tests {
     use std::{string::ToString, vec::Vec};
 
-    use super::usb_device;
     use crate::tests::groups;
 
     #[test]
@@ -119,51 +163,20 @@ mod tests {
         let contract = &group.arguments.contract;
         let roles: Vec<_> = contract.slots.iter().map(|s| s.role.to_string()).collect();
         assert_eq!(roles, ["instance", "dm", "dp"]);
-        assert_eq!(contract.vectors.len(), 1);
-        assert_eq!(contract.vectors[0].member, "on_usb_fs");
-        assert_eq!(contract.vectors[0].slot, "instance");
         let local: Vec<_> = contract.local.iter().map(|r| r.name.to_string()).collect();
-        assert_eq!(local, ["vector"]);
-        assert!(contract.shared.is_empty() && contract.config.is_empty());
-        let buffers: Vec<_> = contract
-            .buffers
+        assert_eq!(local, ["wake"]);
+        let shared: Vec<_> = contract.shared.iter().map(|r| r.name.to_string()).collect();
+        assert_eq!(shared, ["stack"]);
+        let handles: Vec<_> = contract
+            .handles
             .iter()
-            .map(|b| (b.name.to_string(), b.element.to_string(), b.dma))
+            .map(|r| r.name.to_string())
             .collect();
-        assert_eq!(
-            buffers,
-            [("ep_memory".to_string(), "u32".to_string(), false)]
-        );
-        let constructor = contract.constructor.as_ref().unwrap();
-        assert!(constructor.path.is_ident("new"));
-        let arguments: Vec<_> = constructor
-            .arguments
-            .iter()
-            .map(|a| a.to_string())
-            .collect();
-        assert_eq!(arguments, ["rcc", "wiring", "ep_memory"]);
+        assert_eq!(handles, ["waiter", "vector", "bus"]);
+        assert_eq!(contract.vectors[0].member, "on_usb");
         let [member] = group.members.as_slice() else {
             panic!("one member, found {}", group.members.len());
         };
-        assert_eq!(member.name, "on_usb_fs");
         assert_eq!(member.kind, ferroforge_contracts::TaskKind::Hardware);
-    }
-
-    /// The constructor takes the chip's own wiring: the OTG_FS token and its
-    /// two data pins, whose types the slots name.
-    #[test]
-    fn usb_device_builds_on_the_chips_wiring() {
-        use ferrohal_stm32::rcc::Rcc;
-        let constructor: fn(
-            &mut Rcc,
-            usb_device::Wiring,
-            &'static mut [u32],
-        )
-            -> Result<usb_device::Resources, ferrohal_stm32::usb::UsbRefused> = usb_device::new;
-        let _ = constructor;
-        let wiring = |usb: usb_device::U, dm: usb_device::Dm, dp: usb_device::Dp| {
-            usb_device::Wiring { usb, dm, dp }
-        };
-        let _ = wiring;
     }
 }

@@ -4,50 +4,20 @@ version = "0.1.0"
 edition = "2024"
 publish = false
 
-# PROTOTYPE bench: the two USB port variants, one image each.
 [[bin]]
-name = "usb-deferred"
-path = "src/bin/usb_deferred.rs"
+name = "usb-device"
+path = "src/main.rs"
 test = false
 bench = false
-
-[[bin]]
-name = "usb-signalled"
-path = "src/bin/usb_signalled.rs"
-test = false
-bench = false
-
-[[bin]]
-name = "usb-locked"
-path = "src/bin/usb_locked.rs"
-test = false
-bench = false
-
-[[bin]]
-name = "usb-stacked"
-path = "src/bin/usb_stacked.rs"
-test = false
-bench = false
-
-[[bin]]
-name = "usb-polled"
-path = "src/bin/usb_polled.rs"
-test = false
-bench = false
-
-[features]
-# PROTOTYPE: the IN write without its critical section, for the locked
-# variant's image only (hil/usb-common/run.sh passes it).
-no-fifo-cs = ["synopsys-usb-otg/no-fifo-critical-section"]
 
 [dependencies]
 ferroforge-stm32 = { path = "../..", features = ["usb"] }
-ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "f7387ed67ca29e194c8938d0db03f735c59480d7" }
-ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "4e24a5a07e7dbc2694cbc8acdd2f4f5799c8d082", features = ["stm32f407vg", "rt", "rtic", "defmt", "usb"] }
+ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "eded9269ebeb0852090b9174d1c416feb7ef6cc3" }
+# FerroHAL's pin, as ferroforge-stm32's. `rt` gives RTIC its vector table,
+# `rtic` the `Peripherals::steal` that `peripherals = true` names.
+ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "c83c123a97f72ca17ffe18828536e4629d02770e", features = ["stm32f407vg", "rt", "rtic", "defmt", "usb"] }
+# The bench firmware's CDC class: protocol, the firmware's (D6).
 usbd-serial = "=0.2.2"
-# FerroHAL's own pin of the USB core driver, with the critical-section meter
-# on (bench instrumentation; Cargo unifies it with FerroHAL's).
-synopsys-usb-otg = { git = "https://github.com/Eirik2020/synopsys-usb-otg", rev = "880940cd9913c32e6913c4a66cc84da2eddf9fbd", default-features = false, features = ["cortex-m", "measure-critical-section"] }
 
 cortex-m = { version = "0.7.7", features = ["critical-section-single-core"] }
 cortex-m-rt = "0.7.6"
@@ -68,4 +38,5 @@ debug = 2
 lto = true
 opt-level = "s"
 
+# Not part of any workspace around it.
 [workspace]

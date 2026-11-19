@@ -222,7 +222,7 @@ checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 [[package]]
 name = "ferroforge"
 version = "0.4.0"
-source = "git+https://github.com/Eirik2020/ferroforge?rev=f7387ed67ca29e194c8938d0db03f735c59480d7#f7387ed67ca29e194c8938d0db03f735c59480d7"
+source = "git+https://github.com/Eirik2020/ferroforge?rev=eded9269ebeb0852090b9174d1c416feb7ef6cc3#eded9269ebeb0852090b9174d1c416feb7ef6cc3"
 dependencies = [
  "ferroforge-macros",
 ]
@@ -230,7 +230,7 @@ dependencies = [
 [[package]]
 name = "ferroforge-contracts"
 version = "0.4.0"
-source = "git+https://github.com/Eirik2020/ferroforge?rev=f7387ed67ca29e194c8938d0db03f735c59480d7#f7387ed67ca29e194c8938d0db03f735c59480d7"
+source = "git+https://github.com/Eirik2020/ferroforge?rev=eded9269ebeb0852090b9174d1c416feb7ef6cc3#eded9269ebeb0852090b9174d1c416feb7ef6cc3"
 dependencies = [
  "proc-macro2",
  "syn 2.0.119",
@@ -239,7 +239,7 @@ dependencies = [
 [[package]]
 name = "ferroforge-macros"
 version = "0.4.0"
-source = "git+https://github.com/Eirik2020/ferroforge?rev=f7387ed67ca29e194c8938d0db03f735c59480d7#f7387ed67ca29e194c8938d0db03f735c59480d7"
+source = "git+https://github.com/Eirik2020/ferroforge?rev=eded9269ebeb0852090b9174d1c416feb7ef6cc3#eded9269ebeb0852090b9174d1c416feb7ef6cc3"
 dependencies = [
  "ferroforge-contracts",
  "proc-macro2",
@@ -255,6 +255,7 @@ dependencies = [
  "ferroforge",
  "ferrohal-stm32",
  "fugit",
+ "heapless 0.9.3",
  "rtic",
  "rtic-monotonics",
  "rtic-sync",
@@ -263,7 +264,7 @@ dependencies = [
 [[package]]
 name = "ferrohal-stm32"
 version = "0.1.0"
-source = "git+https://github.com/Eirik2020/ferrohal-stm32?rev=4e24a5a07e7dbc2694cbc8acdd2f4f5799c8d082#4e24a5a07e7dbc2694cbc8acdd2f4f5799c8d082"
+source = "git+https://github.com/Eirik2020/ferrohal-stm32?rev=c83c123a97f72ca17ffe18828536e4629d02770e#c83c123a97f72ca17ffe18828536e4629d02770e"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
@@ -360,9 +361,9 @@ dependencies = [
 
 [[package]]
 name = "heapless"
-version = "0.9.4"
+version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "411fdef4df93751117bd9ef8caa0e7f99c65dafec5bd84313eb8e2fdd75e32f2"
+checksum = "25ba4bd83f9415b58b4ed8dc5714c76e626a105be4646c02630ad730ad3b5aa4"
 dependencies = [
  "hash32",
  "stable_deref_trait",
@@ -575,7 +576,7 @@ dependencies = [
  "embedded-hal 1.0.0",
  "embedded-hal-async",
  "embedded-hal-bus",
- "heapless 0.9.4",
+ "heapless 0.9.3",
  "loom",
  "portable-atomic",
  "rtic-common",
@@ -684,7 +685,6 @@ dependencies = [
  "panic-probe",
  "rtic",
  "rtic-monotonics",
- "synopsys-usb-otg",
  "usbd-serial",
 ]
 
@@ -713,7 +713,7 @@ dependencies = [
 [[package]]
 name = "synopsys-usb-otg"
 version = "0.4.0"
-source = "git+https://github.com/Eirik2020/synopsys-usb-otg?rev=880940cd9913c32e6913c4a66cc84da2eddf9fbd#880940cd9913c32e6913c4a66cc84da2eddf9fbd"
+source = "git+https://github.com/Eirik2020/synopsys-usb-otg?rev=31a4cc9835a2b78e2a4d6a39738341f3184744a0#31a4cc9835a2b78e2a4d6a39738341f3184744a0"
 dependencies = [
  "cortex-m",
  "embedded-hal 0.2.7",

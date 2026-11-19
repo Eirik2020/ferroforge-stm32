@@ -1,0 +1,54 @@
+schema_version: 2
+requirements:
+  - id: PORT-501
+    title: The USB port wakes the firmware's task for every poll it needs
+    statement: >-
+      The USB device port shall wake the firmware's task after every vector
+      entry that finds the core waiting for a poll, until the task's next
+      wait returns.
+    rationale: >-
+      The firmware's task, not the vector, serves the core (the deferred
+      vector), and a wake it never sees stalls the port for good. A signal
+      that holds until the task reads it loses no wake, so no start-of-frame
+      heartbeat is needed to repeat one, and a quiet bus raises no vector.
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#USB port on the STM32F4 Discovery
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:USB-002
+
+  - id: PORT-502
+    title: The USB port serves its vector only under the firmware's lock
+    statement: >-
+      The USB device port's member shall reach the vector service only
+      through the lock of the firmware's shared stack that holds it beside
+      the device and its classes.
+    rationale: >-
+      FerroHAL's rule of use (USB-002): the vector's service and every bus
+      call never preempt one another, or the transmit FIFO erratum (ES0182
+      2.14.1 and its twins) stalls the IN endpoint. Holding all three behind
+      one lock puts the rule in the types: nothing reaches the bus or the
+      service without it, and the lock holds off only vectors at or below
+      the USB vector's priority, where a critical section held every one
+      for about 10 us on the F407 (D35).
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::usb::tests::usb_device_states_its_contract
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#USB port on the STM32F4 Discovery
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:USB-002
