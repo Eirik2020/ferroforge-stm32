@@ -106,8 +106,26 @@ and, for the most, microseconds.
 | H753, reader-ahead | 6477 / 19842 (49.6 us) | 12888 / 19486 (48.7 us) | 5862 / 6046 (15.1 us) | 5718 / 5790 (14.5 us) |
 | H753, own-streams | 6411 / 18408 (46.0 us) | 11332 / 18048 (45.1 us) | 7507 / 7660 (19.2 us) | 5307 / 5348 (13.4 us) |
 
-The longest run is the start: its most is far above its mean in every layout,
-and its least within 200 cycles of the mean. The consumer's submit, on its own side,
+The longest run is the start, and only an exchange whose receive differs from the last
+one prepared (its rate or its count) pays it: that exchange's start runs FerroHAL's
+`prepare_listen`; one with the same receive reuses the prepared plan
+(`Generator::prepare` skips it when `Awg::prepared` matches). Measured with `port-stats`,
+which splits the start by that test: in the 1000-exchange block one start ran
+`prepare_listen` (the first receive since boot) and 999 reused it; in a block whose
+receive count changed every exchange, 199 of 200 ran it. So a firmware that keeps one
+receive pays the longer start once, at its first receive; one that changes the rate or
+count pays it at every change. Start whole, mean, in cycles:
+
+| board, layout | receive as last prepared | receive changed | of which `prepare` |
+|---|---|---|---|
+| Discovery, reader-ahead | 5949 | 10459 | 5334 |
+| Discovery, own-streams | 4803 | 9101 | 4947 |
+| Discovery, paced-reader | 5198 | 7817 | 3301 |
+| H753, reader-ahead | 13847 | 20941 | 9048 |
+| H753, own-streams | 12239 | 19035 | 8650 |
+
+(These starts are from the build with `port-stats`, whose test of the prepared plan adds
+about 400 cycles on the Discovery to every start; the product build has neither.) The consumer's submit, on its own side,
 is 2335 to 2348 cycles on the Discovery and 4732 to 4806 on the H753, mean, most within
 60 of it.
 

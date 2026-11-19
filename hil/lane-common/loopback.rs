@@ -161,6 +161,8 @@ pub fn show_start_parts(p: &ferroforge_stm32::lanes_frame::StartParts, lanes: us
     span_us("start part: play", &p.play, per_us);
     span_us("start whole, with receive", &p.with_receive, per_us);
     span_us("start whole, without receive", &p.without_receive, per_us);
+    span_us("start whole, the receive changed (prepare_listen ran)", &p.prepared, per_us);
+    span_us("start whole, the receive as last prepared", &p.reused, per_us);
     defmt::info!(
         "starts in a run that also ended an exchange: {}",
         p.after_end
@@ -750,6 +752,26 @@ pub fn run<P: Port, R: Responder, W: Witness>(
             broken_from = Some(d);
         }
     }
+    // Which exchanges pay the longer start: a block whose receive count
+    // alternates, so every exchange's receive differs from the last
+    // prepared. F reports both kinds of start (`port-stats`).
+    port.clear_stats();
+    let mut changed_back = 0u32;
+    for index in 0..200u32 {
+        frames_of(index, lanes, period, &mut store);
+        let refs: [&[u32]; 8] = core::array::from_fn(|l| &store[l][..]);
+        if !responder.arm(responder_wave(D_MAX, responder.period(), &mut wave)) {
+            continue;
+        }
+        let count = if index % 2 == 0 { RX_COUNT } else { RX_COUNT - RX_PER_PERIOD as usize };
+        let back = exchange(port, now, per_us, &refs[..lanes], Some((rx, count)), &mut |_, _, _| {});
+        if !responder.finish() {
+            responder.abort();
+        }
+        changed_back += u32::from(back == Some(Outcome::Received));
+    }
+    defmt::info!("receive count changed every exchange: {} of 200 received", changed_back);
+    port.show_parts(per_us);
     match (smallest_whole, broken_from) {
         (Some(d), _) => defmt::info!(
             "margin: smallest delay read whole every time d = {} ({} ns set, {} ns on the wire); first short d = {}; margin to 30 us = {} ns",

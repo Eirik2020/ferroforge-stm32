@@ -96,6 +96,11 @@ pub trait Generator {
     fn prepare(&mut self, rate: Hertz, count: usize) -> Result<Hertz, Error>;
     /// [`Awg::listen`]: the prepared read, and nothing else.
     fn listen(&mut self) -> Result<(), Error>;
+    /// Whether [`Awg::prepared`] already matches `rate` and `count`, so
+    /// `prepare` would not call `prepare_listen`. For the statistics only.
+    fn prepared_for(&self, _rate: Hertz, _count: usize) -> bool {
+        false
+    }
     /// [`Awg::speak`].
     fn speak(&mut self) -> Result<(), Error>;
     /// [`Awg::on_interrupt`].
@@ -148,6 +153,9 @@ impl<A: ChannelTimer, B: ChannelTimer, LA: Lanes<A>, LB: Lanes<B>> Generator for
     }
     fn listen(&mut self) -> Result<(), Error> {
         Awg::listen(self)
+    }
+    fn prepared_for(&self, rate: Hertz, count: usize) -> bool {
+        matches!(Awg::prepared(self), Some((r, c, _)) if r == rate && c == count)
     }
     fn speak(&mut self) -> Result<(), Error> {
         Awg::speak(self)
@@ -419,6 +427,11 @@ pub struct StartParts {
     /// `start` whole, for exchanges with a receive and without.
     pub with_receive: Span,
     pub without_receive: Span,
+    /// `start` whole for exchanges with a receive, split: those whose
+    /// receive differed from the last prepared (rate or count), so
+    /// `prepare_listen` ran, and those that reused the prepared plan.
+    pub prepared: Span,
+    pub reused: Span,
     /// Starts in a run that also ended an exchange.
     pub after_end: u32,
 }
@@ -916,6 +929,10 @@ impl<G: Generator> FramePort<G> {
             self.stats.parts.lend.add(now.wrapping_sub(mark));
             mark = now;
         }
+        #[cfg(feature = "port-stats")]
+        let fresh = lent
+            .receive
+            .map(|(rate, count)| !self.generator.prepared_for(rate, usize::from(count)));
         // The listen is computed before the frame, outside the
         // turn-around.
         if failed.is_none()
@@ -983,6 +1000,11 @@ impl<G: Generator> FramePort<G> {
             self.stats.start.add(played.wrapping_sub(entered));
             if receive {
                 self.stats.parts.with_receive.add(played.wrapping_sub(entered));
+                match fresh {
+                    Some(true) => self.stats.parts.prepared.add(played.wrapping_sub(entered)),
+                    Some(false) => self.stats.parts.reused.add(played.wrapping_sub(entered)),
+                    None => {}
+                }
             } else {
                 self.stats.parts.without_receive.add(played.wrapping_sub(entered));
             }
