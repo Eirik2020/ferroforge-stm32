@@ -1,0 +1,147 @@
+{
+  "schema_version": 5,
+  "run_id": "20261119T201207Z__lane-frame-port-on-the-stm32f4-discovery-lanes-o__stm32f4-discovery-lane-port__01",
+  "recorded_at_utc": "2026-11-19T20:12:07Z",
+  "board": "stm32f4-discovery-lane-port",
+  "tier": "HIL",
+  "revision": "66f9ae055affe5575fbbca6f40165c9d9a8a4384",
+  "working_tree": "clean",
+  "configuration": {
+    "board": "stm32f4-discovery-lane-port",
+    "features": [
+      "own-streams"
+    ],
+    "files": {
+      "hil/stm32f4-discovery-lane-port/.cargo/config.toml": "670d352a14855eca575d92053c6519ebd5e439d6fd60558be0bff3a138302890",
+      "hil/stm32f4-discovery-lane-port/Cargo.toml": "0bae665e30a5a43b64f748627d4a02ed9769c4ba82c66a62b5df5ec8fc44fe95",
+      "hil/stm32f4-discovery-lane-port/src/../../lane-common/loopback.rs": "3a03f066c5de1ea3d96c087c721f800693f988f2a244fb8001fba63ce63a6c05",
+      "hil/stm32f4-discovery-lane-port/src/bin/lanes-f.rs": "8f71b9b74ee9af9cb31b0c0133b6f493d1228c8457002309dbef88a227ba3ba0",
+      "hil/stm32f4-discovery-lane-port/src/bin/lanes-t.rs": "0a09240ba54b11f9f6f9168ed4d3ee26d33d37ddd1ff3a3fe0f608b774835103",
+      "hil/stm32f4-discovery-lane-port/src/layout_three_ports.rs": "78a7fddbe7a68230bbde81bf0b69577b00da17b5aa59104203279d35c169e9c1",
+      "hil/stm32f4-discovery-lane-port/src/lib.rs": "23f74b9e5022b6b2a00c435fd8ce1a2258edca678b465ab9b2f9e61c9668751c",
+      "src/adc.rs": "34530120856667248e787fe554ab3410220fbe384a809b81dfd69c2e4700c0db",
+      "src/exti.rs": "5d8aa5d0dc92c3555cd13a34473c0c39812f8b9bfb8b378245ad9765e5574104",
+      "src/lanes_frame.rs": "d2e93bdd95941f1d2be1ed11ab5740622bb49ca66819e45296eda1e36b340d50",
+      "src/lib.rs": "5195c2a5d7973152cb957a578dcd9e5b61c4feb6e325a13f67be4ccf8fc6afad",
+      "src/spi.rs": "d368c66b749591b233cc01740d5e4f31de23b7e97c52bbf80509ba5670363a37",
+      "src/uart.rs": "63246943ce166653c275739084f63b9a8f3b5d76f816acaa33a4f5a33c33f951",
+      "src/uart_rx.rs": "b30f1eb4a38d7e3e8ae899807cf57db5853a77fd1e4e3912b889230bda762b8b"
+    },
+    "externals": {
+      "bare-metal": "0.2.5",
+      "bitfield": "0.13.2",
+      "bitflags": "1.3.2",
+      "byteorder": "1.5.0",
+      "cfg-if": "1.0.5",
+      "cortex-m": "0.7.10",
+      "cortex-m-macros": "0.7.8",
+      "cortex-m-rt": "0.7.7",
+      "cortex-m-rt-macros": "0.7.7",
+      "cortex-m-semihosting": "0.5.0",
+      "critical-section": "1.2.0",
+      "defmt": "0.3.101, 1.2.0",
+      "defmt-macros": "1.2.0",
+      "defmt-parser": "1.1.0",
+      "defmt-rtt": "1.3.1",
+      "embedded-hal": "0.2.7, 1.0.0",
+      "embedded-hal-async": "1.0.0",
+      "embedded-hal-bus": "0.3.0",
+      "embedded-io": "0.7.1",
+      "equivalent": "1.0.3",
+      "ferroforge": "0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3",
+      "ferroforge-contracts": "0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3",
+      "ferroforge-macros": "0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3",
+      "ferrohal-stm32": "0.1.0+d5b81c655d9cc79526a3247ca2bf3bc093444562",
+      "fugit": "0.3.9",
+      "futures-core": "0.3.34",
+      "futures-task": "0.3.34",
+      "futures-util": "0.3.34",
+      "gcd": "2.3.0",
+      "hash32": "0.3.1",
+      "hashbrown": "0.17.1",
+      "heapless": "0.9.3",
+      "indexmap": "2.14.2",
+      "nb": "0.1.3, 1.1.0",
+      "panic-probe": "1.0.0",
+      "pin-project-lite": "0.2.17",
+      "portable-atomic": "1.15.0",
+      "proc-macro2": "1.0.107",
+      "quote": "1.0.47",
+      "rtic": "2.4.0",
+      "rtic-common": "1.3.0",
+      "rtic-core": "1.0.0",
+      "rtic-macros": "2.4.0",
+      "rtic-monotonics": "2.2.1",
+      "rtic-sync": "1.6.1",
+      "rtic-time": "2.0.1",
+      "rustc_version": "0.2.3",
+      "semver": "0.9.0",
+      "semver-parser": "0.7.0",
+      "stable_deref_trait": "1.2.1",
+      "stm32-metapac": "21.0.0",
+      "syn": "2.0.119, 3.0.10",
+      "thiserror": "2.0.21",
+      "thiserror-impl": "2.0.21",
+      "unicode-ident": "1.0.27",
+      "vcell": "0.1.3",
+      "void": "1.0.2",
+      "volatile-register": "0.2.2"
+    },
+    "environment": {
+      "DEFMT_LOG": "info"
+    }
+  },
+  "results": [
+    {
+      "requirement": "PORT-608",
+      "method": {
+        "procedure": "requirements/benches.md#Lane frame port on the STM32F4 Discovery, lanes' own streams"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "0369d474ebaaa718374dc4dd4778af9e0544f69627dbbd9e5b1b0b2d21711086",
+      "result": "pass"
+    }
+  ],
+  "note": null,
+  "supersedes": [],
+  "ruling": null,
+  "details": {
+    "execution": {
+      "performed_by": "agent",
+      "user_confirmed": false
+    },
+    "conditions": {
+      "actuators": "none on this bench",
+      "image": "release profile, thumbv7em-none-eabihf, features own-streams",
+      "equipment": [
+        "the board's ST-LINK, through FerroHAL's rig entry point with its pinned probe serial",
+        "probe-rs"
+      ],
+      "environment": [
+        "development bench"
+      ]
+    },
+    "commands": [
+      {
+        "command": "rig --wait hil/run-discovery-lane-port.sh own-streams f",
+        "exit_code": 0
+      }
+    ],
+    "measurements": {
+      "checks_failed": 0,
+      "checks_passed": 11,
+      "logs": {
+        "d-own-streams-f.log": "11 passed, 0 failed"
+      }
+    },
+    "observations": [
+      "Run by an agent through FerroHAL's rig entry point, at the coordinator's board grant, recorded at 66f9ae0; every check in every log passed.",
+      "Run at 29ea31c's code (FerroHAL d5b81c6, FerroForge eded926), without port-stats."
+    ],
+    "limitations": [
+      "The logs stayed on the rig PC and are not attached; the counts above are from them."
+    ]
+  }
+}

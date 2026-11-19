@@ -1,0 +1,42 @@
+[package]
+name = "stm32f4-discovery-usb-device"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "usb-device"
+path = "src/main.rs"
+test = false
+bench = false
+
+[dependencies]
+ferroforge-stm32 = { path = "../..", features = ["usb"] }
+ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "9623964f3e26b34d9af2f1754b7e8a340a3f5ee0" }
+# FerroHAL's pin, as ferroforge-stm32's. `rt` gives RTIC its vector table,
+# `rtic` the `Peripherals::steal` that `peripherals = true` names.
+ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "1e438f486220cc588af806c7ddf82f617580549f", features = ["stm32f407vg", "rt", "rtic", "defmt", "usb"] }
+# The bench firmware's CDC class: protocol, the firmware's (D6).
+usbd-serial = "=0.2.2"
+
+cortex-m = { version = "0.7.7", features = ["critical-section-single-core"] }
+cortex-m-rt = "0.7.6"
+cortex-m-semihosting = "0.5.0"
+rtic = { version = "2.4.0", features = ["thumbv7-backend"] }
+rtic-monotonics = { version = "=2.2.1", default-features = false, features = ["cortex-m-systick", "systick-64bit"] }
+
+defmt = "1.0.1"
+defmt-rtt = "1.3.0"
+panic-probe = { version = "1.0.0", features = ["print-defmt"] }
+
+[profile.dev]
+opt-level = "s"
+
+[profile.release]
+codegen-units = 1
+debug = 2
+lto = true
+opt-level = "s"
+
+# Not part of any workspace around it.
+[workspace]

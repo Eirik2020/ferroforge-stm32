@@ -1,0 +1,210 @@
+schema_version: 2
+requirements:
+  - id: PORT-601
+    title: One lane exchange at a time
+    statement: >-
+      The lane frame port shall refuse to open an exchange while another is
+      out.
+    rationale: >-
+      One exchange owns every lane's lent memory and the generator until it
+      comes back (D8); a second would overwrite frames in flight.
+    derived_from: [G1, G2]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::lanes_frame::tests::a_second_exchange_is_refused_while_one_is_out
+
+  - id: PORT-602
+    title: Frames are checked where the consumer writes them
+    statement: >-
+      The lane frame port's submit shall check and close every frame in the
+      consumer's context, refusing the exchange whole if any frame is refused.
+    rationale: >-
+      The port's interrupt then only starts streams, and a frame the lanes
+      cannot play never reaches them (D28, D30).
+    derived_from: [G1, G2]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::lanes_frame::tests::a_frame_stepping_from_the_top_to_zero_is_refused_at_submit
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:AWG-012
+
+  - id: PORT-603
+    title: The port plays each frame once, in place
+    statement: >-
+      The lane frame port shall play every lane's frame once from the
+      memory the consumer wrote it in, and return that memory with the
+      exchange.
+    rationale: >-
+      A frame is samples played once (D28); playing it in place spends no
+      copy at the start.
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::lanes_frame::tests::a_send_only_exchange_plays_once_and_comes_back_sent
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#Lane frame port on the STM32F4 Discovery, readers armed ahead
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:AWG-012
+
+  - id: PORT-604
+    title: The port listens in the run that sees the frames end
+    statement: >-
+      The lane frame port shall start an exchange's receive in the interrupt
+      run that sees the last lane's frame end.
+    rationale: >-
+      The reply follows the frame within tens of microseconds; the switch
+      cannot wait for the consumer's task (D28, D30).
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::lanes_frame::tests::the_port_listens_in_the_run_that_sees_the_last_lane_end
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#Lane frame port on the STM32F4 Discovery, readers armed ahead
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:AWG-019
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:AWG-013
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:AWG-018
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:AWG-020
+
+  - id: PORT-605
+    title: A receive returns its reader's port words
+    statement: >-
+      The lane frame port shall give each lane of a received exchange the
+      port words its timer and port's reader read.
+    rationale: >-
+      One reader serves every lane on a timer and port (D30); a lane is one
+      bit of what it read.
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::lanes_frame::tests::lanes_that_share_a_reader_get_its_share
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:AWG-014
+
+  - id: PORT-606
+    title: A fault leaves the outputs inactive and comes back
+    statement: >-
+      On a lane fault, a refused load or a cancel, the lane frame port shall
+      stop the generator with every output at its inactive level and return
+      the exchange with that outcome.
+    rationale: >-
+      Faults are never hidden and nothing panics (D16); a line left driven
+      would read as signal.
+    derived_from: [G1, G2]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::lanes_frame::tests::a_lane_fault_mid_frame_comes_back_failed
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::lanes_frame::tests::a_cancel_mid_receive_leaves_the_outputs_on_and_comes_back_aborted
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#Lane frame port on the STM32F4 Discovery, readers armed ahead
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:AWG-007
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:AWG-021
+
+  - id: PORT-607
+    title: The port receives through readers armed ahead
+    statement: >-
+      With a reader armed ahead on each port its lanes use, the lane frame
+      port shall read whole a reply that starts 30 us after the frames end.
+    rationale: >-
+      The fastest reader form, for a board with a spare stream that reaches
+      GPIO on a lane timer's request (D31).
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#Lane frame port on the STM32F4 Discovery, readers armed ahead
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:AWG-015
+
+  - id: PORT-608
+    title: The port receives on the lanes' own streams
+    statement: >-
+      With no reader registered, the lane frame port shall read whole a reply
+      that starts 30 us after the frames end, on each port's first lane's own
+      stream.
+    rationale: >-
+      A board whose spare streams are all taken still receives (D31).
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#Lane frame port on the STM32F4 Discovery, lanes' own streams
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:AWG-016
+
+  - id: PORT-609
+    title: The port receives through a paced reader
+    statement: >-
+      With a reader paced by a timer that is not a lane timer, the lane frame
+      port shall read whole a reply that starts 30 us after the frames end.
+    rationale: >-
+      Lanes whose own streams cannot reach GPIO receive only this way (D31).
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#Lane frame port on the STM32F4 Discovery, a paced reader
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:AWG-017

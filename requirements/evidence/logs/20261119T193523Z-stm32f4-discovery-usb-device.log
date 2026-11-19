@@ -1,0 +1,24 @@
+    Updating git repository `https://github.com/Eirik2020/ferrohal-stm32`
+   Compiling ferrohal-stm32 v0.1.0 (https://github.com/Eirik2020/ferrohal-stm32?rev=c5b5d57e8ea296e0086818e82b05300a4e3480a9#c5b5d57e)
+   Compiling ferroforge-stm32 v0.1.0 (/home/kaldstrand/ws/ferro/ferroforge-stm32-usb)
+   Compiling stm32f4-discovery-usb-device v0.1.0 (/home/kaldstrand/ws/ferro/ferroforge-stm32-usb/hil/stm32f4-discovery-usb-device)
+    Finished `release` profile [optimized + debuginfo] target(s) in 3.98s
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.06s
+     Running `probe-rs run --chip STM32F407VGTx target/thumbv7em-none-eabihf/release/usb-device`
+     [38;5;10m[1mFinished[0m in 2.80s
+[INFO ] usb_device on the STM32F4 Discovery's CN5 (usb_device stm32f4-discovery-usb-device/src/main.rs:228)
+[INFO ] PASS the host configured the device [PORT-501] (usb_device stm32f4-discovery-usb-device/src/main.rs:170)
+[INFO ] PASS the host finished, every byte echoed but the marker [PORT-501, PORT-502] (usb_device stm32f4-discovery-usb-device/src/main.rs:170)
+[INFO ] PASS a configured, quiet second woke the task not at all [PORT-501] (usb_device stm32f4-discovery-usb-device/src/main.rs:170)
+[INFO ] MEASURE session: 148 ms, 70473 bytes received, 70473 echoed, 2061 task wakes, longest lock hold 10859 cycles; quiet second: 0 wakes (usb_device stm32f4-discovery-usb-device/src/main.rs:299)
+[INFO ] all checks passed (usb_device stm32f4-discovery-usb-device/src/main.rs:310)
+Firmware exited successfully
+PASS host: port usb-FerroForge_FerroForge_USB_port_bench_f407-usb-device-if00
+PASS host: 1 bytes echoed
+PASS host: 63 bytes echoed
+PASS host: 64 bytes echoed
+PASS host: 65 bytes echoed
+PASS host: 128 bytes echoed
+PASS host: 512 bytes echoed
+PASS host: 4096 bytes echoed
+PASS host: 64 KiB echoed at 516 KiB/s
