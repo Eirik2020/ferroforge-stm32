@@ -103,12 +103,13 @@ where
         _ => 0,
     };
     defmt::info!(
-        "MEASURE session: {} ms, busy {} permille, {} task wakes, {} vector entries, longest write {} cycles",
+        "MEASURE session: {} ms, busy {} permille, {} task wakes, {} vector entries, longest write {} cycles, longest IN critical section {} cycles",
         session_ms,
         session_load.0,
         session_wakes,
         session_entries,
-        seen.write_max_cycles
+        seen.write_max_cycles,
+        synopsys_usb_otg::CRITICAL_SECTION_MAX_CYCLES.load(core::sync::atomic::Ordering::Relaxed)
     );
     // A second configured and quiet: the host has closed its port.
     let quiet = Window::start();

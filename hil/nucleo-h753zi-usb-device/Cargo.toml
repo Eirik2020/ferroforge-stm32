@@ -26,8 +26,11 @@ bench = false
 [dependencies]
 ferroforge-stm32 = { path = "../..", features = ["usb"] }
 ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "f7387ed67ca29e194c8938d0db03f735c59480d7" }
-ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "5e5a40cc5b2bdbeb4b4dff36d9d55aa3460f45b6", features = ["stm32h753zi", "rt", "rtic", "defmt", "usb"] }
+ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "edb0b9b72560f84499b4085ccdc62ee12cb8ad07", features = ["stm32h753zi", "rt", "rtic", "defmt", "usb"] }
 usbd-serial = "=0.2.2"
+# FerroHAL's own pin of the USB core driver, with the critical-section meter
+# on (bench instrumentation; Cargo unifies it with FerroHAL's).
+synopsys-usb-otg = { git = "https://github.com/Eirik2020/synopsys-usb-otg", rev = "0c895b3fb81da82b75aa6a38c7f2f197618a8a55", default-features = false, features = ["cortex-m", "measure-critical-section"] }
 
 cortex-m = { version = "0.7.7", features = ["critical-section-single-core"] }
 cortex-m-rt = "0.7.6"

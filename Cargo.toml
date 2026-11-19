@@ -11,7 +11,7 @@ publish = false
 # Every dependency is pinned exactly, as FerroHAL's are: a bump needs a
 # reviewed diff analysis or reverification. FerroHAL and FerroForge 0.5 are not
 # on crates.io yet, so both come from git at an exact revision until they are.
-ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "5e5a40cc5b2bdbeb4b4dff36d9d55aa3460f45b6" }
+ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "edb0b9b72560f84499b4085ccdc62ee12cb8ad07" }
 ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "f7387ed67ca29e194c8938d0db03f735c59480d7" }
 # The chip-select pin's trait, as FerroHAL's GPIO implements it.
 embedded-hal = "=1.0.0"

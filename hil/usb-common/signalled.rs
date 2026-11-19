@@ -83,9 +83,10 @@ ferroforge::app! {
         fn on_usb_signalled;
     }
 
-    /// The firmware's task: owns the device and its class, and polls once
-    /// per wake. The wake holds until read, so nothing is dropped and no
-    /// drain loop is needed.
+    /// The firmware's task: owns the device and its class. The wake holds
+    /// until read, so nothing is dropped; the task still polls and echoes
+    /// until a pass moves nothing (at most four), as D's does, for the
+    /// throughput round 3 lost on the F407 with one poll per wake.
     #[task(priority = 2, shared = [stats], local = [waiter, device, serial, echo: Echo = Echo::new()])]
     async fn usb_task(mut cx: usb_task::Context) {
         let device = cx.local.device;
@@ -93,8 +94,14 @@ ferroforge::app! {
         let echo = cx.local.echo;
         loop {
             cx.local.waiter.wait().await;
-            device.poll(&mut [serial]);
-            echo.step(serial, |s, buf| s.read(buf).ok(), |s, buf| s.write(buf).ok());
+            for _ in 0..4 {
+                let busy = device.poll(&mut [serial]);
+                let before = echo.progress();
+                echo.step(serial, |s, buf| s.read(buf).ok(), |s, buf| s.write(buf).ok());
+                if !busy && echo.progress() == before {
+                    break;
+                }
+            }
             let configured = device.state() == UsbDeviceState::Configured;
             cx.shared.stats.lock(|stats| stats.update(configured, echo));
         }
