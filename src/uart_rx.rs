@@ -151,6 +151,32 @@ pub enum RxRefused<W> {
     },
 }
 
+/// The port's end and the handle, split from `memory`, the pool checked
+/// against `longest` (half the ring). A buffer the port cannot use comes back
+/// as `Err(len)`.
+#[allow(clippy::type_complexity)]
+fn split_memory<const RX: usize>(
+    memory: &'static mut RxMemory<RX>,
+    rx_pool: &mut dyn Iterator<Item = &'static mut [u8]>,
+    longest: usize,
+    kick: fn(),
+) -> Result<(RxEnd, &'static Status, SignalWriter<'static, ()>, RxHandle), usize> {
+    let RxMemory { rx, status, wake } = memory;
+    let status: &'static Status = status;
+    let (end, side) = rx.split(status, rx_pool, longest, kick)?;
+    let (writer, reader) = wake.split();
+    Ok((
+        end,
+        status,
+        writer,
+        RxHandle {
+            rx: side,
+            status,
+            wake: reader,
+        },
+    ))
+}
+
 /// The receive-only UART port group. A firmware selects it once per UART,
 /// binds the port's resource, and gives the handle to any task:
 ///
@@ -184,7 +210,7 @@ pub enum RxRefused<W> {
 pub mod uart_rx_port {
     // Private: a `pub use` here would include a group (FerroForge's
     // `group`). The types are `ferroforge_stm32::uart_rx`'s.
-    use super::{RxHandle, RxMemory, RxPort, RxRefused, RxResources, ServeRx};
+    use super::{RxMemory, RxPort, RxRefused, RxResources, ServeRx, split_memory};
     use ferrohal_stm32::{
         rcc::Rcc,
         uart::{Config, Instance, RxDma, RxPin, RxWiring, Uart},
@@ -218,14 +244,12 @@ pub mod uart_rx_port {
         Rx: RxPin<U>,
         RxD: RxDma<U>,
     {
-        let RxMemory { rx, status, wake } = memory;
-        let status: &'static super::Status = status;
-        let (end, side) = match rx.split(status, rx_pool, ring.len() / 2, kick) {
-            Ok(ends) => ends,
-            Err(len) => return Err(RxRefused::Buffer { len, wiring, ring }),
-        };
+        let (end, status, writer, handle) =
+            match split_memory(memory, rx_pool, ring.len() / 2, kick) {
+                Ok(ends) => ends,
+                Err(len) => return Err(RxRefused::Buffer { len, wiring, ring }),
+            };
         let uart = Uart::new_rx(rcc, wiring, config, ring).map_err(RxRefused::Open)?;
-        let (writer, reader) = wake.split();
         Ok(RxResources {
             port: RxPort {
                 uart,
@@ -233,11 +257,7 @@ pub mod uart_rx_port {
                 status,
                 wake: writer,
             },
-            handle: RxHandle {
-                rx: side,
-                status,
-                wake: reader,
-            },
+            handle,
         })
     }
 
@@ -265,6 +285,34 @@ mod tests {
     use std::{string::ToString, vec::Vec};
 
     use crate::tests::groups;
+    use std::{boxed::Box, vec};
+
+    fn kick() {}
+
+    fn leak(len: usize) -> &'static mut [u8] {
+        Box::leak(vec![0u8; len].into_boxed_slice())
+    }
+
+    #[test]
+    fn a_pool_the_port_cannot_use_is_refused_before_the_uart_opens() {
+        let split = |pool: &mut dyn Iterator<Item = &'static mut [u8]>| {
+            let memory: &'static mut super::RxMemory<4> =
+                Box::leak(Box::new(super::RxMemory::new()));
+            super::split_memory(memory, pool, 16, kick).err()
+        };
+        assert_eq!(split(&mut [leak(17)].into_iter()), Some(17));
+        assert_eq!(split(&mut [leak(8), leak(4)].into_iter()), Some(4));
+        assert_eq!(split(&mut (0..4).map(|_| leak(8))), Some(8));
+        // A pool that fits gives a handle with nothing received yet.
+        let memory: &'static mut super::RxMemory<4> = Box::leak(Box::new(super::RxMemory::new()));
+        let Ok((_, _, _, mut handle)) =
+            super::split_memory(memory, &mut (0..3).map(|_| leak(8)), 16, kick)
+        else {
+            panic!("the pool fits");
+        };
+        assert!(handle.next_chunk().is_none());
+        assert_eq!(handle.lost(), 0);
+    }
 
     #[test]
     fn uart_rx_port_states_its_contract() {

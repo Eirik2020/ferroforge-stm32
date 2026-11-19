@@ -53,7 +53,7 @@ requirements:
         - level: unit
           environment: host
           method:
-            test: ferroforge_stm32::uart_receive::tests::pool_buffers_the_port_cannot_use_are_refused
+            test: ferroforge_stm32::uart_rx::tests::a_pool_the_port_cannot_use_is_refused_before_the_uart_opens
         - level: target
           environment: development
           method:
