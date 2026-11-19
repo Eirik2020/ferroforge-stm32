@@ -14,7 +14,7 @@ from `init`; a tool can read the contract from source and write that firmware.
 | `uart_port` | One FerroHAL `Uart`, served from its three vectors | Nucleo-F401RE, Nucleo-H753ZI |
 | `uart_rx_port` | A receive-only `Uart`, served from its two vectors, each wake stamped | Nucleo-F401RE |
 | `spi_port` | One FerroHAL `Spi` master on DMA shared by up to eight devices, each with its own chip select and settings; consumers lend buffers per message | STM32F4 Discovery |
-| `exti_line` | One EXTI line, each edge stamped in its vector | Nucleo-F401RE, Nucleo-H753ZI |
+| `exti_line` | One EXTI line, each edge stamped in its vector | Nucleo-F401RE |
 | `timer_tick` | One FerroHAL `Tick`, each tick stamped in its vector | STM32F4 Discovery |
 | `adc_event_port` | One FerroHAL `AdcScan` owned by its member: a kick starts a sequence, its end reaches the firmware's task with the samples by value | STM32F4 Discovery |
 

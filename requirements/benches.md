@@ -105,14 +105,6 @@ at least 4 ms before its task ran [PORT-302]; of the three held edges one
 reached the task, and the edge after carried a count of 2 missed [PORT-301]; and
 the line is left clear [PORT-301].
 
-## EXTI line on the Nucleo-H753ZI
-
-`hil/run-h753-exti.sh`, with FerroHAL's H753 link Z1 (PD5 to PD6) fitted, as
-`hil/nucleo-h753zi-exti-line/src/main.rs` lists it. The same firmware and checks
-as on the Nucleo-F401RE, on line 6, PD6's rising edge, served from the shared
-`EXTI9_5` vector. Pass: every check prints `PASS`, none prints `FAIL`, and the
-script exits zero [PORT-301, PORT-302].
-
 ## Timer tick on the STM32F4 Discovery
 
 `hil/run-discovery-tick.sh`, with no link, as

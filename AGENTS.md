@@ -5,8 +5,8 @@ FerroForge task groups for STM32 hardware ports, on FerroHAL. Groups: `uart_port
 `hil/nucleo-f401re-uart-loopback`, `hil/nucleo-f401re-rx-ports`, `hil/nucleo-f401re-spi-loopback`,
 `hil/nucleo-f401re-exti-line` (Nucleo-F401RE), `hil/stm32f4-discovery-spi-device`,
 `hil/stm32f4-discovery-usb-device`, `hil/stm32f4-discovery-timer-tick` and
-`hil/stm32f4-discovery-adc-port` (STM32F4 Discovery), `hil/nucleo-h753zi-uart-loopback`,
-`hil/nucleo-h753zi-spi-loopback` and `hil/nucleo-h753zi-exti-line` (Nucleo-H753ZI),
+`hil/stm32f4-discovery-adc-port` (STM32F4 Discovery), `hil/nucleo-h753zi-uart-loopback`
+and `hil/nucleo-h753zi-spi-loopback` (Nucleo-H753ZI),
 `hil/stm32f4-discovery-lane-port` (STM32F4 Discovery, the lane port's proving board) and
 `hil/nucleo-h753zi-lane-port` (the H753's lane figures, which verify no requirement),
 all HIL tier. `hil/common/` holds checks several bench crates include.
@@ -47,7 +47,6 @@ hil/run-discovery-tick.sh      # STM32F4 Discovery: timer_tick on TIM4, no link 
 hil/run-discovery-adc.sh       # STM32F4 Discovery: adc_event_port over link A1 (PA2 to PA3)
 hil/run-h753.sh                # Nucleo-H753ZI: the same loopback (H753_PROBE)
 hil/run-h753-spi.sh            # Nucleo-H753ZI: spi_port over FerroHAL's link S1
-hil/run-h753-exti.sh           # Nucleo-H753ZI: exti_line over FerroHAL's link Z1
 hil/run-discovery-lane-port.sh <layout> [f] [t]  # Discovery: lane_frame_port (F) and lanes under RTIC (T); layout reader-ahead, own-streams or paced-reader
 hil/run-h753-lane-port.sh <layout> [f] [t]       # Nucleo-H753ZI: the same timing, reader-ahead or own-streams
 reqtool validate | check       # requirements and evidence (reqtool at the revision CI pins)
