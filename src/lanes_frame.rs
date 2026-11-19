@@ -33,9 +33,16 @@
 //! No critical section: the queues each have one producer and one
 //! consumer. Nothing here panics.
 //!
+//! Unlike the crate's other groups, whose types are defined inside their
+//! group modules, this module is public and the group, `lane_frame_port`,
+//! names its types from here: FerroForge's group macro reads every
+//! `pub use super::…` inside a group module as including a task or a group,
+//! so the types cannot be re-exported through it, and they are too many to
+//! define inside it.
+//!
 //! Requirements: PORT-001, PORT-002, PORT-601, PORT-602, PORT-603, PORT-604, PORT-605, PORT-606, PORT-607, PORT-608, PORT-609
 
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::{AtomicU32, Ordering};
 
 use ferrohal_stm32::{
     Service,
@@ -45,6 +52,17 @@ use ferrohal_stm32::{
 };
 use heapless::spsc::{Consumer, Producer, Queue};
 use rtic_sync::signal::{Signal, SignalReader, SignalWriter};
+
+/// Runs its statements with the port's statistics on (`port-stats`), and
+/// compiles them out without it: no clock reads, no spans.
+macro_rules! stat {
+    ($($body:tt)*) => {
+        #[cfg(feature = "port-stats")]
+        {
+            $($body)*
+        }
+    };
+}
 
 /// The most lanes a port serves: FerroHAL's generator takes up to four a
 /// timer, on two timers.
@@ -167,6 +185,10 @@ pub enum SubmitError {
     /// The port's queue refused the exchange. Not reachable with one
     /// exchange out; counted so a fault is not hidden.
     Full,
+    /// The lane's share is still held by its lane: an earlier exchange's
+    /// stream would not stop, so the share never came back
+    /// ([`Returned::stuck`]). That lane cannot send or receive again.
+    ShareStuck,
 }
 
 /// How an exchange ended.
@@ -226,6 +248,10 @@ struct Lent {
     reader_of: [u8; MAX_LANES],
     receive: Option<(Hertz, u16)>,
     times: Times,
+    /// The exchange's number, from 1, for the consumer's cancel.
+    generation: u32,
+    /// Shares a lane kept: its stream would not stop.
+    stuck: u8,
 }
 
 impl Lent {
@@ -243,6 +269,8 @@ impl Lent {
                 received: 0,
                 rate: 0,
             },
+            generation: 0,
+            stuck: 0,
         }
     }
 }
@@ -253,14 +281,17 @@ struct Done {
     outcome: Outcome,
 }
 
-/// The port's memory: a one-slot queue each way, the cancel flag and the
-/// wake.
+/// The port's memory: a one-slot queue each way, the cancel, the lost
+/// count and the wake.
 pub struct FrameMemory {
     lent: Queue<&'static mut Lent, 2>,
     returned: Queue<Done, 2>,
     /// The one exchange (D8), handed from side to side by reference.
     exchange: Lent,
-    cancel: AtomicBool,
+    /// The generation of the exchange the consumer cancelled; 0 for none.
+    cancel: AtomicU32,
+    /// Exchanges the return queue refused.
+    lost: AtomicU32,
     wake: Signal<()>,
 }
 
@@ -270,7 +301,8 @@ impl FrameMemory {
             lent: Queue::new(),
             returned: Queue::new(),
             exchange: Lent::new(),
-            cancel: AtomicBool::new(false),
+            cancel: AtomicU32::new(0),
+            lost: AtomicU32::new(0),
             wake: Signal::new(),
         }
     }
@@ -312,6 +344,7 @@ impl Span {
 }
 
 /// What the port has measured, on the firmware's clock.
+#[cfg(feature = "port-stats")]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Stats {
     /// From the start of the run that saw the last lane end to `listen`
@@ -333,10 +366,6 @@ pub struct Stats {
     /// kept so the bench reports it.
     pub copied_out: u32,
     pub copied_in: u32,
-    /// Exchanges the return queue refused: zero unless something is broken.
-    pub lost: u32,
-    /// Shares a lane did not give back (its stream would not stop).
-    pub stuck: u32,
     /// `start` by part.
     pub parts: StartParts,
     /// The turn by part.
@@ -344,6 +373,7 @@ pub struct Stats {
 }
 
 /// Where the turn goes before `listen`, on the firmware's clock.
+#[cfg(feature = "port-stats")]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct TurnParts {
     /// `serve` in the run that sees the frame end (with listen at the end,
@@ -366,6 +396,7 @@ pub struct TurnParts {
 
 /// Where an exchange's start spends its time, on the firmware's
 /// clock. Each span runs from the end of the one before.
+#[cfg(feature = "port-stats")]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct StartParts {
     /// From the run's entry to `start`: `serve`, and any end of the exchange
@@ -405,14 +436,20 @@ pub struct FrameHandle {
     slot: Option<&'static mut Lent>,
     lent: Producer<'static, &'static mut Lent>,
     returned: Consumer<'static, Done>,
-    cancel: &'static AtomicBool,
+    cancel: &'static AtomicU32,
+    lost: &'static AtomicU32,
     wake: SignalReader<'static, ()>,
+    /// The last exchange submitted's number.
+    generation: u32,
+    /// Shares stuck with their lanes, over every exchange.
+    stuck: u32,
     lanes: u8,
     kick: fn(),
     now: fn() -> u32,
     /// Refused by the port's queue; see [`SubmitError::Full`].
     full: u32,
     /// `submit`, from entry to the pend: checking, closing and lending.
+    #[cfg(feature = "port-stats")]
     submit: Span,
 }
 
@@ -444,11 +481,28 @@ impl FrameHandle {
         self.wake.wait().await;
     }
 
-    /// Asks the port to stop the exchange that runs; it comes back marked
-    /// `Aborted`.
+    /// Asks the port to stop the exchange that is out; it comes back marked
+    /// `Aborted`. The cancel names that exchange's generation, so if it is
+    /// already back (taken or not), the port ignores the cancel and the next
+    /// exchange runs. Without an exchange out, nothing happens.
     pub fn cancel(&mut self) {
-        self.cancel.store(true, Ordering::Release);
+        if !self.out {
+            return;
+        }
+        self.cancel.store(self.generation, Ordering::Release);
         (self.kick)();
+    }
+
+    /// Exchanges the port's return queue refused, and so never came back:
+    /// zero unless something is broken.
+    pub fn lost(&self) -> u32 {
+        self.lost.load(Ordering::Relaxed)
+    }
+
+    /// Shares that stayed with their lanes, over every exchange; each such
+    /// lane refuses with [`SubmitError::ShareStuck`] from then on.
+    pub fn stuck(&self) -> u32 {
+        self.stuck
     }
 
     /// How many lanes the port has.
@@ -461,11 +515,13 @@ impl FrameHandle {
         self.full
     }
 
-    /// What `submit` has cost, on the firmware's clock.
+    /// What `submit` has cost, on the firmware's clock (`port-stats`).
+    #[cfg(feature = "port-stats")]
     pub fn submit_stats(&self) -> Span {
         self.submit
     }
 
+    #[cfg(feature = "port-stats")]
     pub fn clear_submit_stats(&mut self) {
         self.submit = Span::default();
     }
@@ -480,24 +536,37 @@ pub struct Exchange<'h> {
 }
 
 impl Exchange<'_> {
-    /// Lane `lane`'s frame, `len` samples, to be written in place. `None`
-    /// for a lane the port does not have, or a frame that leaves no room in
-    /// the lane's share for the closing 0.
-    pub fn frame(&mut self, lane: usize, len: usize) -> Option<&mut [u32]> {
+    /// Lane `lane`'s frame, `len` samples, to be written in place. Refused
+    /// with `TooLong` for a lane the port does not have or a frame that
+    /// leaves no room in the lane's share for the closing 0, and with
+    /// `ShareStuck` for a lane that kept its share.
+    pub fn frame(&mut self, lane: usize, len: usize) -> Result<&mut [u32], SubmitError> {
         if lane >= usize::from(self.handle.lanes) {
-            return None;
+            return Err(SubmitError::TooLong);
         }
-        let share = self.handle.frames.get_mut(lane)?.as_deref_mut()?;
+        let share = self
+            .handle
+            .frames
+            .get_mut(lane)
+            .ok_or(SubmitError::TooLong)?
+            .as_deref_mut()
+            .ok_or(SubmitError::ShareStuck)?;
         if len >= share.len() {
-            return None;
+            return Err(SubmitError::TooLong);
         }
-        *self.lens.get_mut(lane)? = u16::try_from(len).ok()?;
-        share.get_mut(..len)
+        *self.lens.get_mut(lane).ok_or(SubmitError::TooLong)? =
+            u16::try_from(len).map_err(|_| SubmitError::TooLong)?;
+        share.get_mut(..len).ok_or(SubmitError::TooLong)
     }
 
     /// After the frames, every lane reads `count` samples at `rate`.
+    /// Refused with `ShareStuck` if a lane kept its receive share, and
+    /// with `TooLong` for 0 samples or more than a share holds.
     pub fn receive(&mut self, rate: Hertz, count: usize) -> Result<(), SubmitError> {
         let lanes = usize::from(self.handle.lanes);
+        if self.handle.received.iter().take(lanes).any(Option::is_none) {
+            return Err(SubmitError::ShareStuck);
+        }
         let room = self
             .handle
             .received
@@ -580,9 +649,13 @@ impl Exchange<'_> {
             submitted: entered,
             ..Times::default()
         };
+        handle.generation = handle.generation.wrapping_add(1).max(1);
+        lent.generation = handle.generation;
+        lent.stuck = 0;
         match handle.lent.enqueue(lent) {
             Ok(()) => {
                 handle.out = true;
+                #[cfg(feature = "port-stats")]
                 handle.submit.add((handle.now)().wrapping_sub(entered));
                 (handle.kick)();
                 Ok(())
@@ -599,6 +672,7 @@ impl Exchange<'_> {
 impl FrameHandle {
     /// Puts an exchange's shares back with the handle, and the exchange.
     fn give_back(&mut self, lent: &'static mut Lent) {
+        self.stuck = self.stuck.saturating_add(u32::from(lent.stuck));
         for (lane, share) in lent.frames.iter_mut().enumerate() {
             if let (Some(to), Some(share)) = (self.frames.get_mut(lane), share.take()) {
                 *to = Some(share.into_words());
@@ -633,21 +707,29 @@ impl Returned<'_> {
 
     /// What lane `lane` read, as whole port samples: its reader's share,
     /// which other lanes on that timer and port share. Empty after a send
-    /// only, or a failure.
-    pub fn received(&self, lane: usize) -> &[u16] {
-        let Some(lent) = self.lent.as_ref() else {
-            return &[];
-        };
+    /// only, or a failure; `None` for a lane the port does not have.
+    pub fn received(&self, lane: usize) -> Option<&[u16]> {
+        let lent = self.lent.as_ref()?;
+        if lane >= usize::from(self.handle.lanes) {
+            return None;
+        }
         let count = match (self.outcome, lent.receive) {
             (Outcome::Received, Some((_, count))) => usize::from(count),
             _ => 0,
         };
-        let reader = usize::from(lent.reader_of.get(lane).copied().unwrap_or(0));
-        lent.received
-            .get(reader)
-            .and_then(Option::as_deref)
-            .and_then(|share| share.get(..count))
-            .unwrap_or(&[])
+        let reader = usize::from(*lent.reader_of.get(lane)?);
+        Some(
+            lent.received
+                .get(reader)
+                .and_then(Option::as_deref)
+                .and_then(|share| share.get(..count))
+                .unwrap_or(&[]),
+        )
+    }
+
+    /// Shares this exchange's lanes kept, their streams not stopping.
+    pub fn stuck(&self) -> u32 {
+        self.lent.as_ref().map_or(0, |lent| u32::from(lent.stuck))
     }
 }
 
@@ -686,17 +768,22 @@ pub struct FramePort<G> {
     lent: Consumer<'static, &'static mut Lent>,
     returned: Producer<'static, Done>,
     wake: SignalWriter<'static, ()>,
-    cancel: &'static AtomicBool,
+    cancel: &'static AtomicU32,
+    lost: &'static AtomicU32,
     running: Option<&'static mut Lent>,
     phase: Phase,
     now: fn() -> u32,
-    stats: Stats,
     /// `serve` listens at the frame's end.
     early: bool,
+    #[cfg(feature = "port-stats")]
+    stats: Stats,
     /// Runs this exchange, while sending and while listening,
     /// and the first sending run's entry.
+    #[cfg(feature = "port-stats")]
     sending_runs: u32,
+    #[cfg(feature = "port-stats")]
     listening_runs: u32,
+    #[cfg(feature = "port-stats")]
     first_entry: u32,
 }
 
@@ -706,10 +793,13 @@ impl<G: Generator> FramePort<G> {
         &self.generator
     }
 
+    /// What the port has measured (`port-stats`).
+    #[cfg(feature = "port-stats")]
     pub fn stats(&self) -> Stats {
         self.stats
     }
 
+    #[cfg(feature = "port-stats")]
     pub fn clear_stats(&mut self) {
         self.stats = Stats::default();
     }
@@ -723,7 +813,10 @@ impl<G: Generator> FramePort<G> {
         self.generator.lanes().min(MAX_LANES)
     }
 
-    /// Takes every frame the lanes hold back into the running exchange.
+    /// Takes every frame the lanes hold back into the running exchange. A
+    /// lane that will not give its frame back (its stream would not stop)
+    /// keeps it: the exchange counts it stuck, and the handle's share for
+    /// that lane is gone ([`SubmitError::ShareStuck`]).
     fn take_frames(&mut self) {
         let lanes = self.lanes();
         let Some(lent) = self.running.as_mut() else {
@@ -733,14 +826,14 @@ impl<G: Generator> FramePort<G> {
             if slot.is_none() {
                 match self.generator.take_frame(lane) {
                     Some(frame) => *slot = Some(Share::Frame(frame)),
-                    None => self.stats.stuck = self.stats.stuck.saturating_add(1),
+                    None => lent.stuck = lent.stuck.saturating_add(1),
                 }
             }
         }
     }
 
     /// Takes every receive share the lanes hold back into the running
-    /// exchange.
+    /// exchange, as [`take_frames`](Self::take_frames) does.
     fn take_samples(&mut self) {
         let lanes = self.lanes();
         let Some(lent) = self.running.as_mut() else {
@@ -750,21 +843,22 @@ impl<G: Generator> FramePort<G> {
             if slot.is_none() {
                 match self.generator.take_samples(lane) {
                     Some(samples) => *slot = Some(samples),
-                    None => self.stats.stuck = self.stats.stuck.saturating_add(1),
+                    None => lent.stuck = lent.stuck.saturating_add(1),
                 }
             }
         }
     }
 
     /// Gives the running exchange back with `outcome`, every share taken
-    /// back first.
+    /// back first. An exchange the return queue refuses is counted lost on
+    /// the handle ([`FrameHandle::lost`]).
     fn finish(&mut self, outcome: Outcome) {
         self.phase = Phase::Idle;
         self.take_frames();
         self.take_samples();
         if let Some(lent) = self.running.take() {
             if self.returned.enqueue(Done { lent, outcome }).is_err() {
-                self.stats.lost = self.stats.lost.saturating_add(1);
+                self.lost.fetch_add(1, Ordering::Relaxed);
             }
             self.wake.write(());
         }
@@ -772,22 +866,32 @@ impl<G: Generator> FramePort<G> {
 
     /// Stops the generator after a fault or a cancel: every output at its
     /// inactive level and on again, since an abort while listening leaves
-    /// them released.
+    /// them released. FerroHAL's `Awg::speak` refuses only while a waveform
+    /// plays (`Busy`), which `abort` has just ended, so after an abort it
+    /// does not fail; were it to, the exchange comes back `Failed` with its
+    /// error rather than with an outcome that says the outputs are inactive.
     fn stop(&mut self, outcome: Outcome) {
         self.generator.abort();
-        let _ = self.generator.speak();
+        let outcome = match (self.generator.speak(), outcome) {
+            (Ok(()), outcome) | (Err(_), outcome @ Outcome::Failed(_)) => outcome,
+            (Err(error), _) => Outcome::Failed(error),
+        };
         self.finish(outcome);
     }
 
     /// Lends every share, prepares the receive, loads every lane that has a
     /// frame and plays them from one start.
+    #[cfg_attr(not(feature = "port-stats"), allow(unused_variables))]
     fn start(&mut self, entered: u32, after_end: bool) {
         let lanes = self.lanes();
         let mut failed = None;
+        #[cfg(feature = "port-stats")]
         let mut mark = (self.now)();
-        self.stats.parts.before.add(mark.wrapping_sub(entered));
-        if after_end {
-            self.stats.parts.after_end = self.stats.parts.after_end.saturating_add(1);
+        stat! {
+            self.stats.parts.before.add(mark.wrapping_sub(entered));
+            if after_end {
+                self.stats.parts.after_end = self.stats.parts.after_end.saturating_add(1);
+            }
         }
         // The exchange is worked on in place, in `running`: moved once, out
         // of the queue.
@@ -807,9 +911,11 @@ impl<G: Generator> FramePort<G> {
                 }
             }
         }
-        let now = (self.now)();
-        self.stats.parts.lend.add(now.wrapping_sub(mark));
-        mark = now;
+        stat! {
+            let now = (self.now)();
+            self.stats.parts.lend.add(now.wrapping_sub(mark));
+            mark = now;
+        }
         // The listen is computed before the frame, outside the
         // turn-around.
         if failed.is_none()
@@ -820,9 +926,11 @@ impl<G: Generator> FramePort<G> {
                 Err(error) => failed = Some(error),
             }
         }
-        let now = (self.now)();
-        self.stats.parts.prepare.add(now.wrapping_sub(mark));
-        mark = now;
+        stat! {
+            let now = (self.now)();
+            self.stats.parts.prepare.add(now.wrapping_sub(mark));
+            mark = now;
+        }
         if failed.is_none() {
             for (lane, slot) in lent.frames.iter_mut().enumerate().take(lanes) {
                 if !matches!(slot, Some(Share::Frame(_))) {
@@ -836,11 +944,13 @@ impl<G: Generator> FramePort<G> {
                     failed = Some(error);
                     break;
                 }
-                let now = (self.now)();
-                if let Some(span) = self.stats.parts.load.get_mut(lane) {
-                    span.add(now.wrapping_sub(mark));
+                stat! {
+                    let now = (self.now)();
+                    if let Some(span) = self.stats.parts.load.get_mut(lane) {
+                        span.add(now.wrapping_sub(mark));
+                    }
+                    mark = now;
                 }
-                mark = now;
             }
         }
         if failed.is_none() {
@@ -848,34 +958,34 @@ impl<G: Generator> FramePort<G> {
                 *reader = u8::try_from(self.generator.reader_of(lane)).unwrap_or(0);
             }
         }
-        let now = (self.now)();
-        self.stats.parts.reader.add(now.wrapping_sub(mark));
-        mark = now;
+        stat! {
+            let now = (self.now)();
+            self.stats.parts.reader.add(now.wrapping_sub(mark));
+            mark = now;
+        }
         let receive = lent.receive.is_some();
         if let Some(error) = failed {
             self.stop(Outcome::Failed(error));
             return;
         }
         self.early = receive && self.generator.listen_on_end();
-        self.sending_runs = 0;
-        self.listening_runs = 0;
+        stat! {
+            self.sending_runs = 0;
+            self.listening_runs = 0;
+        }
         if let Err(error) = self.generator.play() {
             self.stop(Outcome::Failed(error));
             return;
         }
         let played = (self.now)();
-        self.stats.parts.play.add(played.wrapping_sub(mark));
-        self.stats.start.add(played.wrapping_sub(entered));
-        if receive {
-            self.stats
-                .parts
-                .with_receive
-                .add(played.wrapping_sub(entered));
-        } else {
-            self.stats
-                .parts
-                .without_receive
-                .add(played.wrapping_sub(entered));
+        stat! {
+            self.stats.parts.play.add(played.wrapping_sub(mark));
+            self.stats.start.add(played.wrapping_sub(entered));
+            if receive {
+                self.stats.parts.with_receive.add(played.wrapping_sub(entered));
+            } else {
+                self.stats.parts.without_receive.add(played.wrapping_sub(entered));
+            }
         }
         if let Some(lent) = self.running.as_mut() {
             lent.times.played = played;
@@ -885,26 +995,27 @@ impl<G: Generator> FramePort<G> {
 
     /// The last lane ended its frame: listen in this same run, or give the
     /// exchange back.
+    #[cfg_attr(not(feature = "port-stats"), allow(unused_variables))]
     fn sent(&mut self, entered: u32, served: u32) {
-        self.stats.turn_parts.runs.add(self.sending_runs);
-        self.stats
-            .turn_parts
-            .lead
-            .add(entered.wrapping_sub(self.first_entry));
-        self.stats
-            .turn_parts
-            .serve
-            .add(served.wrapping_sub(entered));
+        stat! {
+            self.stats.turn_parts.runs.add(self.sending_runs);
+            self.stats.turn_parts.lead.add(entered.wrapping_sub(self.first_entry));
+            self.stats.turn_parts.serve.add(served.wrapping_sub(entered));
+        }
         if self.early && self.generator.is_listening() {
             // `serve` listened already.
-            self.stats.turn_parts.early = self.stats.turn_parts.early.saturating_add(1);
-            self.stats.turn.add(served.wrapping_sub(entered));
+            stat! {
+                self.stats.turn_parts.early = self.stats.turn_parts.early.saturating_add(1);
+                self.stats.turn.add(served.wrapping_sub(entered));
+            }
             if let Some(lent) = self.running.as_mut() {
                 lent.times.frame_end = entered;
                 lent.times.listening = served;
             }
             self.phase = Phase::Listening;
-            self.stats.sent.add((self.now)().wrapping_sub(entered));
+            stat! {
+                self.stats.sent.add((self.now)().wrapping_sub(entered));
+            }
             return;
         }
         let receive = self.running.as_mut().and_then(|lent| {
@@ -915,23 +1026,27 @@ impl<G: Generator> FramePort<G> {
             self.finish(Outcome::Sent);
             return;
         }
+        #[cfg(feature = "port-stats")]
         let before = (self.now)();
-        self.stats
-            .turn_parts
-            .between
-            .add(before.wrapping_sub(served));
+        stat! {
+            self.stats.turn_parts.between.add(before.wrapping_sub(served));
+        }
         match self.generator.listen() {
             Ok(()) => {
                 let after = (self.now)();
-                self.stats.turn.add(after.wrapping_sub(entered));
-                self.stats.listen.add(after.wrapping_sub(before));
+                stat! {
+                    self.stats.turn.add(after.wrapping_sub(entered));
+                    self.stats.listen.add(after.wrapping_sub(before));
+                }
                 if let Some(lent) = self.running.as_mut() {
                     lent.times.listening = after;
                 }
                 self.phase = Phase::Listening;
                 // The frames come back with the exchange: a reader lane's
                 // frame stays with it while its read runs.
-                self.stats.sent.add((self.now)().wrapping_sub(entered));
+                stat! {
+                    self.stats.sent.add((self.now)().wrapping_sub(entered));
+                }
             }
             Err(error) => self.stop(Outcome::Failed(error)),
         }
@@ -940,10 +1055,9 @@ impl<G: Generator> FramePort<G> {
     /// Every lane has read into its share: speak again, and give the
     /// exchange back.
     fn received(&mut self, entered: u32) {
-        self.stats
-            .turn_parts
-            .listening_runs
-            .add(self.listening_runs);
+        stat! {
+            self.stats.turn_parts.listening_runs.add(self.listening_runs);
+        }
         if let Some(lent) = self.running.as_mut() {
             lent.times.received = entered;
         }
@@ -951,7 +1065,30 @@ impl<G: Generator> FramePort<G> {
             Ok(()) => self.finish(Outcome::Received),
             Err(error) => self.stop(Outcome::Failed(error)),
         }
-        self.stats.end.add((self.now)().wrapping_sub(entered));
+        stat! {
+            self.stats.end.add((self.now)().wrapping_sub(entered));
+        }
+    }
+
+    /// The consumer's cancel, if any: the exchange of the generation it
+    /// names stops (running) or comes back unstarted (queued), and comes
+    /// back `Aborted`. A cancel of an exchange that is already back names
+    /// an older generation and does nothing.
+    fn serve_cancel(&mut self) {
+        let generation = self.cancel.swap(0, Ordering::AcqRel);
+        if generation == 0 {
+            return;
+        }
+        let running = self.running.as_ref().map(|lent| lent.generation);
+        if self.phase != Phase::Idle && running == Some(generation) {
+            self.stop(Outcome::Aborted);
+            return;
+        }
+        let queued = self.lent.peek().map(|lent| lent.generation);
+        if self.running.is_none() && queued == Some(generation) {
+            self.running = self.lent.dequeue();
+            self.finish(Outcome::Aborted);
+        }
     }
 }
 
@@ -963,15 +1100,19 @@ impl<G: Generator> Service for FramePort<G> {
         let entered = (self.now)();
         let busy = self.phase != Phase::Idle;
         if self.phase != Phase::Idle {
-            match self.phase {
-                Phase::Sending => {
-                    if self.sending_runs == 0 {
-                        self.first_entry = entered;
+            stat! {
+                match self.phase {
+                    Phase::Sending => {
+                        if self.sending_runs == 0 {
+                            self.first_entry = entered;
+                        }
+                        self.sending_runs = self.sending_runs.saturating_add(1);
                     }
-                    self.sending_runs = self.sending_runs.saturating_add(1);
+                    Phase::Listening => {
+                        self.listening_runs = self.listening_runs.saturating_add(1)
+                    }
+                    Phase::Idle => {}
                 }
-                Phase::Listening => self.listening_runs = self.listening_runs.saturating_add(1),
-                Phase::Idle => {}
             }
             let served = self.generator.serve();
             let after = (self.now)();
@@ -992,27 +1133,24 @@ impl<G: Generator> Service for FramePort<G> {
                 _ => {}
             }
         }
-        if self.cancel.swap(false, Ordering::AcqRel) {
-            if self.phase != Phase::Idle {
-                self.stop(Outcome::Aborted);
-            }
-            if let Some(lent) = self.lent.dequeue() {
-                self.running = Some(lent);
-                self.finish(Outcome::Aborted);
-            }
-        }
+        self.serve_cancel();
         if self.phase == Phase::Idle && self.running.is_none() {
+            #[cfg(feature = "port-stats")]
             let checked = (self.now)();
             self.running = self.lent.dequeue();
             if self.running.is_some() {
-                let dequeued = (self.now)();
-                self.stats.parts.check.add(checked.wrapping_sub(entered));
-                self.stats.parts.dequeue.add(dequeued.wrapping_sub(checked));
+                stat! {
+                    let dequeued = (self.now)();
+                    self.stats.parts.check.add(checked.wrapping_sub(entered));
+                    self.stats.parts.dequeue.add(dequeued.wrapping_sub(checked));
+                }
                 self.start(entered, busy);
             }
         }
-        let ran = (self.now)().wrapping_sub(entered);
-        self.stats.run.add(ran);
+        stat! {
+            let ran = (self.now)().wrapping_sub(entered);
+            self.stats.run.add(ran);
+        }
     }
 }
 
@@ -1055,9 +1193,11 @@ pub fn new_frame<G: Generator>(
         returned,
         exchange,
         cancel,
+        lost,
         wake,
     } = memory;
-    let cancel: &'static AtomicBool = cancel;
+    let cancel: &'static AtomicU32 = cancel;
+    let lost: &'static AtomicU32 = lost;
     let (lent_in, lent_out) = lent.split();
     let (back_in, back_out) = returned.split();
     let (writer, reader) = wake.split();
@@ -1071,13 +1211,18 @@ pub fn new_frame<G: Generator>(
             returned: back_in,
             wake: writer,
             cancel,
+            lost,
             running: None,
             phase: Phase::Idle,
             now,
-            stats: Stats::default(),
             early: false,
+            #[cfg(feature = "port-stats")]
+            stats: Stats::default(),
+            #[cfg(feature = "port-stats")]
             sending_runs: 0,
+            #[cfg(feature = "port-stats")]
             listening_runs: 0,
+            #[cfg(feature = "port-stats")]
             first_entry: 0,
         },
         handles: FrameHandles {
@@ -1090,11 +1235,15 @@ pub fn new_frame<G: Generator>(
                 lent: lent_in,
                 returned: back_out,
                 cancel,
+                lost,
                 wake: reader,
+                generation: 0,
+                stuck: 0,
                 lanes,
                 kick,
                 now,
                 full: 0,
+                #[cfg(feature = "port-stats")]
                 submit: Span::default(),
             }),
         },
@@ -1172,6 +1321,8 @@ mod tests {
         /// What the next `serve` returns.
         next: Option<Result<u8, Error>>,
         refuse_load: Option<Error>,
+        /// Lanes keep their frames, as a stream that will not stop does.
+        stick: bool,
     }
 
     const LIMITS: FrameLimits = FrameLimits::new(100, 5);
@@ -1194,7 +1345,7 @@ mod tests {
             Ok(())
         }
         fn take_frame(&mut self, lane: usize) -> Option<Frame> {
-            if self.sending {
+            if self.sending || self.stick {
                 return None;
             }
             self.held.get_mut(lane)?.take()
@@ -1304,6 +1455,63 @@ mod tests {
     }
 
     #[test]
+    fn a_cancel_of_an_exchange_already_back_leaves_the_next_running() {
+        let (mut p, mut h) = port(1);
+        submit(&mut h, &[&[1, 2]], None);
+        p.on_interrupt();
+        p.generator.next = Some(Ok(1));
+        p.on_interrupt();
+        // Back, not yet taken: the consumer, at or above the port's
+        // priority, cancels it before it sees it back.
+        h.cancel();
+        {
+            let r = h.take().unwrap();
+            assert_eq!(r.outcome(), Outcome::Sent);
+        }
+        submit(&mut h, &[&[3, 4]], None);
+        p.on_interrupt();
+        assert!(p.is_busy());
+        p.generator.next = Some(Ok(1));
+        p.on_interrupt();
+        let r = h.take().unwrap();
+        assert_eq!(r.outcome(), Outcome::Sent);
+        assert_eq!(p.generator.loaded[1], (0, vec![3, 4]));
+    }
+
+    #[test]
+    fn a_stuck_share_comes_back_counted_and_is_named_after() {
+        let (mut p, mut h) = port(2);
+        p.generator.stick = true;
+        submit(&mut h, &[&[1, 2], &[3]], None);
+        p.on_interrupt();
+        p.generator.next = Some(Ok(3));
+        p.on_interrupt();
+        {
+            let r = h.take().unwrap();
+            assert_eq!(r.outcome(), Outcome::Sent);
+            assert_eq!(r.stuck(), 2);
+        }
+        assert_eq!(h.stuck(), 2);
+        assert_eq!(h.lost(), 0);
+        let mut x = h.exchange().unwrap();
+        assert_eq!(x.frame(0, 2).err(), Some(SubmitError::ShareStuck));
+        assert_eq!(x.frame(2, 1).err(), Some(SubmitError::TooLong));
+    }
+
+    #[test]
+    fn a_lane_the_port_does_not_have_reads_nothing() {
+        let (mut p, mut h) = port(2);
+        submit(&mut h, &[&[1, 2]], None);
+        p.on_interrupt();
+        p.generator.next = Some(Ok(1));
+        p.on_interrupt();
+        let r = h.take().unwrap();
+        assert_eq!(r.received(0), Some(&[][..]));
+        assert_eq!(r.received(2), None);
+        assert_eq!(r.received(8), None);
+    }
+
+    #[test]
     fn a_send_only_exchange_plays_once_and_comes_back_sent() {
         let (mut p, mut h) = port(2);
         submit(&mut h, &[&[1, 2, 3], &[4, 5]], None);
@@ -1318,7 +1526,7 @@ mod tests {
         p.on_interrupt();
         let r = h.take().unwrap();
         assert_eq!(r.outcome(), Outcome::Sent);
-        assert!(r.received(0).is_empty());
+        assert!(r.received(0).unwrap().is_empty());
         drop(r);
         // Played exactly once: a further run with nothing queued plays nothing.
         p.on_interrupt();
@@ -1327,12 +1535,13 @@ mod tests {
             1
         );
         // Played in place: nothing copied, every frame back with the handle.
+        #[cfg(feature = "port-stats")]
         assert_eq!(p.stats().copied_out, 0);
-        assert_eq!(p.stats().stuck, 0);
+        assert_eq!(h.stuck(), 0);
         let mut x = h.exchange().unwrap();
         // The closing 0 was written in the share, after the frame.
         assert_eq!(x.frame(0, 4).unwrap(), &[1, 2, 3, 0]);
-        assert!(x.frame(1, 7).is_some());
+        assert!(x.frame(1, 7).is_ok());
     }
 
     #[test]
@@ -1346,6 +1555,7 @@ mod tests {
         assert_eq!(p.generator.calls, ["load", "play", "listen"]);
         assert!(p.generator.listening);
         assert!(h.take().is_none());
+        #[cfg(feature = "port-stats")]
         assert_eq!(p.stats().turn.count, 1);
         p.generator.next = Some(Ok(0b1));
         p.on_interrupt();
@@ -1353,15 +1563,18 @@ mod tests {
         assert!(!p.generator.outputs_off);
         let r = h.take().unwrap();
         assert_eq!(r.outcome(), Outcome::Received);
-        assert_eq!(r.received(0), &[0, 1, 2, 3, 4]);
+        assert_eq!(r.received(0).unwrap(), &[0, 1, 2, 3, 4]);
+        #[cfg(feature = "port-stats")]
         assert_eq!(p.stats().sent.count, 1);
         let t = r.times();
         assert!(t.submitted < t.played && t.played < t.frame_end);
         assert!(t.frame_end < t.listening && t.listening < t.received);
         assert_eq!(t.rate, 2_000_000);
         drop(r);
+        #[cfg(feature = "port-stats")]
         assert_eq!(p.stats().copied_in, 0);
-        assert_eq!(p.stats().stuck, 0);
+        assert_eq!(h.stuck(), 0);
+        #[cfg(feature = "port-stats")]
         assert_eq!(p.stats().end.count, 1);
     }
 
@@ -1377,8 +1590,8 @@ mod tests {
         p.on_interrupt();
         let r = h.take().unwrap();
         assert_eq!(r.outcome(), Outcome::Received);
-        assert_eq!(r.received(0), &[0, 1, 2]);
-        assert_eq!(r.received(1), &[0, 1, 2]);
+        assert_eq!(r.received(0).unwrap(), &[0, 1, 2]);
+        assert_eq!(r.received(1).unwrap(), &[0, 1, 2]);
     }
 
     #[test]
@@ -1396,8 +1609,8 @@ mod tests {
         p.on_interrupt();
         assert!(p.generator.calls.is_empty());
         let mut x = h.exchange().unwrap();
-        assert!(x.frame(0, 7).is_some());
-        assert!(x.frame(1, 7).is_some());
+        assert!(x.frame(0, 7).is_ok());
+        assert!(x.frame(1, 7).is_ok());
         // The exchange ends here unsubmitted: it only borrowed the handle.
         let mut x = h.exchange().unwrap();
         x.frame(0, 1).unwrap().copy_from_slice(&[94]);
@@ -1424,11 +1637,11 @@ mod tests {
         let mut x = h.exchange().unwrap();
         // Each lane's share is 8 words of frame (7 duties and the closing
         // 0) and 16 samples of receive.
-        assert!(x.frame(0, 8).is_none());
-        assert!(x.frame(2, 1).is_none());
+        assert!(x.frame(0, 8).is_err());
+        assert!(x.frame(2, 1).is_err());
         assert_eq!(x.receive(Hertz::mhz(1), 17), Err(SubmitError::TooLong));
         assert_eq!(x.receive(Hertz::mhz(1), 0), Err(SubmitError::TooLong));
-        assert!(x.frame(1, 7).is_some());
+        assert!(x.frame(1, 7).is_ok());
         // The exchange ends here unsubmitted: it only borrowed the handle.
         let x = h.exchange().unwrap();
         assert_eq!(x.submit(), Err(SubmitError::Empty));
@@ -1447,9 +1660,9 @@ mod tests {
         assert_eq!(r.outcome(), Outcome::Failed(Error::TooLarge));
         drop(r);
         // The refused frame and the lent receive share came back.
-        assert_eq!(p.stats().stuck, 0);
+        assert_eq!(h.stuck(), 0);
         let mut x = h.exchange().unwrap();
-        assert!(x.frame(0, 7).is_some());
+        assert!(x.frame(0, 7).is_ok());
         assert!(x.receive(Hertz::mhz(1), 16).is_ok());
     }
 
@@ -1467,7 +1680,7 @@ mod tests {
         assert!(!p.generator.busy);
         let r = h.take().unwrap();
         assert_eq!(r.outcome(), Outcome::Aborted);
-        assert!(r.received(0).is_empty());
+        assert!(r.received(0).unwrap().is_empty());
         drop(r);
         // The next exchange runs.
         submit(&mut h, &[&[3]], None);

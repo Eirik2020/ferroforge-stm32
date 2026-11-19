@@ -22,6 +22,10 @@ default = ["reader-ahead"]
 reader-ahead = []
 # The same lanes, each port read on its first lane's own stream.
 own-streams = []
+# The lane frame port's own statistics (the turn, the start and its parts,
+# the runs): its longest runs. Off, the bench measures from each exchange's
+# times only, as a product build would.
+port-stats = ["ferroforge-stm32/port-stats"]
 # PROFILING ONLY: FerroHAL's cycle stamps through listen and speak, for the
 # switch's cycle count (listen whole).
 profile = ["ferrohal-stm32/profile-listen"]

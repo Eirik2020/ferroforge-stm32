@@ -42,6 +42,11 @@ stm32f405rg = ["ferrohal-stm32/stm32f405rg"]
 stm32f407vg = ["ferrohal-stm32/stm32f407vg"]
 stm32h743vi = ["ferrohal-stm32/stm32h743vi"]
 stm32h753zi = ["ferrohal-stm32/stm32h753zi"]
+# The lane frame port's own statistics (`lanes_frame::Stats`): the turn,
+# the start and its parts, the runs, on the firmware's clock. Off in a
+# product build: no clock reads beyond `Times`, no spans in the shared
+# resource. The benches turn it on to measure the port's longest runs.
+port-stats = []
 
 [dev-dependencies]
 # rtic-sync's `Signal` needs a critical section; on the host, std's.

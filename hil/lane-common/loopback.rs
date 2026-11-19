@@ -129,6 +129,7 @@ pub trait Port {
     fn show_parts(&mut self, _per_us: u32) {}
 }
 
+#[cfg(feature = "port-stats")]
 /// PROFILING: F's start by part.
 pub fn show_start_parts(p: &ferroforge_stm32::lanes_frame::StartParts, lanes: usize, per_us: u32) {
     span_us(
@@ -166,6 +167,7 @@ pub fn show_start_parts(p: &ferroforge_stm32::lanes_frame::StartParts, lanes: us
     );
 }
 
+#[cfg(feature = "port-stats")]
 /// PROFILING: the turn by part, the port's side and FerroHAL's.
 pub fn show_turn_parts(t: &ferroforge_stm32::lanes_frame::TurnParts, per_us: u32) {
     span_us("turn part: serve, in the run that turns", &t.serve, per_us);

@@ -35,7 +35,7 @@ ferroforge::app! {
 
     impl Received for Got<'_, '_> {
         fn lane(&self, lane: usize) -> &[u16] {
-            self.0.received(lane)
+            self.0.received(lane).unwrap_or(&[])
         }
     }
 
@@ -44,6 +44,11 @@ ferroforge::app! {
     pub struct F<'a, M: rtic::Mutex<T = FramePort<Gen>>> {
         handle: &'a mut FrameHandle,
         port: &'a mut M,
+        /// Without `port-stats`, the bench's own spans from each exchange's
+        /// `Times`: the turn (frame end to listening) and the start (submit
+        /// to play, the pend included).
+        turn: bench::Span,
+        start: bench::Span,
     }
 
     impl<M: rtic::Mutex<T = FramePort<Gen>>> Port for F<'_, M> {
@@ -65,8 +70,8 @@ ferroforge::app! {
                     continue;
                 }
                 match x.frame(lane, frame.len()) {
-                    Some(slot) => slot.copy_from_slice(frame),
-                    None => return false,
+                    Ok(slot) => slot.copy_from_slice(frame),
+                    Err(_) => return false,
                 }
             }
             if let Some((rate, count)) = receive
@@ -81,6 +86,12 @@ ferroforge::app! {
                 return false;
             };
             let t = r.times();
+            if r.outcome() == FrameOutcome::Received {
+                self.turn.add(t.listening.wrapping_sub(t.frame_end));
+            }
+            if !matches!(r.outcome(), FrameOutcome::Failed(_)) {
+                self.start.add(t.played.wrapping_sub(t.submitted));
+            }
             let took = Took {
                 submitted: t.submitted,
                 played: t.played,
@@ -101,6 +112,7 @@ ferroforge::app! {
         fn cancel(&mut self) {
             self.handle.cancel();
         }
+        #[cfg(feature = "port-stats")]
         fn stats(&mut self) -> PortStats {
             let s = self.port.lock(|p| p.stats());
             PortStats {
@@ -114,10 +126,26 @@ ferroforge::app! {
                 submit: self.handle.submit_stats(),
             }
         }
-        fn clear_stats(&mut self) {
-            self.port.lock(|p| p.clear_stats());
-            self.handle.clear_submit_stats();
+        /// Without the port's statistics: the turn and the start, from
+        /// the exchanges' times.
+        #[cfg(not(feature = "port-stats"))]
+        fn stats(&mut self) -> PortStats {
+            PortStats {
+                turn: self.turn,
+                start: self.start,
+                ..PortStats::default()
+            }
         }
+        fn clear_stats(&mut self) {
+            #[cfg(feature = "port-stats")]
+            {
+                self.port.lock(|p| p.clear_stats());
+                self.handle.clear_submit_stats();
+            }
+            self.turn = bench::Span::default();
+            self.start = bench::Span::default();
+        }
+        #[cfg(feature = "port-stats")]
         fn show_parts(&mut self, per_us: u32) {
             let (parts, turn) = self.port.lock(|p| (p.stats().parts, p.stats().turn_parts));
             bench::show_start_parts(&parts, LANES, per_us);
@@ -166,7 +194,7 @@ ferroforge::app! {
         (Shared { port: built.port }, Local { handle, reply, probe })
     }
 
-    #[group(from = ferroforge_stm32::lanes_frame::lane_frame_port, shared = [port = port])]
+    #[group(from = ferroforge_stm32::lane_frame_port, shared = [port = port])]
     mod lanes {
         // The start vector the handle pends: TIM7's, which nothing in this
         // bench raises (its update interrupt stays off).
@@ -200,12 +228,22 @@ ferroforge::app! {
     #[task(priority = 1, shared = [port], local = [handle, reply, probe])]
     async fn checks(cx: checks::Context) {
         let mut port = cx.shared.port;
-        let mut f = F { handle: cx.local.handle, port: &mut port };
+        let mut f = F {
+            handle: cx.local.handle,
+            port: &mut port,
+            turn: bench::Span::default(),
+            start: bench::Span::default(),
+        };
         let failed = bench::run(&bench::board("F"), &mut f, cx.local.reply, cx.local.probe, cycles);
-        let lost = f.port.lock(|p| p.stats().lost) + f.handle.full();
-        let s = f.port.lock(|p| p.stats());
-        defmt::info!("copies: by the port {} out, {} in; shares not given back: {}", s.copied_out, s.copied_in, s.stuck);
-        let failed = failed + bench::verdict("every lent share given back", s.stuck == 0);
+        let lost = f.handle.lost() + f.handle.full();
+        let stuck = f.handle.stuck();
+        #[cfg(feature = "port-stats")]
+        {
+            let s = f.port.lock(|p| p.stats());
+            defmt::info!("copies: by the port {} out, {} in", s.copied_out, s.copied_in);
+        }
+        defmt::info!("shares not given back: {}; exchanges lost: {}", stuck, lost);
+        let failed = failed + bench::verdict("every lent share given back", stuck == 0);
         let failed = failed + bench::verdict("no exchange lost by the port's queues", lost == 0);
         if failed == 0 {
             defmt::info!("all checks passed");
