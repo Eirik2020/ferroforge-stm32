@@ -17,10 +17,11 @@ bench proves them.
   FerroHAL requirement for the counters, or a per-frame completion from FerroHAL,
   and its depth exported. *Spawned:* UART prototype 2 results, findings 1 and
   the DEBT table (2026-11-17); the car rule (2026-11-19).
-- `owner` **Low: "sent" comes before the last stop bit.** A frame's `Sent` is
+- `code` **Low: the UART port has no line-idle completion.** A frame's `Sent` is
   FerroHAL's DMA completion; on the Discovery bench it reached the consumer about
-  1.6 characters before the line went quiet (`docs/design/uart-port.md`). A
-  consumer that turns a line around (RS-485, half duplex) needs the USART's
-  transmission complete. Fix: the owner decides whether D15 needs the stop bit;
-  if so, a FerroHAL completion on TC. *Spawned:* UART prototype 2 results,
-  finding 4 (2026-11-17).
+  1.6 characters before the line went quiet (`docs/design/uart-port.md`). The
+  owner decided on 2026-11-19 that "sent" stays there and D15 is met by a
+  separate line-idle completion on the USART's transmission complete, for a
+  consumer that turns a line around (RS-485, half duplex). Fix: FerroHAL's TC
+  completion, then the port passes it to the handle. *Spawned:* UART prototype 2
+  results, finding 4 (2026-11-17); the owner's answer (2026-11-19).
