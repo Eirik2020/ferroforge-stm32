@@ -31,14 +31,13 @@
 //!
 //! The port carries no protocol: a decoder or encoder sits behind the handle.
 //!
-//! Requirements: PORT-001, PORT-002, PORT-003, PORT-004, PORT-005, PORT-006,
-//! PORT-007, PORT-008, PORT-009, PORT-010, PORT-011
+//! Requirements: PORT-001, PORT-002, PORT-003, PORT-004, PORT-008, PORT-009,
+//! PORT-010, PORT-011
 
-use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use core::sync::atomic::Ordering;
 
 use ferrohal_stm32::uart::{
-    Chunk, ChunkEnd, Error, Instance, RxDma, RxPin, SendError, TxDma, TxPin, Uart, UartRefused,
-    Wiring,
+    Error, Instance, RxDma, RxPin, SendError, TxDma, TxPin, Uart, UartRefused, Wiring,
 };
 use heapless::{
     Deque, Vec, VecView,
@@ -46,13 +45,12 @@ use heapless::{
 };
 use rtic_sync::signal::{Signal, SignalReader, SignalWriter};
 
+pub use crate::uart_receive::Received;
+use crate::uart_receive::{PER_SERVICE, RxEnd, RxQueues, RxSide, Status, as_chunk};
+
 /// The most frames the port keeps in FerroHAL's transmit queue: FerroHAL's
 /// own limit, private to it at the pinned revision, restated here.
 pub const IN_FLIGHT: usize = 8;
-
-/// The most chunks, and the most frames, one service moves, so a service is
-/// bounded however fast the line runs.
-const PER_SERVICE: usize = 16;
 
 /// How a lent frame ended.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -95,23 +93,6 @@ struct TxBack {
     outcome: Outcome,
 }
 
-/// A chunk lent to the consumer.
-struct RxLent {
-    buf: &'static mut [u8],
-    chunk: Chunk,
-    at_us: u64,
-}
-
-/// What the port and its handle both see outside the queues.
-struct Status {
-    /// The port had bytes to read and no buffer: the next release pends it.
-    starved: AtomicBool,
-    /// Buffers a queue could not take. Zero by construction, since each
-    /// queue holds every buffer of its kind; counted so a fault is not
-    /// hidden.
-    lost: AtomicU32,
-}
-
 /// The memory the port and its handle share: the firmware's, given once to
 /// [`uart_port::new`] (an `init` local), which splits it. `RX` and `TX` are queue slots:
 /// the pool may hold at most `RX - 1` receive buffers and the handle at most
@@ -120,8 +101,7 @@ pub struct Memory<const RX: usize, const TX: usize> {
     free: Vec<&'static mut [u8], TX>,
     frames: Queue<TxLent, TX>,
     sent: Queue<TxBack, TX>,
-    chunks: Queue<RxLent, RX>,
-    back: Queue<&'static mut [u8], RX>,
+    rx: RxQueues<RX>,
     status: Status,
     wake: Signal<()>,
 }
@@ -132,12 +112,8 @@ impl<const RX: usize, const TX: usize> Memory<RX, TX> {
             free: Vec::new(),
             frames: Queue::new(),
             sent: Queue::new(),
-            chunks: Queue::new(),
-            back: Queue::new(),
-            status: Status {
-                starved: AtomicBool::new(false),
-                lost: AtomicU32::new(0),
-            },
+            rx: RxQueues::new(),
+            status: Status::new(),
             wake: Signal::new(),
         }
     }
@@ -161,8 +137,7 @@ pub struct Handle {
     free: &'static mut VecView<&'static mut [u8]>,
     frames: Producer<'static, TxLent>,
     sent: Consumer<'static, TxBack>,
-    chunks: Consumer<'static, RxLent>,
-    back: Producer<'static, &'static mut [u8]>,
+    rx: RxSide,
     status: &'static Status,
     wake: SignalReader<'static, ()>,
     /// Transmit buffers given at boot, and the longest of them.
@@ -182,13 +157,7 @@ impl Handle {
     /// The oldest chunk received, read in the port's buffer. Dropping it
     /// returns the buffer to the port.
     pub fn next_chunk(&mut self) -> Option<Received<'_>> {
-        let lent = self.chunks.dequeue()?;
-        Some(Received {
-            buf: Some(lent.buf),
-            chunk: lent.chunk,
-            at_us: lent.at_us,
-            handle: self,
-        })
+        self.rx.next()
     }
 
     /// Takes the shortest free transmit buffer that holds `len` bytes, for a
@@ -268,49 +237,6 @@ impl Handle {
     fn give_back(&mut self, buf: &'static mut [u8]) {
         if self.free.push(buf).is_err() {
             self.status.lost.fetch_add(1, Ordering::Relaxed);
-        }
-    }
-
-    /// Returns a receive buffer to the port, and pends it if it was starved
-    /// for one.
-    fn release(&mut self, buf: &'static mut [u8]) {
-        if self.back.enqueue(buf).is_err() {
-            self.status.lost.fetch_add(1, Ordering::Relaxed);
-        }
-        if self.status.starved.swap(false, Ordering::AcqRel) {
-            (self.kick)();
-        }
-    }
-}
-
-/// A received chunk, read in place. Dropping it returns the buffer.
-pub struct Received<'h> {
-    handle: &'h mut Handle,
-    buf: Option<&'static mut [u8]>,
-    /// Its length, why it ended and its generation, as FerroHAL gave them. A
-    /// chunk that ended in `ChunkEnd::Gap` marks where bytes were lost or
-    /// damaged.
-    pub chunk: Chunk,
-    /// When the port was served and took it from FerroHAL's ring: the
-    /// firmware monotonic's time read in that interrupt, in microseconds
-    /// since its epoch.
-    pub at_us: u64,
-}
-
-impl Received<'_> {
-    /// The chunk's bytes.
-    pub fn bytes(&self) -> &[u8] {
-        self.buf
-            .as_deref()
-            .and_then(|b| b.get(..self.chunk.len))
-            .unwrap_or(&[])
-    }
-}
-
-impl Drop for Received<'_> {
-    fn drop(&mut self) {
-        if let Some(buf) = self.buf.take() {
-            self.handle.release(buf);
         }
     }
 }
@@ -453,42 +379,6 @@ impl TxEnd {
     }
 }
 
-/// The port's receive side: its pool, as returned buffers and one spare.
-struct RxEnd {
-    chunks: Producer<'static, RxLent>,
-    back: Consumer<'static, &'static mut [u8]>,
-    /// A buffer taken for a chunk that was not complete yet.
-    spare: Option<&'static mut [u8]>,
-}
-
-impl RxEnd {
-    /// A free buffer, or `None` with the port marked starved. The flag is
-    /// set before the queue is looked at, so a release racing this, at any
-    /// priority, either is seen here or sees the flag and pends the port.
-    fn take(&mut self, status: &Status) -> Option<&'static mut [u8]> {
-        if let Some(buf) = self.spare.take() {
-            return Some(buf);
-        }
-        status.starved.store(true, Ordering::Release);
-        let buf = self.back.dequeue()?;
-        status.starved.store(false, Ordering::Release);
-        Some(buf)
-    }
-
-    /// Lends `buf` to the consumer, or keeps it as the spare when the queue
-    /// is full (it holds the whole pool, so it is not).
-    fn lend(&mut self, buf: &'static mut [u8], chunk: Chunk, at_us: u64, status: &Status) -> bool {
-        match self.chunks.enqueue(RxLent { buf, chunk, at_us }) {
-            Ok(()) => true,
-            Err(back) => {
-                self.spare = Some(back.buf);
-                status.lost.fetch_add(1, Ordering::Relaxed);
-                false
-            }
-        }
-    }
-}
-
 /// A port its members serve with the time they read in the interrupt.
 /// [`Port`] is the one implementation; the members are bounded on this
 /// trait so one definition serves every UART.
@@ -588,36 +478,16 @@ where
 
     /// The ring into lent buffers, whole chunks. Returns the chunks lent and
     /// the frames returned (`read_chunk` serves FerroHAL's transmit queue
-    /// too).
+    /// too, so each read is followed by a settle).
     fn pump_rx(&mut self, at_us: u64) -> (usize, usize) {
-        let (mut chunks, mut returned) = (0, 0);
-        for _ in 0..PER_SERVICE {
-            let Some(buf) = self.rx.take(self.status) else {
-                break;
-            };
-            let result = self.uart.read_chunk(buf);
-            returned += self.settle();
-            let chunk = match result {
-                Ok(Some(chunk)) => chunk,
-                Ok(None) => {
-                    self.rx.spare = Some(buf);
-                    break;
-                }
-                // Only `Halted`: reported as a gap chunk, never dropped.
-                Err(error) => Chunk {
-                    len: 0,
-                    end: ChunkEnd::Gap(error),
-                    generation: self.uart.generation(),
-                },
-            };
-            if !self.rx.lend(buf, chunk, at_us, self.status) {
-                break;
-            }
-            chunks += 1;
-            if chunk.end == ChunkEnd::Gap(Error::Halted) {
-                break;
-            }
-        }
+        let (uart, tx, status) = (&mut self.uart, &mut self.tx, self.status);
+        let mut returned = 0;
+        let chunks = self.rx.pump(status, at_us, |buf| {
+            let result = uart.read_chunk(buf);
+            let health = uart.tx_health();
+            returned += tx.settle(uart.queued(), health.sent, health.dma_errors, status);
+            as_chunk(result, uart.generation())
+        });
         (chunks, returned)
     }
 }
@@ -703,23 +573,14 @@ fn split_memory<const RX: usize, const TX: usize>(
         free,
         frames,
         sent,
-        chunks,
-        back,
+        rx,
         status,
         wake,
     } = memory;
-    let mut pool_len = None;
-    for buf in rx_pool {
-        let len = buf.len();
-        if len == 0 || len > rx_longest || pool_len.is_some_and(|l| l != len) {
-            return Err((true, len));
-        }
-        pool_len = Some(len);
-        // The pool starts in the return queue, the port's source of buffers.
-        if back.enqueue(buf).is_err() {
-            return Err((true, len));
-        }
-    }
+    let status: &'static Status = status;
+    let (rx_end, rx_side) = rx
+        .split(status, rx_pool, rx_longest, kick)
+        .map_err(|len| (true, len))?;
     let room = frames.capacity();
     let mut buffers = 0u8;
     let mut longest = 0;
@@ -734,12 +595,9 @@ fn split_memory<const RX: usize, const TX: usize>(
         buffers = buffers.saturating_add(1);
         longest = longest.max(len);
     }
-    let status: &'static Status = status;
     let wake: &'static Signal<()> = wake;
     let (frames_in, frames_out) = frames.split();
     let (sent_in, sent_out) = sent.split();
-    let (chunks_in, chunks_out) = chunks.split();
-    let (back_in, back_out) = back.split();
     let (writer, reader) = wake.split();
     Ok((
         TxEnd {
@@ -749,19 +607,14 @@ fn split_memory<const RX: usize, const TX: usize>(
             seen: (0, 0),
             unsure: 0,
         },
-        RxEnd {
-            chunks: chunks_in,
-            back: back_out,
-            spare: None,
-        },
+        rx_end,
         status,
         writer,
         Handle {
             free: free.as_mut_view(),
             frames: frames_in,
             sent: sent_out,
-            chunks: chunks_out,
-            back: back_in,
+            rx: rx_side,
             status,
             wake: reader,
             buffers,
@@ -1016,90 +869,14 @@ mod tests {
     }
 
     #[test]
-    fn a_chunk_is_read_in_place_and_a_starved_port_is_pended_on_release() {
-        let (_tx, mut rx, status, _w, mut h) = ends(2, &[8]);
-        let chunk = Chunk {
-            len: 3,
-            end: ChunkEnd::Idle,
-            generation: 4,
-        };
-        for byte in *b"ab" {
-            let buf = rx.take(status).unwrap();
-            buf[..3].fill(byte);
-            assert!(rx.lend(buf, chunk, 9, status));
-        }
-        // Pool empty: the bytes stay in FerroHAL's ring, the port starved.
-        assert!(rx.take(status).is_none());
-        assert!(status.starved.load(Ordering::Acquire));
-        let got = h.next_chunk().unwrap();
-        assert_eq!((got.bytes(), got.chunk, got.at_us), (&b"aaa"[..], chunk, 9));
-        let before = KICKS.load(Ordering::Relaxed);
-        drop(got);
-        assert!(KICKS.load(Ordering::Relaxed) > before);
-        assert!(!status.starved.load(Ordering::Acquire));
-        // The released buffer is the port's again; the other is still lent.
-        assert!(rx.take(status).is_some());
-        assert_eq!(h.next_chunk().unwrap().bytes(), b"bbb");
-        assert!(h.next_chunk().is_none());
-        assert_eq!(h.lost(), 0);
-    }
-
-    #[test]
-    fn a_gap_chunk_reaches_the_consumer_at_its_place() {
-        let (_tx, mut rx, status, _w, mut h) = ends(3, &[8]);
-        let idle = Chunk {
-            len: 2,
-            end: ChunkEnd::Idle,
-            generation: 0,
-        };
-        let gap = Chunk {
-            len: 0,
-            end: ChunkEnd::Gap(Error::BufferOverrun),
-            generation: 1,
-        };
-        for chunk in [
-            idle,
-            gap,
-            Chunk {
-                generation: 1,
-                ..idle
-            },
-        ] {
-            let buf = rx.take(status).unwrap();
-            assert!(rx.lend(buf, chunk, 0, status));
-        }
-        let ends: StdVec<_> =
-            core::iter::from_fn(|| h.next_chunk().map(|c| (c.chunk.end, c.chunk.generation)))
-                .collect();
-        assert_eq!(
-            ends,
-            [
-                (ChunkEnd::Idle, 0),
-                (ChunkEnd::Gap(Error::BufferOverrun), 1),
-                (ChunkEnd::Idle, 1)
-            ]
-        );
-    }
-
-    #[test]
     fn buffers_the_port_cannot_use_are_refused() {
         let memory = || -> &'static mut Memory<4, 4> { Box::leak(Box::new(Memory::new())) };
         let none = || core::iter::empty::<&'static mut [u8]>();
-        // Receive: two lengths, longer than half the ring, more than fit.
-        let mut pool = [leak(8), leak(4)].into_iter();
-        assert!(matches!(
-            split_memory(memory(), &mut pool, 16, &mut none(), 64, kick),
-            Err((true, 4))
-        ));
+        // Receive: the pool's own checks, reported as the receive side's.
         let mut pool = [leak(17)].into_iter();
         assert!(matches!(
             split_memory(memory(), &mut pool, 16, &mut none(), 64, kick),
             Err((true, 17))
-        ));
-        let mut pool = (0..4).map(|_| leak(8));
-        assert!(matches!(
-            split_memory(memory(), &mut pool, 16, &mut none(), 64, kick),
-            Err((true, 8))
         ));
         // Transmit: longer than FerroHAL's buffer, empty, more than fit.
         let mut lent = [leak(65)].into_iter();
