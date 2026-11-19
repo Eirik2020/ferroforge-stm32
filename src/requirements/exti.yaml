@@ -21,6 +21,10 @@ requirements:
           environment: development
           method:
             procedure: requirements/benches.md#EXTI line on the Nucleo-H753ZI
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:EXTI-001
 
   - id: PORT-302
     title: The EXTI line stamps each edge in its vector

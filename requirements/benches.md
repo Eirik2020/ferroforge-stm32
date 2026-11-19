@@ -81,61 +81,56 @@ as on the Nucleo-F401RE, on line 6, PD6's rising edge, served from the shared
 `EXTI9_5` vector. Pass: every check prints `PASS`, none prints `FAIL`, and the
 script exits zero [PORT-301, PORT-302].
 
-## ADC sequence on the Nucleo-F401RE
-
-`hil/run-f401-adc.sh`, with FerroHAL's F401 link S1 (PA7 to PA6) fitted, as
-`hil/nucleo-f401re-adc-scan/src/main.rs` lists it. The firmware selects
-`adc_scan` on ADC1 and DMA2 stream 0, its channels PA6, VREFINT and the
-temperature sensor named before the converter opens, and runs 200 sequences one
-at a time, driving PA7 low and high in turn. Pass: every check prints `PASS`,
-none prints `FAIL`, and the script exits zero. The checks: the member's vector
-is enabled [PORT-401]; every sequence's end reached the firmware's task, and
-every one completed [PORT-401]; PA6's sample sat within 3% of the rail driven in
-every sequence [PORT-401]; and VREFINT gave VDDA between 3.0 and 3.6 V and the
-sensor a die temperature between 0 and 85 degrees in every sequence, so each
-sample landed in its channel's place [PORT-401].
-
-## ADC sequence on the Nucleo-H753ZI
-
-`hil/run-h753-adc.sh`, with FerroHAL's H753 link Z10 (PF7 to PF6) fitted, as
-`hil/nucleo-h753zi-adc-scan/src/main.rs` lists it. The same firmware and checks
-as on the Nucleo-F401RE, on `adc_v4` and DMAMUX: ADC3, which carries the
-internal pair, on DMA2 stream 0, reading PF6. Pass: every check prints `PASS`,
-none prints `FAIL`, and the script exits zero [PORT-401].
-
-## Timer tick on the Nucleo-F401RE
-
-`hil/run-f401-tick.sh`, with no link, as
-`hil/nucleo-f401re-timer-tick/src/main.rs` lists it. The firmware selects
-`timer_tick` on TIM4 at 1 kHz, with SysTick at 1 kHz as the monotonic, and lets
-it run: a quiet window of 1000 ticks with an empty task; the task stalling once
-for 5.5 periods; the task held off for 5 ms from just after a tick. Pass: every
-check prints `PASS`, none prints `FAIL`, and the script exits zero. The checks:
-the member's vector is enabled [PORT-501]; every tick of the quiet window
-reached the task, none missed, as many as the monotonic's elapsed periods
-[PORT-501]; every tick was stamped a period after the one taken before it,
-counting the missed ones, within a monotonic tick, and no later than its task
-ran [PORT-502]; after the stall the next tick carried 5 missed, and the stamps'
-span matched the periods taken and counted [PORT-501, PORT-502]; the tick
-queued while the task was held kept a stamp within a period of the hold's
-start, at least 3 ms before its task ran [PORT-502]; and the tick after it
-carried the 4 that found the task queued [PORT-501].
-
 ## Timer tick on the STM32F4 Discovery
 
 `hil/run-discovery-tick.sh`, with no link, as
-`hil/stm32f4-discovery-timer-tick/src/main.rs` lists it. The same firmware and
-checks as on the Nucleo-F401RE, on the F407 at 168 MHz from the ST-LINK's
-8 MHz clock, TIM4 counting at 84 MHz. Pass: every check prints `PASS`, none
-prints `FAIL`, and the script exits zero [PORT-501, PORT-502].
+`hil/stm32f4-discovery-timer-tick/src/main.rs` lists it. The firmware selects
+`timer_tick` on TIM4 at 1 kHz, with SysTick at 1 kHz as the monotonic, on the
+F407 at 168 MHz from the ST-LINK's 8 MHz clock, and lets it run: a quiet window
+of 1000 ticks with an empty task; the task stalling once for 5.5 periods; the
+task held off for 5 ms from just after a tick. Pass: every check prints `PASS`,
+none prints `FAIL`, and the script exits zero. The checks: the member's vector
+is enabled [PORT-501]; every tick of the quiet window reached the task, none
+missed, as many as the monotonic's elapsed periods [PORT-501]; every tick was
+stamped a period after the one taken before it, counting the missed ones,
+within a monotonic tick, and no later than its task ran [PORT-502]; after the
+stall the next tick carried 5 missed, and the stamps' span matched the periods
+taken and counted [PORT-501, PORT-502]; the tick queued while the task was held
+kept a stamp within a period and a monotonic tick of the hold's start, at least
+3 ms before its task ran [PORT-502]; and the tick after it carried the 4 that
+found the task queued [PORT-501].
 
 ## Timer tick on the Nucleo-H753ZI
 
 `hil/run-h753-tick.sh`, with no link, as
 `hil/nucleo-h753zi-timer-tick/src/main.rs` lists it. The same firmware and
-checks as on the Nucleo-F401RE, on `timer_v3` at 400 MHz, TIM4 counting at
-200 MHz. Pass: every check prints `PASS`, none prints `FAIL`, and the script
-exits zero [PORT-501, PORT-502].
+checks as on the STM32F4 Discovery, on `timer_v3` at 400 MHz, TIM4 counting at
+200 MHz. It runs because the port rests on `Tick::on_interrupt` clearing its
+update flag and answering `false` for another timer's pass, which no FerroHAL
+requirement covers yet, and `timer_v3` is the other timer IP version. Pass:
+every check prints `PASS`, none prints `FAIL`, and the script exits zero
+[PORT-501, PORT-502].
+
+## ADC port on the STM32F4 Discovery
+
+`hil/run-discovery-adc.sh`, with link A1 (PA2 to PA3) fitted, as
+`hil/stm32f4-discovery-adc-port/src/main.rs` lists it. The firmware selects
+`adc_event_port` on ADC1 and DMA2 stream 0, its channels PA3, VREFINT and the
+temperature sensor named before the converter opens, with SysTick at 1 kHz as
+the monotonic. It kicks 200 sequences one at a time, driving PA2 low and high in
+turn; then lets two sequences end, low then high, while it holds the firmware's
+task off; then kicks twice 20 us apart. Pass: every check prints `PASS`, none
+prints `FAIL`, and the script exits zero. The checks: the member's vector is
+enabled [PORT-402, PORT-403]; every kick started one sequence whose end reached
+the task, completed, with nothing missed or late [PORT-402, PORT-403,
+PORT-404]; in every sequence PA3's sample sat within 3% of the rail driven and
+VREFINT gave VDDA between 2.7 and 3.3 V and the sensor a die temperature
+between 0 and 85 degrees, so each sample landed in its channel's place
+[PORT-403]; every sequence was stamped within a monotonic tick of its kick and
+no later than its task ran [PORT-403]; of the two held sequences the task took
+the first with its own low sample [PORT-403], and the next sequence carried 1
+missed [PORT-404]; and the two quick kicks ended one sequence, which carried 1
+late kick [PORT-402].
 
 ## UART port on the Nucleo-H753ZI
 

@@ -13,14 +13,14 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
-mod adc;
+mod adc_port;
 mod exti;
 mod spi;
 mod tick;
 mod uart;
 mod uart_rx;
 
-pub use adc::adc_scan;
+pub use adc_port::adc_event_port;
 pub use exti::exti_line;
 pub use spi::spi_port;
 pub use tick::timer_tick;

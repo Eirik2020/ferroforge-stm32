@@ -62,3 +62,43 @@ board needs one (D26).
 The source's rate is the firmware's: it routes the EXTI line, or builds the
 `Tick` at its rate, in `init`, and hands it to the group's constructor. The
 group has no config.
+
+## The ADC port
+
+`adc_event_port` is an event port that carries data (D27). One member owns
+FerroHAL's `AdcScan` as its local resource; the firmware never names or locks
+the converter.
+
+- **A kick.** Any task holding the `Kick` handle (`Copy`) asks for a sequence:
+  the kick adds one to a request count in the port's static memory
+  (`KickMemory`) and pends the member through the function FerroForge
+  generates for the selection (`pends`). The member starts the sequence.
+- **The end.** When the sequence ends, the member spawns the firmware's task
+  with a `Sequence` by value: up to 16 samples in channel order, the time the
+  sequence started, its outcome, the sequences the task did not take
+  (`missed`, and `missed_failed` of those) and the kicks that started nothing
+  (`late_kicks`). A `Sequence` is 56 bytes, whatever the channel count.
+- **The time** is the start's, read from the firmware's monotonic in the pass
+  that started the sequence, because the samples' age counts from it.
+
+The samples travel with the wake, so a later sequence cannot overwrite them
+before the task reads them: the lost-result window of the shared-scan shape
+is closed. That shape, `adc_scan`, is retired.
+
+Nothing is lost silently (D8, D16):
+
+- A kick while a sequence runs starts nothing; it is counted and carried by
+  the next sequence the task takes. Kicks queued before the member runs start
+  one sequence; the others are counted.
+- A sequence that finds the task queued or running is dropped and counted.
+- A start the driver refuses goes to the task as a sequence with no samples
+  and the refusal as its outcome.
+
+The constructor checks the sequence against the sample buffer and
+`MAX_CHANNELS` before it opens anything, and hands back everything it took
+when it refuses.
+
+What the port cannot state: that a channel's pin is analog (DEBT D5). A
+software kick moves by the run of any higher-priority task; a start triggered
+by a timer in hardware, for sampling at a fixed rate, would be a FerroHAL
+feature, and is not built.

@@ -186,7 +186,7 @@ checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 [[package]]
 name = "ferroforge"
 version = "0.4.0"
-source = "git+https://github.com/Eirik2020/ferroforge?rev=f7387ed67ca29e194c8938d0db03f735c59480d7#f7387ed67ca29e194c8938d0db03f735c59480d7"
+source = "git+https://github.com/Eirik2020/ferroforge?rev=eded9269ebeb0852090b9174d1c416feb7ef6cc3#eded9269ebeb0852090b9174d1c416feb7ef6cc3"
 dependencies = [
  "ferroforge-macros",
 ]
@@ -194,7 +194,7 @@ dependencies = [
 [[package]]
 name = "ferroforge-contracts"
 version = "0.4.0"
-source = "git+https://github.com/Eirik2020/ferroforge?rev=f7387ed67ca29e194c8938d0db03f735c59480d7#f7387ed67ca29e194c8938d0db03f735c59480d7"
+source = "git+https://github.com/Eirik2020/ferroforge?rev=eded9269ebeb0852090b9174d1c416feb7ef6cc3#eded9269ebeb0852090b9174d1c416feb7ef6cc3"
 dependencies = [
  "proc-macro2",
  "syn 2.0.119",
@@ -203,7 +203,7 @@ dependencies = [
 [[package]]
 name = "ferroforge-macros"
 version = "0.4.0"
-source = "git+https://github.com/Eirik2020/ferroforge?rev=f7387ed67ca29e194c8938d0db03f735c59480d7#f7387ed67ca29e194c8938d0db03f735c59480d7"
+source = "git+https://github.com/Eirik2020/ferroforge?rev=eded9269ebeb0852090b9174d1c416feb7ef6cc3#eded9269ebeb0852090b9174d1c416feb7ef6cc3"
 dependencies = [
  "ferroforge-contracts",
  "proc-macro2",
@@ -324,23 +324,6 @@ name = "nb"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8d5439c4ad607c3c23abf66de8c8bf57ba8adcd1f129e699851a6e43935d339d"
-
-[[package]]
-name = "nucleo-f401re-timer-tick"
-version = "0.1.0"
-dependencies = [
- "cortex-m",
- "cortex-m-rt",
- "cortex-m-semihosting",
- "defmt 1.2.0",
- "defmt-rtt",
- "ferroforge",
- "ferroforge-stm32",
- "ferrohal-stm32",
- "panic-probe",
- "rtic",
- "rtic-monotonics",
-]
 
 [[package]]
 name = "panic-probe"
@@ -489,6 +472,23 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "defmt 0.3.101",
+]
+
+[[package]]
+name = "stm32f4-discovery-adc-port"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "cortex-m-semihosting",
+ "defmt 1.2.0",
+ "defmt-rtt",
+ "ferroforge",
+ "ferroforge-stm32",
+ "ferrohal-stm32",
+ "panic-probe",
+ "rtic",
+ "rtic-monotonics",
 ]
 
 [[package]]
