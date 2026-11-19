@@ -22,6 +22,8 @@ mod uart_rx;
 mod usb;
 #[cfg(feature = "usb")]
 mod usb_poll;
+#[cfg(feature = "usb")]
+mod usb_signal;
 
 pub use adc::adc_scan;
 pub use exti::exti_line;
@@ -32,6 +34,8 @@ pub use uart_rx::uart_rx_port;
 pub use usb::usb_device;
 #[cfg(feature = "usb")]
 pub use usb_poll::usb_polled;
+#[cfg(feature = "usb")]
+pub use usb_signal::usb_signalled;
 
 #[cfg(test)]
 extern crate std;

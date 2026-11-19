@@ -13,6 +13,7 @@ pub struct Stats {
     pub received: u32,
     pub echoed: u32,
     pub ended: bool,
+    pub write_max_cycles: u32,
 }
 
 impl Stats {
@@ -23,6 +24,7 @@ impl Stats {
             received: 0,
             echoed: 0,
             ended: false,
+            write_max_cycles: 0,
         }
     }
 
@@ -33,13 +35,20 @@ impl Stats {
         self.received = echo.received;
         self.echoed = echo.echoed;
         self.ended = echo.ended;
+        self.write_max_cycles = echo.write_max_cycles;
     }
 }
 
 /// Waits for the host: enumeration, the echo session, then a second with
 /// the bus configured and quiet. Prints the measurements and returns the
 /// failures.
-pub async fn run_checks<M, D, F>(stats: &mut M, mut tick: D, now_ms: impl Fn() -> u32) -> u32
+/// `entries` reads how often the port's vector has run (0 if not counted).
+pub async fn run_checks<M, D, F>(
+    stats: &mut M,
+    mut tick: D,
+    now_ms: impl Fn() -> u32,
+    entries: impl Fn() -> u32,
+) -> u32
 where
     M: rtic::Mutex<T = Stats>,
     D: FnMut() -> F,
@@ -51,6 +60,7 @@ where
     let mut first_ms = None;
     let mut session: Option<Window> = None;
     let mut session_wakes = 0;
+    let mut session_entries = 0;
     let mut ended_ms = None;
     let mut session_load = (0, 0);
     // The whole session: 60 s at most.
@@ -64,6 +74,7 @@ where
             first_ms = Some(now_ms());
             session = Some(Window::start());
             session_wakes = seen.wakes;
+            session_entries = entries();
         }
         if seen.ended {
             ended_ms = Some(now_ms());
@@ -71,6 +82,7 @@ where
                 session_load = window.busy_permille();
             }
             session_wakes = seen.wakes.wrapping_sub(session_wakes);
+            session_entries = entries().wrapping_sub(session_entries);
             break;
         }
     }
@@ -91,23 +103,28 @@ where
         _ => 0,
     };
     defmt::info!(
-        "MEASURE session: {} ms, busy {} permille, {} task wakes",
+        "MEASURE session: {} ms, busy {} permille, {} task wakes, {} vector entries, longest write {} cycles",
         session_ms,
         session_load.0,
-        session_wakes
+        session_wakes,
+        session_entries,
+        seen.write_max_cycles
     );
     // A second configured and quiet: the host has closed its port.
     let quiet = Window::start();
     let wakes = stats.lock(|stats| stats.wakes);
+    let quiet_entries = entries();
     for _ in 0..1000 {
         tick().await;
     }
     let (busy, _) = quiet.busy_permille();
     let quiet_wakes = stats.lock(|stats| stats.wakes).wrapping_sub(wakes);
+    let quiet_entries = entries().wrapping_sub(quiet_entries);
     defmt::info!(
-        "MEASURE quiet second: busy {} permille, {} task wakes",
+        "MEASURE quiet second: busy {} permille, {} task wakes, {} vector entries",
         busy,
-        quiet_wakes
+        quiet_wakes,
+        quiet_entries
     );
     if failed == 0 {
         defmt::info!("all checks passed");

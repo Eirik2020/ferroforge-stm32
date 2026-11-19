@@ -45,6 +45,8 @@
     constructor = new(rcc, wiring, ep_memory),
 )]
 pub mod usb_device {
+    use core::sync::atomic::{AtomicU32, Ordering};
+
     use ferrohal_stm32::{
         rcc::Rcc,
         usb::{UsbFs, UsbRefused, usb_device::bus::UsbBusAllocator},
@@ -55,6 +57,9 @@ pub mod usb_device {
         chip::{USB_OTG_FS as U, UsbDm as Dm, UsbDp as Dp},
         usb::{Events, UsbBus, UsbVector, Wiring},
     };
+
+    /// PROTOTYPE bench counter: how often the member ran.
+    pub static VECTOR_ENTRIES: AtomicU32 = AtomicU32::new(0);
 
     /// What [`new`] builds: the member's resource, and the bus for the
     /// firmware's own stack.
@@ -89,6 +94,7 @@ pub mod usb_device {
         spawn = [events(events: Events)],
     )]
     pub fn on_usb_fs(cx: on_usb_fs::Context) {
+        VECTOR_ENTRIES.fetch_add(1, Ordering::Relaxed);
         let events = cx.local.vector.on_interrupt();
         if events.any() {
             let _: Result<(), Events> = cx.spawn.events(events);

@@ -12,6 +12,12 @@ test = false
 bench = false
 
 [[bin]]
+name = "usb-signalled"
+path = "src/bin/usb_signalled.rs"
+test = false
+bench = false
+
+[[bin]]
 name = "usb-polled"
 path = "src/bin/usb_polled.rs"
 test = false
@@ -20,7 +26,7 @@ bench = false
 [dependencies]
 ferroforge-stm32 = { path = "../..", features = ["usb"] }
 ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "f7387ed67ca29e194c8938d0db03f735c59480d7" }
-ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "a393e293b1dba489d0f88837ddbf5e99ae5e7990", features = ["stm32f407vg", "rt", "rtic", "defmt", "usb"] }
+ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "5e5a40cc5b2bdbeb4b4dff36d9d55aa3460f45b6", features = ["stm32f407vg", "rt", "rtic", "defmt", "usb"] }
 usbd-serial = "=0.2.2"
 
 cortex-m = { version = "0.7.7", features = ["critical-section-single-core"] }

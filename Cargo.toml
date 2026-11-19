@@ -11,13 +11,15 @@ publish = false
 # Every dependency is pinned exactly, as FerroHAL's are: a bump needs a
 # reviewed diff analysis or reverification. FerroHAL and FerroForge 0.5 are not
 # on crates.io yet, so both come from git at an exact revision until they are.
-ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "a393e293b1dba489d0f88837ddbf5e99ae5e7990" }
+ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "5e5a40cc5b2bdbeb4b4dff36d9d55aa3460f45b6" }
 ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "f7387ed67ca29e194c8938d0db03f735c59480d7" }
 # The chip-select pin's trait, as FerroHAL's GPIO implements it.
 embedded-hal = "=1.0.0"
 # The lock a group member's shared resource arrives through (`rtic::Mutex`).
 # The backend is the firmware's choice in practice; naming one here lets the
 # crate check on its own, on the target and on the host.
+# The signal that wakes the signalled USB port's task (`rtic-sync`).
+rtic-sync = { version = "=1.6.1", optional = true }
 rtic = { version = "=2.4.0", default-features = false, features = ["thumbv7-backend"] }
 # The clock a member stamps a wake with is the firmware's monotonic; a member
 # names it as `Mono`, bounded on `rtic_monotonics::Monotonic` over `fugit`'s
@@ -29,7 +31,7 @@ fugit = { version = "=0.3.9", default-features = false }
 default = []
 # The USB device port: FerroHAL's `usb` feature, which brings the `usb-device`
 # bus. Off unless a firmware selects the port.
-usb = ["ferrohal-stm32/usb"]
+usb = ["ferrohal-stm32/usb", "dep:rtic-sync"]
 # A group needs a chip to compile, but must not be the one choosing it. These
 # forward to FerroHAL so the crate checks on its own; a firmware's own FerroHAL
 # chip feature wins through feature unification. One chip per USART IP version
@@ -41,6 +43,8 @@ stm32h743vi = ["ferrohal-stm32/stm32h743vi"]
 stm32h753zi = ["ferrohal-stm32/stm32h753zi"]
 
 [dev-dependencies]
+# rtic-sync's signal takes a critical section; on the host, std's.
+critical-section = { version = "=1.2.0", features = ["std"] }
 # The host tests read this crate's own source as a host tool would.
 ferroforge-contracts = { git = "https://github.com/Eirik2020/ferroforge", rev = "f7387ed67ca29e194c8938d0db03f735c59480d7" }
 syn = { version = "=2.0.119", features = ["full"] }

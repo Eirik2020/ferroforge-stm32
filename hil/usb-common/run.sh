@@ -26,7 +26,7 @@ if [ ! -f "$host_script" ]; then
 fi
 mkdir -p "$here/logs"
 status=0
-for variant in ${*:-deferred polled}; do
+for variant in ${*:-deferred signalled polled}; do
     log="$here/logs/$prefix-usb-$variant.log"
     : > "$log"
     (cd "$here/$crate" && timeout 300 cargo build --release --bin "usb-$variant") >> "$log" 2>&1

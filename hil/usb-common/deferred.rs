@@ -105,7 +105,8 @@ ferroforge::app! {
     async fn checks(mut cx: checks::Context) {
         let failed = board::run_checks(&mut cx.shared.stats, || async {
             Mono::delay(1.millis()).await;
-        }, || Mono::now().duration_since_epoch().to_millis() as u32)
+        }, || Mono::now().duration_since_epoch().to_millis() as u32,
+        || usb_device::VECTOR_ENTRIES.load(core::sync::atomic::Ordering::Relaxed))
         .await;
         Mono::delay(200.millis()).await;
         if failed == 0 {

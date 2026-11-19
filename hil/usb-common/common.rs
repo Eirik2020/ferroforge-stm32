@@ -21,6 +21,9 @@ pub struct Echo {
     tail: [u8; 8],
     pub received: u32,
     pub echoed: u32,
+    /// The longest class write so far, in CPU cycles: an upper bound on the
+    /// critical section the bus writes an IN packet in.
+    pub write_max_cycles: u32,
     pub ended: bool,
 }
 
@@ -33,6 +36,7 @@ impl Echo {
             tail: [0; 8],
             received: 0,
             echoed: 0,
+            write_max_cycles: 0,
             ended: false,
         }
     }
@@ -70,7 +74,13 @@ impl Echo {
                 }
             }
             let end = (self.head + self.len).min(self.pending.len());
-            match write(io, &self.pending[self.head..end]) {
+            let started = DWT::cycle_count();
+            let wrote = write(io, &self.pending[self.head..end]);
+            let took = DWT::cycle_count().wrapping_sub(started);
+            if took > self.write_max_cycles {
+                self.write_max_cycles = took;
+            }
+            match wrote {
                 Some(count) if count > 0 => {
                     let count = count.min(self.len);
                     self.head += count;
