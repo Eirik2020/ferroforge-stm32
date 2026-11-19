@@ -46,11 +46,12 @@ vector's priority, so a lane above it is untouched (D35).
 ## The lock's longest hold
 
 The task holds the lock for one round: a poll, then one class read or write.
-The longest round on the F407 at 168 MHz is about 12,700 cycles (76 us), with
-FerroHAL's 64 KiB host echo running at about 490 KiB/s. Holding it for a whole
-pass of up to four rounds held it up to 38,100 cycles (230 us) at the same
-throughput. The hold is the firmware's choice, not the port's: it bounds how
-long a vector at or below the USB vector's priority can wait.
+On the STM32F4 Discovery at 168 MHz, under FerroHAL's 64 KiB host echo at
+about 510 KiB/s, the longest round held it 10,859 and 12,283 cycles in two
+runs (65 and 73 us, 2026-11-19). Holding it for a whole pass of up to four
+rounds held it up to 38,100 cycles (230 us) at the same throughput. The hold
+is the firmware's choice, not the port's: it bounds how long a vector at or
+below the USB vector's priority can wait.
 
 ## Contract
 
