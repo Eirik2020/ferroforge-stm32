@@ -1,0 +1,151 @@
+{
+  "schema_version": 5,
+  "run_id": "20261119T094009Z__exti-line-on-the-nucleo-f401re__nucleo-f401re-exti-line__01",
+  "recorded_at_utc": "2026-11-19T09:40:09Z",
+  "board": "nucleo-f401re-exti-line",
+  "tier": "HIL",
+  "revision": "0d52ac3bbbc451f7f2d2b8e0e32638fc9ae2d871",
+  "working_tree": "clean",
+  "configuration": {
+    "board": "nucleo-f401re-exti-line",
+    "features": [],
+    "files": {
+      "hil/nucleo-f401re-exti-line/.cargo/config.toml": "2fb6c8648a6ca90449e9b35fb962adec336a248a30bd53ae7fa67fcbb13ab0fd",
+      "hil/nucleo-f401re-exti-line/Cargo.toml": "44511ed2091e5bb17983b3d5170c33f90f36a3aa72920b2ad1bfde498af4f9cd",
+      "hil/nucleo-f401re-exti-line/src/main.rs": "2041e8a19bc7a6c0fc4de42ec7c0380f91892acb80fffe14b078e96876f0ea51",
+      "src/adc_port.rs": "3aebff3d46a439f6d2da84890eb75bead544250c7d55f073fbac15421c2b404b",
+      "src/exti.rs": "5d8aa5d0dc92c3555cd13a34473c0c39812f8b9bfb8b378245ad9765e5574104",
+      "src/lib.rs": "e4cd182b039196993ee90fc1b328c7e0f5482d2d1b1cfbd90a643215524337d7",
+      "src/spi.rs": "9aa8ac0775075704f43d41ed2e6b3c2e367a60d8672bdeb391afa6c2ebfcd982",
+      "src/tick.rs": "d03964b81d977ffd1924905d2b4ed59ef85754a6ecbf9460622e032d77fb2d2b",
+      "src/uart.rs": "63246943ce166653c275739084f63b9a8f3b5d76f816acaa33a4f5a33c33f951",
+      "src/uart_rx.rs": "b30f1eb4a38d7e3e8ae899807cf57db5853a77fd1e4e3912b889230bda762b8b"
+    },
+    "externals": {
+      "bare-metal": "0.2.5",
+      "bitfield": "0.13.2",
+      "bitflags": "1.3.2",
+      "cfg-if": "1.0.5",
+      "cortex-m": "0.7.10",
+      "cortex-m-macros": "0.7.8",
+      "cortex-m-rt": "0.7.7",
+      "cortex-m-rt-macros": "0.7.7",
+      "cortex-m-semihosting": "0.5.0",
+      "critical-section": "1.2.0",
+      "defmt": "0.3.101, 1.2.0",
+      "defmt-macros": "1.2.0",
+      "defmt-parser": "1.1.0",
+      "defmt-rtt": "1.3.1",
+      "embedded-hal": "0.2.7, 1.0.0",
+      "embedded-hal-async": "1.0.0",
+      "embedded-io": "0.7.1",
+      "equivalent": "1.0.3",
+      "ferroforge": "0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3",
+      "ferroforge-contracts": "0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3",
+      "ferroforge-macros": "0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3",
+      "ferrohal-stm32": "0.1.0+ceaedbf97e6d059e168fd3eaecddf5fe39f7b7a9",
+      "fugit": "0.3.9",
+      "futures-core": "0.3.34",
+      "futures-task": "0.3.34",
+      "futures-util": "0.3.34",
+      "gcd": "2.3.0",
+      "hashbrown": "0.17.1",
+      "indexmap": "2.14.2",
+      "nb": "0.1.3, 1.1.0",
+      "panic-probe": "1.0.0",
+      "pin-project-lite": "0.2.17",
+      "portable-atomic": "1.15.0",
+      "proc-macro2": "1.0.107",
+      "quote": "1.0.47",
+      "rtic": "2.4.0",
+      "rtic-common": "1.3.0",
+      "rtic-core": "1.0.0",
+      "rtic-macros": "2.4.0",
+      "rtic-monotonics": "2.2.1",
+      "rtic-time": "2.0.1",
+      "rustc_version": "0.2.3",
+      "semver": "0.9.0",
+      "semver-parser": "0.7.0",
+      "stm32-metapac": "21.0.0",
+      "syn": "2.0.119, 3.0.10",
+      "thiserror": "2.0.21",
+      "thiserror-impl": "2.0.21",
+      "unicode-ident": "1.0.27",
+      "vcell": "0.1.3",
+      "void": "1.0.2",
+      "volatile-register": "0.2.2"
+    },
+    "environment": {
+      "DEFMT_LOG": "info"
+    }
+  },
+  "results": [
+    {
+      "requirement": "PORT-301",
+      "method": {
+        "procedure": "requirements/benches.md#EXTI line on the Nucleo-F401RE"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "3a993bf75da08b1f96c1ee860ac75786179e0ce2ad8c4b0dde449118516b1f14",
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-302",
+      "method": {
+        "procedure": "requirements/benches.md#EXTI line on the Nucleo-F401RE"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "7fec64187e2103bd3b42c6393c9bb6b6bacbe038e9d265d97ed131fb6c369b44",
+      "result": "pass"
+    }
+  ],
+  "note": null,
+  "supersedes": [],
+  "ruling": null,
+  "details": {
+    "execution": {
+      "performed_by": "agent",
+      "user_confirmed": false
+    },
+    "conditions": {
+      "actuators": "none on this bench",
+      "image": "release profile, thumbv7em-none-eabihf, no extra features; firmware hash not captured",
+      "links": "FerroHAL's F401 link J2 (PA11-PA12) fitted; PA11 driven as GPIO by the firmware",
+      "equipment": [
+        "Nucleo-F401RE (MB1136) through its ST-LINK V2-1, probe 0674FF555185754867115446",
+        "probe-rs"
+      ],
+      "environment": [
+        "development bench"
+      ]
+    },
+    "commands": [
+      {
+        "command": "RIG_REQUESTER=... rig --wait hil/run-f401-exti.sh",
+        "exit_code": 0
+      }
+    ],
+    "measurements": {
+      "checks_failed": 0,
+      "checks_passed": 6,
+      "exit": 0,
+      "report": [
+        "exti_line on the Nucleo-F401RE, clocks: Clocks { sysclk: Hertz(84000000), cpu: Hertz(84000000), hclk: Hertz(84000000), pclk1: Hertz(42000000), pclk2: Hertz(84000000), timclk1: Hertz(84000000), timclk2: Hertz(84000000), pll_q: Some(Hertz(48000000)), flash_wait_states: 2 }",
+        "100 edges driven: 100 reached the task, 0 missed, 0 stamped outside their tick, 0 stamped after their task ran",
+        "held 5 ms: driven at 4000 us, stamped 4000 us, taken 9000 us",
+        "3 edges held, then 1: 2 reached the task, the last carrying 2 missed",
+        "all checks passed"
+      ]
+    },
+    "observations": [
+      "Run by an agent on ubuntu-beefcake at the coordinator's board grant, at revision 0d52ac3, through the rig entry point (per-board lock, rig telemetry), once with no retries."
+    ],
+    "limitations": [
+      "The RTT log stayed on the rig PC and is not attached; the report above is the firmware's own lines."
+    ]
+  }
+}

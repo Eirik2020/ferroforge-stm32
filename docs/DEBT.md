@@ -43,6 +43,13 @@ bench proves them.
   does not reach the wait: FerroHAL fails at once. Fixed in FerroHAL: a
   bound in real time, or an end of frame that does not wait inside the
   interrupt. *Spawned:* the SPI port variant bench, 2026-11-19.
+- **D5 (contract).** The ADC port cannot state that a channel's pin is analog:
+  its channels are a `[Channel<A>]` config value, which FerroHAL's
+  `Channel::of(&pin)` builds from a pin `init` has made analog, so a tool
+  reading the contract sees neither the pin nor its mode and cannot catch a pin
+  conflict. Fixed by a typed analog-pin slot in the contract. *Spawned:* the
+  event and ADC port prototype results, limitation E3 (2026-11-18), carried
+  into `adc_event_port`.
 - **D6 (lanes, bench).** Every lane port margin is one lane's: each bench links
   one lane to the responder, and the other lanes read only their idle level.
   A second linked lane on each bench would measure the rest.

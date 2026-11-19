@@ -12,16 +12,15 @@ every_file_traced_except = ["hil"]
 tiers = ["HIL"]
 
 [board_tiers]
-nucleo-f401re-adc-scan = "HIL"
 nucleo-f401re-exti-line = "HIL"
 nucleo-f401re-uart-loopback = "HIL"
 nucleo-f401re-rx-ports = "HIL"
 nucleo-f401re-spi-loopback = "HIL"
-nucleo-h753zi-adc-scan = "HIL"
 nucleo-h753zi-lane-port = "HIL"
-nucleo-h753zi-exti-line = "HIL"
 nucleo-h753zi-spi-loopback = "HIL"
 nucleo-h753zi-uart-loopback = "HIL"
+stm32f4-discovery-adc-port = "HIL"
 stm32f4-discovery-lane-port = "HIL"
 stm32f4-discovery-spi-device = "HIL"
+stm32f4-discovery-timer-tick = "HIL"
 stm32f4-discovery-usb-device = "HIL"

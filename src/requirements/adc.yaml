@@ -1,22 +1,86 @@
 schema_version: 2
 requirements:
-  - id: PORT-401
-    title: The ADC sequence port ends each sequence from its vector and wakes the firmware
+  - id: PORT-402
+    title: The ADC port starts one sequence a kick, and counts a late kick
     statement: >-
-      The ADC sequence port's vector member shall serve the scan and pass the
-      outcome of each sequence that ends to the firmware's task.
+      The ADC port's vector member shall start one sequence for the kicks it
+      takes while no sequence runs, and count on the next sequence passed on
+      every other kick it takes.
     rationale: >-
-      FerroHAL's sequence ends when its DMA stream completes; serving that one
-      vector lets a firmware convert at its own rate without polling, under the
-      scheduler's lock, as FerroHAL's single-owner model expects.
+      A kick while the converter is busy cannot start anything without
+      corrupting the running sequence; counting it tells the firmware that its
+      rate outran the conversion (D27, D8 of the port design).
     derived_from: [G1, G3]
     verification:
       entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::adc_port::tests::a_kick_starts_one_sequence_and_its_end_carries_its_samples
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::adc_port::tests::a_kick_while_running_starts_nothing_and_is_counted
         - level: target
           environment: development
           method:
-            procedure: requirements/benches.md#ADC sequence on the Nucleo-F401RE
+            procedure: requirements/benches.md#ADC port on the STM32F4 Discovery
         - level: target
           environment: development
           method:
-            procedure: requirements/benches.md#ADC sequence on the Nucleo-H753ZI
+            library: ferrohal-stm32:ADC-005
+
+  - id: PORT-403
+    title: The ADC port passes each sequence with its own samples
+    statement: >-
+      The ADC port's vector member shall pass each sequence that ends to the
+      firmware's task by value, with its samples in channel order, its outcome
+      and the time it started.
+    rationale: >-
+      Samples that travel with the wake cannot be overwritten by a later
+      sequence before the task reads them, and the firmware judges their age
+      from when the conversion began (D27).
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::adc_port::tests::a_kick_starts_one_sequence_and_its_end_carries_its_samples
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::adc_port::tests::a_refused_start_is_passed_on_as_its_outcome
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::adc_port::tests::a_refused_start_after_an_end_goes_out_on_the_next_pass
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#ADC port on the STM32F4 Discovery
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:ADC-004
+
+  - id: PORT-404
+    title: The ADC port counts the sequences its task did not take
+    statement: >-
+      The ADC port's vector member shall count each sequence that found the
+      firmware's task still queued or running, and pass the count with the
+      next sequence the task takes.
+    rationale: >-
+      The interrupt never waits for the consumer, and a loss is never silent
+      (D8, D19 of the port design).
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::adc_port::tests::a_sequence_the_task_does_not_take_is_counted_on_the_next
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#ADC port on the STM32F4 Discovery

@@ -1,0 +1,45 @@
+schema_version: 2
+requirements:
+  - id: PORT-701
+    title: The timer tick passes each tick to the firmware's task
+    statement: >-
+      The timer tick's vector member shall serve its timer and pass each tick
+      to the firmware's task, counting on the next tick passed the ticks that
+      found that task still queued or running.
+    rationale: >-
+      A tick carries no data, so one the task has not taken yet adds nothing
+      but the fact that it happened; counting such ticks keeps the vector
+      bounded and still tells the firmware how many periods it did not see
+      (D25 of the port design).
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#Timer tick on the STM32F4 Discovery
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:TIMER-001
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:TIMER-006
+
+  - id: PORT-702
+    title: The timer tick stamps each tick in its vector
+    statement: >-
+      The timer tick's vector member shall read the firmware's monotonic before
+      it does anything else, and pass that time with the tick.
+    rationale: >-
+      A task that samples or controls at a fixed rate judges its own lateness
+      against the tick's time, not against when it got to run; a time read in
+      the vector is the tick's at any task priority (D26).
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#Timer tick on the STM32F4 Discovery

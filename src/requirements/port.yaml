@@ -30,7 +30,11 @@ requirements:
         - level: unit
           environment: host
           method:
-            test: ferroforge_stm32::adc::tests::adc_scan_states_its_contract
+            test: ferroforge_stm32::adc_port::tests::adc_event_port_states_its_contract
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::tick::tests::timer_tick_states_its_contract
         - level: unit
           environment: host
           method:
@@ -87,11 +91,19 @@ requirements:
         - level: unit
           environment: host
           method:
-            test: ferroforge_stm32::adc::tests::adc_scan_builds_on_an_f401_converter
+            test: ferroforge_stm32::adc_port::tests::adc_event_port_builds_on_an_f401_converter
         - level: unit
           environment: host
           method:
-            test: ferroforge_stm32::adc::tests::adc_scan_builds_on_an_h753_converter
+            test: ferroforge_stm32::adc_port::tests::adc_event_port_builds_on_an_h753_converter
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::tick::tests::timer_tick_builds_on_an_f401_timer
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::tick::tests::timer_tick_builds_on_an_h753_timer
         - level: unit
           environment: host
           method:
