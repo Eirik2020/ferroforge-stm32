@@ -37,6 +37,11 @@ impl Echo {
         }
     }
 
+    /// What has moved so far: bytes received and bytes echoed.
+    pub fn progress(&self) -> (u32, u32) {
+        (self.received, self.echoed)
+    }
+
     /// One step: read what the class has if nothing waits, then write what
     /// waits. `read` and `write` are the class's.
     pub fn step<T>(

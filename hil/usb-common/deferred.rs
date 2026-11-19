@@ -74,15 +74,23 @@ ferroforge::app! {
         fn on_usb_fs;
     }
 
-    /// The firmware's task: owns the device and its class, polls them on
-    /// each wake, and echoes.
+    /// The firmware's task: owns the device and its class, and on each wake
+    /// polls and echoes until a pass finds nothing to do (at most four
+    /// passes), as the group asks: a wake that arrives while this task runs
+    /// is dropped, and only the next start of frame repeats it.
     #[task(priority = 2, shared = [stats], local = [device, serial, echo: Echo = Echo::new()])]
     async fn usb_events(mut cx: usb_events::Context, _events: Events) {
         let device = cx.local.device;
         let serial = cx.local.serial;
         let echo = cx.local.echo;
-        device.poll(&mut [serial]);
-        echo.step(serial, |s, buf| s.read(buf).ok(), |s, buf| s.write(buf).ok());
+        for _ in 0..4 {
+            let busy = device.poll(&mut [serial]);
+            let before = echo.progress();
+            echo.step(serial, |s, buf| s.read(buf).ok(), |s, buf| s.write(buf).ok());
+            if !busy && echo.progress() == before {
+                break;
+            }
+        }
         let configured = device.state() == UsbDeviceState::Configured;
         cx.shared.stats.lock(|stats| stats.update(configured, echo));
     }

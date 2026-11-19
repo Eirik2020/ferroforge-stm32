@@ -143,7 +143,7 @@ dependencies = [
 [[package]]
 name = "ferrohal-stm32"
 version = "0.1.0"
-source = "git+https://github.com/Eirik2020/ferrohal-stm32?rev=1205848fa05edafb3a84b939a2247217ee990d9e#1205848fa05edafb3a84b939a2247217ee990d9e"
+source = "git+https://github.com/Eirik2020/ferrohal-stm32?rev=a393e293b1dba489d0f88837ddbf5e99ae5e7990#a393e293b1dba489d0f88837ddbf5e99ae5e7990"
 dependencies = [
  "cortex-m",
  "embedded-hal 1.0.0",
@@ -391,7 +391,7 @@ dependencies = [
 [[package]]
 name = "synopsys-usb-otg"
 version = "0.4.0"
-source = "git+https://github.com/Eirik2020/synopsys-usb-otg?rev=99ce43fcb29c420d413a4c6e154e4aadaab62ae3#99ce43fcb29c420d413a4c6e154e4aadaab62ae3"
+source = "git+https://github.com/Eirik2020/synopsys-usb-otg?rev=8f9852113847578492bc7ff6dbcdc735cbc50add#8f9852113847578492bc7ff6dbcdc735cbc50add"
 dependencies = [
  "cortex-m",
  "embedded-hal 0.2.7",
