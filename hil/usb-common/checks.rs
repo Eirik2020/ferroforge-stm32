@@ -14,6 +14,7 @@ pub struct Stats {
     pub echoed: u32,
     pub ended: bool,
     pub write_max_cycles: u32,
+    pub hold_max_cycles: u32,
 }
 
 impl Stats {
@@ -25,6 +26,7 @@ impl Stats {
             echoed: 0,
             ended: false,
             write_max_cycles: 0,
+            hold_max_cycles: 0,
         }
     }
 
@@ -36,6 +38,7 @@ impl Stats {
         self.echoed = echo.echoed;
         self.ended = echo.ended;
         self.write_max_cycles = echo.write_max_cycles;
+        self.hold_max_cycles = echo.hold_max_cycles;
     }
 }
 
@@ -103,13 +106,14 @@ where
         _ => 0,
     };
     defmt::info!(
-        "MEASURE session: {} ms, busy {} permille, {} task wakes, {} vector entries, longest write {} cycles, longest IN critical section {} cycles",
+        "MEASURE session: {} ms, busy {} permille, {} task wakes, {} vector entries, longest write {} cycles, longest IN critical section {} cycles, longest lock hold {} cycles",
         session_ms,
         session_load.0,
         session_wakes,
         session_entries,
         seen.write_max_cycles,
-        synopsys_usb_otg::CRITICAL_SECTION_MAX_CYCLES.load(core::sync::atomic::Ordering::Relaxed)
+        synopsys_usb_otg::CRITICAL_SECTION_MAX_CYCLES.load(core::sync::atomic::Ordering::Relaxed),
+        seen.hold_max_cycles
     );
     // A second configured and quiet: the host has closed its port.
     let quiet = Window::start();

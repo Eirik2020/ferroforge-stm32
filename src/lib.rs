@@ -26,6 +26,8 @@ mod usb_lock;
 mod usb_poll;
 #[cfg(feature = "usb")]
 mod usb_signal;
+#[cfg(feature = "usb")]
+mod usb_stack;
 
 pub use adc::adc_scan;
 pub use exti::exti_line;
@@ -40,6 +42,8 @@ pub use usb_lock::usb_locked;
 pub use usb_poll::usb_polled;
 #[cfg(feature = "usb")]
 pub use usb_signal::usb_signalled;
+#[cfg(feature = "usb")]
+pub use usb_stack::usb_stacked;
 
 #[cfg(test)]
 extern crate std;

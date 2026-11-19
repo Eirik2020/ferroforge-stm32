@@ -24,6 +24,7 @@ pub const SERIAL_DEFERRED: &str = "h753-usb-deferred";
 pub const SERIAL_POLLED: &str = "h753-usb-polled";
 pub const SERIAL_SIGNALLED: &str = "h753-usb-signalled";
 pub const SERIAL_LOCKED: &str = "h753-usb-locked";
+pub const SERIAL_STACKED: &str = "h753-usb-stacked";
 
 /// 400 MHz from HSI, as the crate's other H753 benches run: 64 MHz / 4 =
 /// 16 MHz reference, * 50 = 800 MHz VCO, / 2 = 400 MHz core; AXI and AHB at

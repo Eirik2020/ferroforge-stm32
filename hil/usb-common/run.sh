@@ -26,9 +26,9 @@ if [ ! -f "$host_script" ]; then
 fi
 mkdir -p "$here/logs"
 status=0
-for variant in ${*:-deferred signalled locked polled}; do
+for variant in ${*:-deferred signalled locked stacked polled}; do
     features=()
-    [ "$variant" = locked ] && features=(--features no-fifo-cs)
+    case $variant in locked | stacked) features=(--features no-fifo-cs) ;; esac
     log="$here/logs/$prefix-usb-$variant.log"
     : > "$log"
     (cd "$here/$crate" && timeout 300 cargo build --release --bin "usb-$variant" "${features[@]}") >> "$log" 2>&1

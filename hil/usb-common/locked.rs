@@ -97,6 +97,7 @@ ferroforge::app! {
             // The lock keeps the member, and so every other access to the
             // core, out of this pass's IN packet writes.
             cx.shared.vector.lock(|_| {
+            let started = cortex_m::peripheral::DWT::cycle_count();
             for _ in 0..4 {
                 let busy = device.poll(&mut [serial]);
                 let before = echo.progress();
@@ -105,6 +106,7 @@ ferroforge::app! {
                     break;
                 }
             }
+            echo.held_since(started);
             });
             let configured = device.state() == UsbDeviceState::Configured;
             cx.shared.stats.lock(|stats| stats.update(configured, echo));

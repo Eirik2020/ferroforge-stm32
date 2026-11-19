@@ -24,6 +24,9 @@ pub struct Echo {
     /// The longest class write so far, in CPU cycles: an upper bound on the
     /// critical section the bus writes an IN packet in.
     pub write_max_cycles: u32,
+    /// The longest the firmware's task held its lock on the port, in CPU
+    /// cycles (variants L and L2; zero elsewhere).
+    pub hold_max_cycles: u32,
     pub ended: bool,
 }
 
@@ -37,7 +40,16 @@ impl Echo {
             received: 0,
             echoed: 0,
             write_max_cycles: 0,
+            hold_max_cycles: 0,
             ended: false,
+        }
+    }
+
+    /// Records one lock hold that started at `started` (DWT cycles).
+    pub fn held_since(&mut self, started: u32) {
+        let took = DWT::cycle_count().wrapping_sub(started);
+        if took > self.hold_max_cycles {
+            self.hold_max_cycles = took;
         }
     }
 

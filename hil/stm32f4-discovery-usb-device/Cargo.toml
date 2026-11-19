@@ -24,6 +24,12 @@ test = false
 bench = false
 
 [[bin]]
+name = "usb-stacked"
+path = "src/bin/usb_stacked.rs"
+test = false
+bench = false
+
+[[bin]]
 name = "usb-polled"
 path = "src/bin/usb_polled.rs"
 test = false
