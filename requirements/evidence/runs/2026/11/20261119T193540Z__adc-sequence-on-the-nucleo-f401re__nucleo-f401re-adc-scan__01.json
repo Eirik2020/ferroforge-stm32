@@ -1,0 +1,141 @@
+{
+  "schema_version": 5,
+  "run_id": "20261119T193540Z__adc-sequence-on-the-nucleo-f401re__nucleo-f401re-adc-scan__01",
+  "recorded_at_utc": "2026-11-19T19:35:40Z",
+  "board": "nucleo-f401re-adc-scan",
+  "tier": "HIL",
+  "revision": "c20ca3b2789f25bca8f14d5edb783c8f5588963a",
+  "working_tree": "clean",
+  "configuration": {
+    "board": "nucleo-f401re-adc-scan",
+    "features": [],
+    "files": {
+      "hil/nucleo-f401re-adc-scan/.cargo/config.toml": "2fb6c8648a6ca90449e9b35fb962adec336a248a30bd53ae7fa67fcbb13ab0fd",
+      "hil/nucleo-f401re-adc-scan/Cargo.toml": "b52765f4f0b47dc7d2e602c8fe4868843dd1db60e95a56babf33505296a9769c",
+      "hil/nucleo-f401re-adc-scan/src/main.rs": "e18a77f3b20ea0aa4c908b417d1460bbc659f4085e96f39f1db4384bd2b9c2bb",
+      "src/adc.rs": "34530120856667248e787fe554ab3410220fbe384a809b81dfd69c2e4700c0db",
+      "src/exti.rs": "5d8aa5d0dc92c3555cd13a34473c0c39812f8b9bfb8b378245ad9765e5574104",
+      "src/lanes_frame.rs": "80c538a0bb735444449c7464ea514f9c45cd1585faf5bede34d5a9404913cd1a",
+      "src/lib.rs": "5195c2a5d7973152cb957a578dcd9e5b61c4feb6e325a13f67be4ccf8fc6afad",
+      "src/spi.rs": "9aa8ac0775075704f43d41ed2e6b3c2e367a60d8672bdeb391afa6c2ebfcd982",
+      "src/uart.rs": "63246943ce166653c275739084f63b9a8f3b5d76f816acaa33a4f5a33c33f951",
+      "src/uart_rx.rs": "b30f1eb4a38d7e3e8ae899807cf57db5853a77fd1e4e3912b889230bda762b8b"
+    },
+    "externals": {
+      "bare-metal": "0.2.5",
+      "bitfield": "0.13.2",
+      "bitflags": "1.3.2",
+      "byteorder": "1.5.0",
+      "cfg-if": "1.0.5",
+      "cortex-m": "0.7.10",
+      "cortex-m-macros": "0.7.8",
+      "cortex-m-rt": "0.7.7",
+      "cortex-m-rt-macros": "0.7.7",
+      "cortex-m-semihosting": "0.5.0",
+      "critical-section": "1.2.0",
+      "defmt": "0.3.101, 1.2.0",
+      "defmt-macros": "1.2.0",
+      "defmt-parser": "1.1.0",
+      "defmt-rtt": "1.3.1",
+      "embedded-hal": "0.2.7, 1.0.0",
+      "embedded-hal-async": "1.0.0",
+      "embedded-hal-bus": "0.3.0",
+      "embedded-io": "0.7.1",
+      "equivalent": "1.0.3",
+      "ferroforge": "0.4.0+9623964f3e26b34d9af2f1754b7e8a340a3f5ee0",
+      "ferroforge-contracts": "0.4.0+9623964f3e26b34d9af2f1754b7e8a340a3f5ee0",
+      "ferroforge-macros": "0.4.0+9623964f3e26b34d9af2f1754b7e8a340a3f5ee0",
+      "ferrohal-stm32": "0.1.0+c723b1ca60cc29d026d15d902ee8eb908f66d80b",
+      "fugit": "0.3.9",
+      "futures-core": "0.3.34",
+      "futures-task": "0.3.34",
+      "futures-util": "0.3.34",
+      "gcd": "2.3.0",
+      "hash32": "0.3.1",
+      "hashbrown": "0.17.1",
+      "heapless": "0.9.3",
+      "indexmap": "2.14.2",
+      "nb": "0.1.3, 1.1.0",
+      "panic-probe": "1.0.0",
+      "pin-project-lite": "0.2.17",
+      "portable-atomic": "1.15.0",
+      "proc-macro2": "1.0.107",
+      "quote": "1.0.47",
+      "rtic": "2.4.0",
+      "rtic-common": "1.3.0",
+      "rtic-core": "1.0.0",
+      "rtic-macros": "2.4.0",
+      "rtic-monotonics": "2.2.1",
+      "rtic-sync": "1.6.1",
+      "rtic-time": "2.0.1",
+      "rustc_version": "0.2.3",
+      "semver": "0.9.0",
+      "semver-parser": "0.7.0",
+      "stable_deref_trait": "1.2.1",
+      "stm32-metapac": "21.0.0",
+      "syn": "2.0.119, 3.0.10",
+      "thiserror": "2.0.21",
+      "thiserror-impl": "2.0.21",
+      "unicode-ident": "1.0.27",
+      "vcell": "0.1.3",
+      "void": "1.0.2",
+      "volatile-register": "0.2.2"
+    },
+    "environment": {
+      "DEFMT_LOG": "info"
+    }
+  },
+  "results": [
+    {
+      "requirement": "PORT-401",
+      "method": {
+        "procedure": "requirements/benches.md#ADC sequence on the Nucleo-F401RE"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "2deac9052e5e69f01685cf0c99f06ae759f9b31edc67365bf7dda5d53484d12f",
+      "result": "pass"
+    }
+  ],
+  "note": null,
+  "supersedes": [],
+  "ruling": null,
+  "details": {
+    "execution": {
+      "performed_by": "agent",
+      "user_confirmed": false
+    },
+    "conditions": {
+      "actuators": "none on this bench",
+      "image": "release profile, thumbv7em-none-eabihf, default features",
+      "equipment": [
+        "the board's ST-LINK, through FerroHAL's rig entry point with its pinned probe serial",
+        "probe-rs"
+      ],
+      "environment": [
+        "development bench"
+      ]
+    },
+    "commands": [
+      {
+        "command": "rig --wait hil/run-f401-adc.sh",
+        "exit_code": 0
+      }
+    ],
+    "measurements": {
+      "checks_failed": 0,
+      "checks_passed": 4,
+      "logs": {
+        "f401-adc-scan.log": "4 passed, 0 failed"
+      }
+    },
+    "observations": [
+      "Run by an agent through FerroHAL's rig entry point, at the coordinator's board grant, recorded at c20ca3b; every check in every log passed.",
+      "The images were built from c62fad6's sources at FerroHAL c723b1c (the Discovery lane runs from the same sources before they were committed); 1ba0ae0 changes only which layout a default build picks, not these images."
+    ],
+    "limitations": [
+      "The logs stayed on the rig PC and are not attached; the counts above are from them."
+    ]
+  }
+}
