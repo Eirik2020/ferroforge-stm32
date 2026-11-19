@@ -31,19 +31,21 @@ step() {
 step "rustfmt" cargo fmt --manifest-path "$root/Cargo.toml" --check
 for chip in "${chips[@]}"; do
     step "clippy ($chip, target)" \
-        cargo clippy --manifest-path "$root/Cargo.toml" --features "$chip" --target thumbv7em-none-eabihf -- -D warnings
+        cargo clippy --manifest-path "$root/Cargo.toml" --features "$chip,usb" --target thumbv7em-none-eabihf -- -D warnings
     step "clippy ($chip, host)" \
-        cargo clippy --manifest-path "$root/Cargo.toml" --features "$chip" --target "$host" --all-targets -- -D warnings
+        cargo clippy --manifest-path "$root/Cargo.toml" --features "$chip,usb" --target "$host" --all-targets -- -D warnings
     step "rustdoc ($chip)" \
-        env RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --manifest-path "$root/Cargo.toml" --features "$chip" --target thumbv7em-none-eabihf
+        env RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --manifest-path "$root/Cargo.toml" --features "$chip,usb" --target thumbv7em-none-eabihf
     step "host tests ($chip)" \
-        cargo test --manifest-path "$root/Cargo.toml" --features "$chip" --target "$host"
+        cargo test --manifest-path "$root/Cargo.toml" --features "$chip,usb" --target "$host"
 done
 # The F405's UART routes (stm32f405rg): host tests only. Its clippy waits for
 # every group's tests to build cleanly without their chips' cfg.
 step "host tests (stm32f405rg)" \
     cargo test --manifest-path "$root/Cargo.toml" --features stm32f405rg --target "$host"
 for bench in "$root"/hil/*/; do
+    # Shared bench sources (hil/lane-common) and the ignored logs are no crate.
+    [ -f "$bench/Cargo.toml" ] || continue
     name=$(basename "$bench")
     # hil/common holds checks the bench crates include, not a crate.
     [ -f "$bench/Cargo.toml" ] || continue
