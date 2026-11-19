@@ -131,7 +131,11 @@ pub trait Port {
 
 /// PROFILING: F's start by part.
 pub fn show_start_parts(p: &ferroforge_stm32::lanes_frame::StartParts, lanes: usize, per_us: u32) {
-    span_us("start part: before start (serve, an end in the same run)", &p.before, per_us);
+    span_us(
+        "start part: before start (serve, an end in the same run)",
+        &p.before,
+        per_us,
+    );
     span_us("  of it, entry to the dequeue", &p.check, per_us);
     span_us("  of it, the dequeue", &p.dequeue, per_us);
     #[cfg(feature = "profile-start")]
@@ -156,7 +160,10 @@ pub fn show_start_parts(p: &ferroforge_stm32::lanes_frame::StartParts, lanes: us
     span_us("start part: play", &p.play, per_us);
     span_us("start whole, with receive", &p.with_receive, per_us);
     span_us("start whole, without receive", &p.without_receive, per_us);
-    defmt::info!("starts in a run that also ended an exchange: {}", p.after_end);
+    defmt::info!(
+        "starts in a run that also ended an exchange: {}",
+        p.after_end
+    );
 }
 
 /// PROFILING: the turn by part, the port's side and FerroHAL's.
@@ -174,8 +181,16 @@ pub fn show_turn_parts(t: &ferroforge_stm32::lanes_frame::TurnParts, per_us: u32
             count
         );
     }
-    span_us("turn part: serve returned to listen called", &t.between, per_us);
-    span_us("turn part: first sending run's entry to the turning run's", &t.lead, per_us);
+    span_us(
+        "turn part: serve returned to listen called",
+        &t.between,
+        per_us,
+    );
+    span_us(
+        "turn part: first sending run's entry to the turning run's",
+        &t.lead,
+        per_us,
+    );
     defmt::info!(
         "turn part: runs while sending, per exchange: least {}, mean {}, most {}, over {}",
         t.runs.least,
@@ -245,6 +260,81 @@ pub struct Board {
     /// The lane whose pin is linked to the responder: the one that reads
     /// the reply.
     pub linked: usize,
+}
+
+/// Loads `duties` on the generator's `lane` from that lane's frame memory,
+/// as [`arm_wave`] does for a lane: variant T writes its frames itself.
+pub fn load_words<A, B, LA, LB>(
+    awg: &mut ferrohal_stm32::timer::Awg<A, B, LA, LB>,
+    lane: usize,
+    memory: &mut Option<&'static mut [u32]>,
+    duties: &[u32],
+) -> bool
+where
+    A: ferrohal_stm32::timer::ChannelTimer,
+    B: ferrohal_stm32::timer::ChannelTimer,
+    LA: ferrohal_stm32::timer::Lanes<A>,
+    LB: ferrohal_stm32::timer::Lanes<B>,
+{
+    if let Some(frame) = awg.take_frame(lane) {
+        *memory = Some(frame.into_words());
+    }
+    let (Some(words), Some(limits)) = (memory.take(), awg.frame_limits(lane)) else {
+        return false;
+    };
+    let Some(head) = words.get_mut(..duties.len()) else {
+        *memory = Some(words);
+        return false;
+    };
+    head.copy_from_slice(duties);
+    match ferrohal_stm32::timer::Frame::new(words, duties.len(), limits) {
+        Ok(frame) => match awg.load(lane, frame) {
+            Ok(()) => true,
+            Err(refused) => {
+                *memory = Some(refused.into_parts().into_words());
+                false
+            }
+        },
+        Err(refused) => {
+            *memory = Some(refused.into_parts());
+            false
+        }
+    }
+}
+
+/// Plays `wave` on a responder lane from its frame memory: the lane keeps
+/// none of its own (FerroHAL ADR-014), so the bench copies the wave in and
+/// lends it as a frame; the lane's last frame comes back first.
+pub fn arm_wave<T: ferrohal_stm32::timer::ChannelTimer, const C: u8, W>(
+    lane: &mut ferrohal_stm32::timer::CompareLane<T, C, W>,
+    pwm: &ferrohal_stm32::timer::Pwm<T>,
+    memory: &mut Option<&'static mut [u32]>,
+    wave: &[u32],
+) -> bool {
+    if let Some(frame) = lane.take_frame() {
+        *memory = Some(frame.into_words());
+    }
+    let Some(words) = memory.take() else {
+        return false;
+    };
+    let Some(head) = words.get_mut(..wave.len()) else {
+        *memory = Some(words);
+        return false;
+    };
+    head.copy_from_slice(wave);
+    match ferrohal_stm32::timer::Frame::new(words, wave.len(), pwm.frame_limits()) {
+        Ok(frame) => match lane.arm(pwm, frame) {
+            Ok(()) => true,
+            Err(refused) => {
+                *memory = Some(refused.into_parts().into_words());
+                false
+            }
+        },
+        Err(refused) => {
+            *memory = Some(refused.into_parts());
+            false
+        }
+    }
 }
 
 /// Lane `lane`'s frame for exchange `index`: a 1 is 12/16 of the period, a
@@ -467,32 +557,6 @@ fn exchange<P: Port>(
     None
 }
 
-/// PROFILING ONLY: where each stamp of the last listen and speak fell on
-/// the witness, as the capture index (`count` less the witness stream's
-/// NDTR, read at the stamp). `count` past the window; 0 before it.
-#[cfg(feature = "profile")]
-fn show_stamps(count: u32) {
-    use ferrohal_stm32::timer::profile as pr;
-    let (listen, speak) = pr::last();
-    let at = |ndtr: u32| count.saturating_sub(ndtr);
-    defmt::info!(
-        "profile witness captures, listen: entry {}, outputs off {}, nearest {}, retimed {}, lanes armed {}, begun {}",
-        at(listen[pr::ENTRY]),
-        at(listen[pr::OUTPUTS]),
-        at(listen[pr::NEAREST]),
-        at(listen[pr::RETIMED]),
-        at(listen[pr::LANES]),
-        at(listen[pr::BEGUN])
-    );
-    defmt::info!(
-        "profile witness captures, speak: entry {}, parked {}, retimed {}, outputs on {}",
-        at(speak[pr::S_ENTRY]),
-        at(speak[pr::S_PARKED]),
-        at(speak[pr::S_RETIMED]),
-        at(speak[pr::S_DONE])
-    );
-}
-
 fn span_us(name: &str, s: &Span, per_us: u32) {
     defmt::info!(
         "{}: least {} cycles, mean {}, most {} ({} ns most), over {}",
@@ -561,8 +625,6 @@ pub fn run<P: Port, R: Responder, W: Witness>(
         }
     }
 
-    #[cfg(feature = "profile")]
-    ferrohal_stm32::timer::profile::watch(crate::WITNESS_NDTR);
     // The sweep: D from 60 us down, one period a step, EXCHANGES at each.
     port.clear_stats();
     #[cfg(feature = "profile")]
@@ -604,9 +666,22 @@ pub fn run<P: Port, R: Responder, W: Witness>(
                     got = o;
                     took = *t;
                     if o == Outcome::Received {
-                        ok = whole(s.lane(board.linked), board.pins[board.linked], rx, rate, period);
+                        ok = whole(
+                            s.lane(board.linked),
+                            board.pins[board.linked],
+                            rx,
+                            rate,
+                            period,
+                        );
                         if index == 0 && (d == D_MAX || d == D_MAX / 2) {
-                            show_receive(d, s.lane(board.linked), board.pins[board.linked], rx, rate, period);
+                            show_receive(
+                                d,
+                                s.lane(board.linked),
+                                board.pins[board.linked],
+                                rx,
+                                rate,
+                                period,
+                            );
                         }
                         for lane in (0..lanes).filter(|&l| l != board.linked) {
                             idle_ok &= idle(s.lane(lane), board.pins[lane]);
@@ -641,8 +716,6 @@ pub fn run<P: Port, R: Responder, W: Witness>(
                             witness.rate().0,
                             p[FRAME.min(shown)..shown]
                         );
-                        #[cfg(feature = "profile")]
-                        show_stamps(WITNESS_PER_PERIOD * (FRAME + D_MAX + 40) as u32);
                     }
                     // The reply is the last eight pulses: anything between
                     // the frame and the reply (a turn-around glitch) is not
@@ -725,13 +798,12 @@ pub fn run<P: Port, R: Responder, W: Witness>(
                 FRAME,
                 p[FRAME.min(shown)..shown]
             );
-             #[cfg(feature = "profile")]
+            #[cfg(feature = "profile")]
             {
                 defmt::info!(
                     "profile unarmed: the frame's last pulse {} (captures)",
                     p.get(FRAME - 1).copied().unwrap_or((0, 0))
                 );
-                show_stamps(WITNESS_PER_PERIOD * (FRAME + D_MAX + 40) as u32);
             }
         }
     }
@@ -756,8 +828,16 @@ pub fn run<P: Port, R: Responder, W: Witness>(
     }
     span_us("load and play", &first_block.start, per_us);
     span_us("lanes' member run", &first_block.run, per_us);
-    span_us("member run at the frame's end (F)", &first_block.sent, per_us);
-    span_us("member run at the receive's end (F)", &first_block.end, per_us);
+    span_us(
+        "member run at the frame's end (F)",
+        &first_block.sent,
+        per_us,
+    );
+    span_us(
+        "member run at the receive's end (F)",
+        &first_block.end,
+        per_us,
+    );
     span_us("consumer's submit (F)", &first_block.submit, per_us);
     span_us("consumer's lock hold (T)", &first_block.hold, per_us);
     span_us("exchange, submit to seen, with receive", &cycle, per_us);
@@ -795,9 +875,12 @@ pub fn run<P: Port, R: Responder, W: Witness>(
         let wr = witness.rate();
         let a = exchange(port, now, per_us, &first[..lanes], None, &mut |_, _, _| {});
         let b = exchange(port, now, per_us, &first[..lanes], None, &mut |_, _, _| {});
-        if let (Some(Outcome::Sent), Some(Outcome::Sent), Some(samples), Some(Some(pin))) =
-            (a, b, witness.wait(), board.witnessed.get(board.linked).copied())
-        {
+        if let (Some(Outcome::Sent), Some(Outcome::Sent), Some(samples), Some(Some(pin))) = (
+            a,
+            b,
+            witness.wait(),
+            board.witnessed.get(board.linked).copied(),
+        ) {
             let mut p = [(0u32, 0u32); 2 * FRAME + 4];
             let n = pulses(samples, pin, &mut p);
             if n == 2 * FRAME {
@@ -812,10 +895,7 @@ pub fn run<P: Port, R: Responder, W: Witness>(
                 n == 2 * FRAME,
             );
         } else {
-            failed += verdict(
-                "back to back, both frames sent and sampled",
-                false,
-            );
+            failed += verdict("back to back, both frames sent and sampled", false);
         }
     }
 
@@ -846,7 +926,12 @@ pub fn run<P: Port, R: Responder, W: Witness>(
         );
         let wr = witness.rate();
         if sampled && let Some(samples) = witness.wait() {
-            let pin = board.witnessed.get(board.linked).copied().flatten().unwrap_or(0);
+            let pin = board
+                .witnessed
+                .get(board.linked)
+                .copied()
+                .flatten()
+                .unwrap_or(0);
             let mismatch = first_mismatch(samples, pin, wr, rate, period, &long);
             if let Some((index, width, want)) = mismatch {
                 let mut p = [(0u32, 0u32); LONG + 4];
@@ -868,10 +953,7 @@ pub fn run<P: Port, R: Responder, W: Witness>(
                 );
             }
             let right = mismatch.is_none();
-            failed += verdict(
-                "the 500-sample frame reads back whole on the wire",
-                right,
-            );
+            failed += verdict("the 500-sample frame reads back whole on the wire", right);
         }
         let short = [period * 4 / 16];
         let none: [&[u32]; 8] = [&short; 8];
@@ -948,8 +1030,14 @@ pub fn run<P: Port, R: Responder, W: Witness>(
                 &next[..lanes],
                 Some((rx, RX_COUNT)),
                 &mut |o, _, s| {
-                    ok =
-                        o == Outcome::Received && whole(s.lane(board.linked), board.pins[board.linked], rx, rate, period);
+                    ok = o == Outcome::Received
+                        && whole(
+                            s.lane(board.linked),
+                            board.pins[board.linked],
+                            rx,
+                            rate,
+                            period,
+                        );
                 },
             );
             let _ = responder.finish();
@@ -980,7 +1068,8 @@ pub fn run<P: Port, R: Responder, W: Witness>(
         let refs: [&[u32]; 8] = core::array::from_fn(|l| &store[l][..]);
         let sent = exchange(port, now, per_us, &refs[..lanes], None, &mut |_, _, _| {});
         let _ = spin(now, 100 * per_us, || false);
-        if let (Some(samples), Some(Some(pin))) = (witness.wait(), board.witnessed.get(board.linked).copied())
+        if let (Some(samples), Some(Some(pin))) =
+            (witness.wait(), board.witnessed.get(board.linked).copied())
         {
             let mut p = [(0u32, 0u32); 3 * FRAME];
             let n = pulses(samples, pin, &mut p);

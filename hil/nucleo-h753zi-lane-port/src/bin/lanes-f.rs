@@ -136,14 +136,6 @@ ferroforge::app! {
     }
 
     #[init(local = [
-        lane0: [u32; 1] = [0; 1],
-        lane1: [u32; 1] = [0; 1],
-        lane2: [u32; 1] = [0; 1],
-        lane3: [u32; 1] = [0; 1],
-        read0: [u16; 1] = [0; 1],
-        read1: [u16; 1] = [0; 1],
-        read2: [u16; 1] = [0; 1],
-        read3: [u16; 1] = [0; 1],
         responder: [u32; RESPONDER_BUFFER] = [0; RESPONDER_BUFFER],
         witness: [u16; WITNESS_BUFFER] = [0; WITNESS_BUFFER],
         memory: FrameMemory = FrameMemory::new(),
@@ -157,8 +149,6 @@ ferroforge::app! {
         core.DWT.enable_cycle_counter();
         let l = cx.local;
         let buffers = Buffers {
-            lanes: [l.lane0, l.lane1, l.lane2, l.lane3],
-            samples: [l.read0, l.read1, l.read2, l.read3],
             responder: l.responder,
             witness: l.witness,
         };

@@ -28,10 +28,6 @@
 
 #![no_std]
 
-/// PROFILING ONLY: the witness stream's NDTR: DMA1 (0x4002 0000, RM0433 table 8) stream 0's NDTR (offset 0x14 + 0x18 x 0, RM0433 15.5.6).
-#[cfg(feature = "profile")]
-pub const WITNESS_NDTR: u32 = 0x4002_0014;
-
 #[path = "../../lane-common/loopback.rs"]
 mod loopback;
 pub use loopback::*;
@@ -135,6 +131,7 @@ type ResponderLane =
 pub struct Reply {
     pwm: Pwm<TIM3>,
     lane: ResponderLane,
+    memory: Option<&'static mut [u32]>,
 }
 
 impl Responder for Reply {
@@ -144,7 +141,7 @@ impl Responder for Reply {
 
     fn arm(&mut self, wave: &[u32]) -> bool {
         self.pwm.stop();
-        if self.lane.arm(&self.pwm, wave).is_err() {
+        if !crate::loopback::arm_wave(&mut self.lane, &self.pwm, &mut self.memory, wave) {
             return false;
         }
         self.pwm.stage(1 << 2);
@@ -206,8 +203,6 @@ impl Witness for Probe {
 
 /// The buffers `init` lends the board.
 pub struct Buffers {
-    pub lanes: [&'static mut [u32]; 4],
-    pub samples: [&'static mut [u16]; 4],
     pub responder: &'static mut [u32],
     pub witness: &'static mut [u16],
 }
@@ -224,12 +219,7 @@ pub fn setup(p: Peripherals, buffers: Buffers) -> (Gen, Reply, Probe) {
     let mut c = p.GPIOC.split(&mut rcc);
     let dma1 = p.DMA1.split(&mut rcc);
     let dma2 = p.DMA2.split(&mut rcc);
-    let Buffers {
-        lanes: [buf0, buf1, buf2, buf3],
-        samples: [s0, s1, s2, s3],
-        responder,
-        witness,
-    } = buffers;
+    let Buffers { responder, witness } = buffers;
 
     let (Ok(tim1), Ok(tim3)) = (
         Pwm::new(&mut rcc, p.TIM1, RATE),
@@ -247,9 +237,8 @@ pub fn setup(p: Peripherals, buffers: Buffers) -> (Gen, Reply, Probe) {
     pe12.set_speed(&mut e.ctrl, Speed::High);
     pe12.set_pull(&mut e.ctrl, Pull::Up);
     let (Ok(l0), Ok(l1)) = (
-        LaneWiring::<_, 2, _, _>::new(pe11, dma2.s0).assemble_two_way::<'E'>(&tim1, buf0, s0),
-        ComplementaryLaneWiring::<_, 3, _, _>::new(pe12, dma2.s1)
-            .assemble_two_way::<'E'>(&tim1, buf1, s1),
+        LaneWiring::<_, 2, _, _>::new(pe11, dma2.s0).assemble_two_way::<'E'>(&tim1),
+        ComplementaryLaneWiring::<_, 3, _, _>::new(pe12, dma2.s1).assemble_two_way::<'E'>(&tim1),
     ) else {
         defmt::panic!("the two lanes")
     };
@@ -264,8 +253,8 @@ pub fn setup(p: Peripherals, buffers: Buffers) -> (Gen, Reply, Probe) {
         pc7.set_speed(&mut c.ctrl, Speed::High);
         pc7.set_pull(&mut c.ctrl, Pull::Up);
         let (Ok(l2), Ok(l3)) = (
-            LaneWiring::<_, 1, _, _>::new(pc6, dma2.s2).assemble_two_way::<'C'>(&tim8, buf2, s2),
-            LaneWiring::<_, 2, _, _>::new(pc7, dma2.s3).assemble_two_way::<'C'>(&tim8, buf3, s3),
+            LaneWiring::<_, 1, _, _>::new(pc6, dma2.s2).assemble_two_way::<'C'>(&tim8),
+            LaneWiring::<_, 2, _, _>::new(pc7, dma2.s3).assemble_two_way::<'C'>(&tim8),
         ) else {
             defmt::panic!("lanes 2 and 3")
         };
@@ -292,7 +281,7 @@ pub fn setup(p: Peripherals, buffers: Buffers) -> (Gen, Reply, Probe) {
 
     let mut pc8 = c.p8.into_alternate::<2>(&mut c.ctrl);
     pc8.set_speed(&mut c.ctrl, Speed::High);
-    let Ok(lane) = LaneWiring::<_, 3, _, _>::new(pc8, dma1.s1).assemble(&tim3, responder) else {
+    let Ok(lane) = LaneWiring::<_, 3, _, _>::new(pc8, dma1.s1).assemble(&tim3) else {
         defmt::panic!("the responder lane")
     };
     tim3.set_active_low::<3>(true);
@@ -303,5 +292,13 @@ pub fn setup(p: Peripherals, buffers: Buffers) -> (Gen, Reply, Probe) {
     let Ok(sampler) = Sampler::new::<'E'>(&mut rcc, witness_timer, dma1.s0, rate, witness) else {
         defmt::panic!("the witness")
     };
-    (generator, Reply { pwm: tim3, lane }, Probe { sampler })
+    (
+        generator,
+        Reply {
+            pwm: tim3,
+            lane,
+            memory: Some(responder),
+        },
+        Probe { sampler },
+    )
 }

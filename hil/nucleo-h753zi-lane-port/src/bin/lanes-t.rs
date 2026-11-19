@@ -37,6 +37,8 @@ ferroforge::app! {
     /// one that saw the last lane end began.
     pub struct Timed {
         pub awg: Gen,
+        /// Each lane's frame memory, while not lent to it.
+        pub words: [Option<&'static mut [u32]>; 4],
         pub ended_at: u32,
         pub runs: Span,
     }
@@ -129,7 +131,11 @@ ferroforge::app! {
                         if !ok {
                             break;
                         }
-                        if !frame.is_empty() && g.awg.load(lane, frame).is_err() {
+                        if !frame.is_empty()
+                            && !g.words.get_mut(lane).is_some_and(|words| {
+                                bench::load_words(&mut g.awg, lane, words, frame)
+                            })
+                        {
                             ok = false;
                             break;
                         }
@@ -216,13 +222,22 @@ ferroforge::app! {
         core.DWT.enable_cycle_counter();
         let l = cx.local;
         let buffers = Buffers {
-            lanes: [l.lane0, l.lane1, l.lane2, l.lane3],
-            samples: [l.read0, l.read1, l.read2, l.read3],
             responder: l.responder,
             witness: l.witness,
         };
         let (generator, reply, probe) = bench::setup(cx.device, buffers);
-        let lanes = Timed { awg: generator, ended_at: 0, runs: Span::default() };
+        // A lane keeps no memory (FerroHAL ADR-014): each lane reads into
+        // the memory lent here, every exchange, and plays frames from its
+        // block of `words`.
+        let mut generator = generator;
+        for (lane, read) in [l.read0, l.read1, l.read2, l.read3].into_iter().enumerate() {
+            if generator.lend_samples(lane, read).is_err() && lane < LANES {
+                defmt::panic!("lending lane {}'s samples", lane);
+            }
+        }
+        let words: [Option<&'static mut [u32]>; 4] =
+            [Some(&mut l.lane0[..]), Some(&mut l.lane1[..]), Some(&mut l.lane2[..]), Some(&mut l.lane3[..])];
+        let lanes = Timed { awg: generator, words, ended_at: 0, runs: Span::default() };
         defmt::info!("variant T on the Nucleo-H753ZI, {} lane(s), clocks: {}", LANES, CLOCKS);
         checks::spawn().ok();
         let log = Log {

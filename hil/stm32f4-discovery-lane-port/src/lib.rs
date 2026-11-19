@@ -21,10 +21,6 @@
 
 #![no_std]
 
-/// PROFILING ONLY: the witness stream's NDTR: DMA2 (0x4002 6400, RM0090 table 1) stream 1's NDTR (offset 0x14 + 0x18 x 1, RM0090 10.5.6).
-#[cfg(feature = "profile")]
-pub const WITNESS_NDTR: u32 = 0x4002_642C;
-
 #[path = "../../lane-common/loopback.rs"]
 mod loopback;
 pub use loopback::*;
@@ -75,7 +71,11 @@ pub fn cycles() -> u32 {
     cortex_m::peripheral::DWT::cycle_count()
 }
 
-#[cfg(not(any(feature = "reader-ahead", feature = "own-streams", feature = "paced-reader")))]
+#[cfg(not(any(
+    feature = "reader-ahead",
+    feature = "own-streams",
+    feature = "paced-reader"
+)))]
 compile_error!("pick one layout: reader-ahead, own-streams or paced-reader");
 #[cfg(any(
     all(feature = "reader-ahead", feature = "own-streams"),

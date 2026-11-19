@@ -61,7 +61,7 @@ pub trait Generator {
     fn lanes(&self) -> usize;
     /// [`Awg::frame_limits`].
     fn limits(&self, lane: usize) -> Option<FrameLimits>;
-    /// [`Awg::load_frame`].
+    /// [`Awg::load`].
     fn load(&mut self, lane: usize, frame: Frame) -> Result<(), FrameRefused>;
     /// [`Awg::take_frame`].
     fn take_frame(&mut self, lane: usize) -> Option<Frame>;
@@ -105,7 +105,7 @@ impl<A: ChannelTimer, B: ChannelTimer, LA: Lanes<A>, LB: Lanes<B>> Generator for
         Awg::frame_limits(self, lane)
     }
     fn load(&mut self, lane: usize, frame: Frame) -> Result<(), FrameRefused> {
-        Awg::load_frame(self, lane, frame).map_err(Refused::into_inner)
+        Awg::load(self, lane, frame).map_err(Refused::into_inner)
     }
     fn take_frame(&mut self, lane: usize) -> Option<Frame> {
         Awg::take_frame(self, lane)
@@ -867,9 +867,15 @@ impl<G: Generator> FramePort<G> {
         self.stats.parts.play.add(played.wrapping_sub(mark));
         self.stats.start.add(played.wrapping_sub(entered));
         if receive {
-            self.stats.parts.with_receive.add(played.wrapping_sub(entered));
+            self.stats
+                .parts
+                .with_receive
+                .add(played.wrapping_sub(entered));
         } else {
-            self.stats.parts.without_receive.add(played.wrapping_sub(entered));
+            self.stats
+                .parts
+                .without_receive
+                .add(played.wrapping_sub(entered));
         }
         if let Some(lent) = self.running.as_mut() {
             lent.times.played = played;
@@ -885,7 +891,10 @@ impl<G: Generator> FramePort<G> {
             .turn_parts
             .lead
             .add(entered.wrapping_sub(self.first_entry));
-        self.stats.turn_parts.serve.add(served.wrapping_sub(entered));
+        self.stats
+            .turn_parts
+            .serve
+            .add(served.wrapping_sub(entered));
         if self.early && self.generator.is_listening() {
             // `serve` listened already.
             self.stats.turn_parts.early = self.stats.turn_parts.early.saturating_add(1);
@@ -907,7 +916,10 @@ impl<G: Generator> FramePort<G> {
             return;
         }
         let before = (self.now)();
-        self.stats.turn_parts.between.add(before.wrapping_sub(served));
+        self.stats
+            .turn_parts
+            .between
+            .add(before.wrapping_sub(served));
         match self.generator.listen() {
             Ok(()) => {
                 let after = (self.now)();
@@ -928,7 +940,10 @@ impl<G: Generator> FramePort<G> {
     /// Every lane has read into its share: speak again, and give the
     /// exchange back.
     fn received(&mut self, entered: u32) {
-        self.stats.turn_parts.listening_runs.add(self.listening_runs);
+        self.stats
+            .turn_parts
+            .listening_runs
+            .add(self.listening_runs);
         if let Some(lent) = self.running.as_mut() {
             lent.times.received = entered;
         }
@@ -1383,7 +1398,7 @@ mod tests {
         let mut x = h.exchange().unwrap();
         assert!(x.frame(0, 7).is_some());
         assert!(x.frame(1, 7).is_some());
-        drop(x);
+        // The exchange ends here unsubmitted: it only borrowed the handle.
         let mut x = h.exchange().unwrap();
         x.frame(0, 1).unwrap().copy_from_slice(&[94]);
         assert_eq!(x.submit(), Ok(()));
@@ -1414,7 +1429,7 @@ mod tests {
         assert_eq!(x.receive(Hertz::mhz(1), 17), Err(SubmitError::TooLong));
         assert_eq!(x.receive(Hertz::mhz(1), 0), Err(SubmitError::TooLong));
         assert!(x.frame(1, 7).is_some());
-        drop(x);
+        // The exchange ends here unsubmitted: it only borrowed the handle.
         let x = h.exchange().unwrap();
         assert_eq!(x.submit(), Err(SubmitError::Empty));
         // The refused exchange freed the buffers.

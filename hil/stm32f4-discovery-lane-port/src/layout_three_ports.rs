@@ -65,6 +65,7 @@ type ResponderLane =
 pub struct Reply {
     pwm: Pwm<TIM3>,
     lane: ResponderLane,
+    memory: Option<&'static mut [u32]>,
 }
 
 impl Responder for Reply {
@@ -74,7 +75,7 @@ impl Responder for Reply {
 
     fn arm(&mut self, wave: &[u32]) -> bool {
         self.pwm.stop();
-        if self.lane.arm(&self.pwm, wave).is_err() {
+        if !crate::loopback::arm_wave(&mut self.lane, &self.pwm, &mut self.memory, wave) {
             return false;
         }
         // Stopped at the reload value with CH3's request open: TIM1's next
@@ -111,8 +112,6 @@ pub type Probe = NoWitness;
 
 /// The buffers `init` lends the board.
 pub struct Buffers {
-    pub lanes: [&'static mut [u32]; 4],
-    pub samples: [&'static mut [u16]; 4],
     pub responder: &'static mut [u32],
     pub witness: &'static mut [u16],
 }
@@ -131,8 +130,6 @@ pub fn setup(p: Peripherals, buffers: Buffers) -> (Gen, Reply, Probe) {
     let dma1 = p.DMA1.split(&mut rcc);
     let dma2 = p.DMA2.split(&mut rcc);
     let Buffers {
-        lanes: [buf0, buf1, buf2, buf3],
-        samples: [s0, s1, s2, s3],
         responder,
         witness: _,
     } = buffers;
@@ -162,24 +159,18 @@ pub fn setup(p: Peripherals, buffers: Buffers) -> (Gen, Reply, Probe) {
     pc9.set_speed(&mut c.ctrl, Speed::High);
     pc9.set_pull(&mut c.ctrl, Pull::Up);
 
-    let Ok(l0) =
-        LaneWiring::<_, 1, _, _>::new(pa8, dma2.s3).assemble_two_way::<'A'>(&tim1, buf0, s0)
-    else {
+    let Ok(l0) = LaneWiring::<_, 1, _, _>::new(pa8, dma2.s3).assemble_two_way::<'A'>(&tim1) else {
         defmt::panic!("lane 0")
     };
-    let Ok(l1) = ComplementaryLaneWiring::<_, 3, _, _>::new(pb15, dma2.s6)
-        .assemble_two_way::<'B'>(&tim1, buf1, s1)
+    let Ok(l1) =
+        ComplementaryLaneWiring::<_, 3, _, _>::new(pb15, dma2.s6).assemble_two_way::<'B'>(&tim1)
     else {
         defmt::panic!("lane 1")
     };
-    let Ok(l2) =
-        LaneWiring::<_, 3, _, _>::new(pc8, dma2.s2).assemble_two_way::<'C'>(&tim8, buf2, s2)
-    else {
+    let Ok(l2) = LaneWiring::<_, 3, _, _>::new(pc8, dma2.s2).assemble_two_way::<'C'>(&tim8) else {
         defmt::panic!("lane 2")
     };
-    let Ok(l3) =
-        LaneWiring::<_, 4, _, _>::new(pc9, dma2.s7).assemble_two_way::<'C'>(&tim8, buf3, s3)
-    else {
+    let Ok(l3) = LaneWiring::<_, 4, _, _>::new(pc9, dma2.s7).assemble_two_way::<'C'>(&tim8) else {
         defmt::panic!("lane 3")
     };
     let Ok(mut generator) = Awg::linked(tim1, tim8, (l0, l1), (l2, l3)) else {
@@ -206,11 +197,19 @@ pub fn setup(p: Peripherals, buffers: Buffers) -> (Gen, Reply, Probe) {
 
     let mut pb0 = b.p0.into_alternate::<2>(&mut b.ctrl);
     pb0.set_speed(&mut b.ctrl, Speed::High);
-    let Ok(lane) = LaneWiring::<_, 3, _, _>::new(pb0, dma1.s7).assemble(&tim3, responder) else {
+    let Ok(lane) = LaneWiring::<_, 3, _, _>::new(pb0, dma1.s7).assemble(&tim3) else {
         defmt::panic!("the responder lane")
     };
     tim3.set_active_low::<3>(true);
     tim3.set_output::<3>(true);
 
-    (generator, Reply { pwm: tim3, lane }, NoWitness)
+    (
+        generator,
+        Reply {
+            pwm: tim3,
+            lane,
+            memory: Some(responder),
+        },
+        NoWitness,
+    )
 }
