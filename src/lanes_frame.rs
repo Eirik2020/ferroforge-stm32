@@ -33,7 +33,7 @@
 //! No critical section: the queues each have one producer and one
 //! consumer. Nothing here panics.
 //!
-//! Requirements: PORT-001, PORT-002, PORT-501, PORT-502, PORT-503, PORT-504, PORT-505, PORT-506, PORT-507, PORT-508, PORT-509
+//! Requirements: PORT-001, PORT-002, PORT-601, PORT-602, PORT-603, PORT-604, PORT-605, PORT-606, PORT-607, PORT-608, PORT-609
 
 use core::sync::atomic::{AtomicBool, Ordering};
 

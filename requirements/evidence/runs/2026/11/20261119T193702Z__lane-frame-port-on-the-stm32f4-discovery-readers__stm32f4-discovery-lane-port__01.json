@@ -91,7 +91,7 @@
   },
   "results": [
     {
-      "requirement": "PORT-503",
+      "requirement": "PORT-603",
       "method": {
         "procedure": "requirements/benches.md#Lane frame port on the STM32F4 Discovery, readers armed ahead"
       },
@@ -102,7 +102,7 @@
       "result": "pass"
     },
     {
-      "requirement": "PORT-504",
+      "requirement": "PORT-604",
       "method": {
         "procedure": "requirements/benches.md#Lane frame port on the STM32F4 Discovery, readers armed ahead"
       },
@@ -113,7 +113,7 @@
       "result": "pass"
     },
     {
-      "requirement": "PORT-506",
+      "requirement": "PORT-606",
       "method": {
         "procedure": "requirements/benches.md#Lane frame port on the STM32F4 Discovery, readers armed ahead"
       },
@@ -124,7 +124,7 @@
       "result": "pass"
     },
     {
-      "requirement": "PORT-507",
+      "requirement": "PORT-607",
       "method": {
         "procedure": "requirements/benches.md#Lane frame port on the STM32F4 Discovery, readers armed ahead"
       },

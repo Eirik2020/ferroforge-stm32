@@ -155,7 +155,7 @@
       "result": "pass"
     },
     {
-      "requirement": "PORT-506",
+      "requirement": "PORT-606",
       "method": {
         "test": "ferroforge_stm32::lanes_frame::tests::a_cancel_mid_receive_leaves_the_outputs_on_and_comes_back_aborted"
       },
@@ -170,7 +170,7 @@
       "result": "pass"
     },
     {
-      "requirement": "PORT-502",
+      "requirement": "PORT-602",
       "method": {
         "test": "ferroforge_stm32::lanes_frame::tests::a_frame_stepping_from_the_top_to_zero_is_refused_at_submit"
       },
@@ -185,7 +185,7 @@
       "result": "pass"
     },
     {
-      "requirement": "PORT-506",
+      "requirement": "PORT-606",
       "method": {
         "test": "ferroforge_stm32::lanes_frame::tests::a_lane_fault_mid_frame_comes_back_failed"
       },
@@ -200,7 +200,7 @@
       "result": "pass"
     },
     {
-      "requirement": "PORT-501",
+      "requirement": "PORT-601",
       "method": {
         "test": "ferroforge_stm32::lanes_frame::tests::a_second_exchange_is_refused_while_one_is_out"
       },
@@ -215,7 +215,7 @@
       "result": "pass"
     },
     {
-      "requirement": "PORT-503",
+      "requirement": "PORT-603",
       "method": {
         "test": "ferroforge_stm32::lanes_frame::tests::a_send_only_exchange_plays_once_and_comes_back_sent"
       },
@@ -245,7 +245,7 @@
       "result": "pass"
     },
     {
-      "requirement": "PORT-505",
+      "requirement": "PORT-605",
       "method": {
         "test": "ferroforge_stm32::lanes_frame::tests::lanes_that_share_a_reader_get_its_share"
       },
@@ -290,7 +290,7 @@
       "result": "pass"
     },
     {
-      "requirement": "PORT-504",
+      "requirement": "PORT-604",
       "method": {
         "test": "ferroforge_stm32::lanes_frame::tests::the_port_listens_in_the_run_that_sees_the_last_lane_end"
       },

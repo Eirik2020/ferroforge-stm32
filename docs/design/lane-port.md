@@ -2,7 +2,7 @@
 
 Accepted by the owner on 2026-11-19 (decisions D28 and D30 to D34 of the port design
 record). The FerroHAL lanes it runs on are FerroHAL's `docs/design/lanes.md` (ADR-014).
-The group is `lanes_frame::lane_frame_port`; its requirements are PORT-501 to PORT-509
+The group is `lanes_frame::lane_frame_port`; its requirements are PORT-601 to PORT-609
 (`src/requirements/lanes.yaml`).
 
 ## What the port is

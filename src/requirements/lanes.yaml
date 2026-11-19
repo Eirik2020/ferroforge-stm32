@@ -1,6 +1,6 @@
 schema_version: 2
 requirements:
-  - id: PORT-501
+  - id: PORT-601
     title: One lane exchange at a time
     statement: >-
       The lane frame port shall refuse to open an exchange while another is
@@ -16,7 +16,7 @@ requirements:
           method:
             test: ferroforge_stm32::lanes_frame::tests::a_second_exchange_is_refused_while_one_is_out
 
-  - id: PORT-502
+  - id: PORT-602
     title: Frames are checked where the consumer writes them
     statement: >-
       The lane frame port's submit shall check and close every frame in the
@@ -36,7 +36,7 @@ requirements:
           method:
             library: ferrohal-stm32:AWG-012
 
-  - id: PORT-503
+  - id: PORT-603
     title: The port plays each frame once, in place
     statement: >-
       The lane frame port shall play every lane's frame once from the
@@ -61,7 +61,7 @@ requirements:
           method:
             library: ferrohal-stm32:AWG-012
 
-  - id: PORT-504
+  - id: PORT-604
     title: The port listens in the run that sees the frames end
     statement: >-
       The lane frame port shall start an exchange's receive in the interrupt
@@ -97,7 +97,7 @@ requirements:
           method:
             library: ferrohal-stm32:AWG-020
 
-  - id: PORT-505
+  - id: PORT-605
     title: A receive returns its reader's port words
     statement: >-
       The lane frame port shall give each lane of a received exchange the
@@ -117,7 +117,7 @@ requirements:
           method:
             library: ferrohal-stm32:AWG-014
 
-  - id: PORT-506
+  - id: PORT-606
     title: A fault leaves the outputs inactive and comes back
     statement: >-
       On a lane fault, a refused load or a cancel, the lane frame port shall
@@ -150,7 +150,7 @@ requirements:
           method:
             library: ferrohal-stm32:AWG-021
 
-  - id: PORT-507
+  - id: PORT-607
     title: The port receives through readers armed ahead
     statement: >-
       With a reader armed ahead on each port its lanes use, the lane frame
@@ -170,7 +170,7 @@ requirements:
           method:
             library: ferrohal-stm32:AWG-015
 
-  - id: PORT-508
+  - id: PORT-608
     title: The port receives on the lanes' own streams
     statement: >-
       With no reader registered, the lane frame port shall read whole a reply
@@ -190,7 +190,7 @@ requirements:
           method:
             library: ferrohal-stm32:AWG-016
 
-  - id: PORT-509
+  - id: PORT-609
     title: The port receives through a paced reader
     statement: >-
       With a reader paced by a timer that is not a lane timer, the lane frame

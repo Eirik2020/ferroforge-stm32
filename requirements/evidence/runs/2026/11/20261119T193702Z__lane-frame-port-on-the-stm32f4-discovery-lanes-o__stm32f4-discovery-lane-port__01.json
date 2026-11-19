@@ -93,7 +93,7 @@
   },
   "results": [
     {
-      "requirement": "PORT-508",
+      "requirement": "PORT-608",
       "method": {
         "procedure": "requirements/benches.md#Lane frame port on the STM32F4 Discovery, lanes' own streams"
       },
