@@ -20,6 +20,10 @@ requirements:
         - level: target
           environment: development
           method:
+            procedure: requirements/benches.md#Receive-only UART port on the STM32F4 Discovery
+        - level: target
+          environment: development
+          method:
             library: ferrohal-stm32:UART-007
         - level: unit
           environment: host
@@ -53,6 +57,10 @@ requirements:
         - level: target
           environment: development
           method:
+            procedure: requirements/benches.md#Receive-only UART port on the STM32F4 Discovery
+        - level: target
+          environment: development
+          method:
             library: ferrohal-stm32:UART-008
         - level: target
           environment: development
@@ -83,6 +91,10 @@ requirements:
           environment: development
           method:
             procedure: requirements/benches.md#UART port on the STM32F4 Discovery
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#Receive-only UART port on the STM32F4 Discovery
         - level: unit
           environment: host
           method:

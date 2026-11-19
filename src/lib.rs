@@ -18,7 +18,7 @@ mod exti;
 mod spi;
 pub mod uart;
 mod uart_receive;
-mod uart_rx;
+pub mod uart_rx;
 
 pub use adc::adc_scan;
 pub use exti::exti_line;

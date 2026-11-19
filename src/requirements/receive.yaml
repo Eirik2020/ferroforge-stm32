@@ -1,37 +1,60 @@
 schema_version: 2
 requirements:
   - id: PORT-101
-    title: The receive-only UART port serves its vectors and wakes the firmware
+    title: The receive-only UART port's consumer needs no lock
     statement: >-
-      Each of the receive-only UART port's vector members shall serve the UART
-      and pass the events of a nonempty service to the firmware's task.
+      The receive-only UART port shall give its consumer a handle that
+      receives without naming the UART, its wiring, its vectors or a lock.
     rationale: >-
-      A receive-only link, from a device that only sends, has no transmit pin
-      or stream, so it needs one vector fewer than a full port; the port is how a
-      firmware gets it served without writing the handlers.
-    derived_from: [G1, G3]
+      A device that only sends has no transmit pin or stream, so its link
+      needs a port with one vector fewer (D29). As in the full port (D20), the
+      members own the UART, so a consumer never delays the port's interrupts.
+    derived_from: [G1]
     verification:
       entries:
         - level: target
           environment: development
           method:
-            procedure: requirements/benches.md#Receive ports on the Nucleo-F401RE
+            procedure: requirements/benches.md#Receive-only UART port on the STM32F4 Discovery
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:UART-003
 
   - id: PORT-102
-    title: The receive-only UART port stamps each wake with its arrival
+    title: Every receive-only port's handle has one type
     statement: >-
-      Each of the receive-only UART port's vector members shall pass the
-      firmware's task, with the events, the firmware monotonic's time read in
-      that interrupt, in microseconds since its epoch.
+      Every receive-only UART port's handle shall have one type, whatever its
+      UART, wiring and pool.
     rationale: >-
-      A reader that judges how old its data is needs the time the line
-      delivered it; the time the reader runs adds however long the scheduler
-      kept it queued. A dropped wake leaves the queued one's earlier stamp, so
-      data never looks newer than it is.
+      The firmware then decides in `init` which task gets which receive-only
+      UART, as it does for full ports (D12).
     derived_from: [PORT-101]
     verification:
       entries:
         - level: target
           environment: development
           method:
-            procedure: requirements/benches.md#Receive ports on the Nucleo-F401RE
+            procedure: requirements/benches.md#Receive-only UART port on the STM32F4 Discovery
+
+  - id: PORT-103
+    title: The receive-only constructor refuses an unusable pool before opening
+    statement: >-
+      The receive-only UART port's constructor shall refuse a pool buffer it
+      cannot use before it opens the UART, handing back the wiring and the
+      ring.
+    rationale: >-
+      A refusal never carries an opened driver, the rule the full port's
+      constructor follows (PORT-011), and the firmware can reuse what it gets
+      back.
+    derived_from: [PORT-101]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::uart_receive::tests::pool_buffers_the_port_cannot_use_are_refused
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:UART-004

@@ -31,6 +31,8 @@
 //!
 //! The port carries no protocol: a decoder or encoder sits behind the handle.
 //!
+//! [`Chunk`]: ferrohal_stm32::uart::Chunk
+//!
 //! Requirements: PORT-001, PORT-002, PORT-003, PORT-004, PORT-008, PORT-009,
 //! PORT-010, PORT-011
 
