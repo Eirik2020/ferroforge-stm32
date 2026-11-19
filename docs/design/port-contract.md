@@ -64,11 +64,11 @@ pub mod uart_port { .. }
   selection, and host tests can instantiate a constructor with a real wiring.
 - A receive-only port is its own group, not an optional half of the full one:
   the contract has no optional members yet, and a receive-only UART has one
-  vector fewer. Its members are its own, because each also stamps the wake.
-- A receive member reads the firmware's monotonic in the interrupt and passes
-  the time with the events, so a reader can judge how old its data is. A wake
-  dropped because the reader was still queued leaves the queued wake's earlier
-  stamp, so data never looks newer than it is.
+  vector fewer. The two UART ports share their receive side in a file of its
+  own (`src/uart_receive.rs`), with its own requirements.
+- A receive member reads the firmware's monotonic in the interrupt, and the
+  port stamps what that service hands the consumer with it, so a reader can
+  judge how old its data is.
 - A port may frame its transfers with hardware FerroHAL's driver does not
   hold, such as the SPI port's chip select. The port drives it inside the
   vector that ends a transfer, so the line is held no longer than the

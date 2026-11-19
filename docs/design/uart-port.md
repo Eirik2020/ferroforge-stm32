@@ -1,4 +1,4 @@
-# The UART port
+# The UART ports
 
 `uart_port` (`src/uart.rs`) is the full-duplex UART port. The owner decided
 its shape on two rounds of prototypes, benched on the Nucleo-F401RE and the
@@ -82,7 +82,19 @@ USART6 on the H743 through DMAMUX1. The Discovery bench runs USART3 and UART5
 on the pins and streams such targets assign on die 0x413.
 
 Those boards also route receive-only UARTs, with no transmit stream. This port
-needs both streams, so those UARTs are `uart_rx_port`'s.
+needs both streams, so those UARTs are `uart_rx_port`'s: its host tests
+type-check USART1, USART6 and UART5 on the F405 and USART1 and UART8 on the
+H743, and its Discovery bench runs UART5 on PD2 and DMA1 stream 0.
+
+## The receive-only port
+
+`uart_rx_port` (`src/uart_rx.rs`) is the full port without its transmit side,
+for a device that only sends: two vectors, a `RxPort` that owns FerroHAL's
+`Uart` on an `RxWiring`, and an `RxHandle` of one type for every UART. Its
+receive side is the full port's (`src/uart_receive.rs`, PORT-005 to PORT-007):
+the same pool, loss and time. A release that finds the port starved pends the
+receive stream's vector (the contract's `pends`). Its constructor checks the
+pool before it opens the UART, as the full port's does.
 
 ## Boards
 
