@@ -35,10 +35,10 @@ profile-start = ["profile", "ferrohal-stm32/profile-start"]
 
 [dependencies]
 ferroforge-stm32 = { path = "../.." }
-ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "9623964f3e26b34d9af2f1754b7e8a340a3f5ee0" }
+ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "eded9269ebeb0852090b9174d1c416feb7ef6cc3" }
 # FerroHAL's pin, as ferroforge-stm32's. `rt` gives RTIC its vector table,
 # `rtic` the `Peripherals::steal` that `peripherals = true` names.
-ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "c723b1ca60cc29d026d15d902ee8eb908f66d80b", features = ["stm32f407vg", "rt", "rtic", "defmt"] }
+ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "d5b81c655d9cc79526a3247ca2bf3bc093444562", features = ["stm32f407vg", "rt", "rtic", "defmt"] }
 
 cortex-m = { version = "0.7.7", features = ["critical-section-single-core"] }
 cortex-m-rt = "0.7.6"

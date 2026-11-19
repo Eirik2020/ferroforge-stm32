@@ -1,44 +1,211 @@
 schema_version: 2
 requirements:
   - id: PORT-201
-    title: The SPI port ends each transfer from its vector and wakes the firmware
+    title: The SPI port gives every message back with its outcome
     statement: >-
-      The SPI port's vector member shall serve the SPI and pass the outcome of
-      each transfer that ends, its length or its fault, to the firmware's task.
+      The SPI port shall give each submitted message back to its device's
+      handle with its outcome, and with the bytes clocked in written over its
+      lent buffer when it completed.
     rationale: >-
-      FerroHAL's SPI ends a transfer when its receive stream completes; serving
-      that one vector is all a firmware needs to run transfers without polling,
-      under the scheduler's lock, as FerroHAL's single-owner model expects.
+      The consumer owns its memory and lends it per message (D22); it learns
+      a message's end, and reads what came in, only from what the port gives
+      back. A fault is never hidden (D16).
     derived_from: [G1, G3]
     verification:
       entries:
         - level: target
           environment: development
           method:
-            procedure: requirements/benches.md#SPI port on the Nucleo-F401RE
+            procedure: requirements/benches.md#SPI port on the STM32F4 Discovery
         - level: target
           environment: development
           method:
-            procedure: requirements/benches.md#SPI port on the Nucleo-H753ZI
+            library: ferrohal-stm32:SPI-002
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:SPI-003
 
   - id: PORT-202
-    title: The SPI port selects its device only while a transfer runs
+    title: The SPI port selects a device only while its message runs
     statement: >-
-      The SPI port shall drive its chip select active when a transfer starts,
-      and inactive when that transfer is aborted or when the vector that ends
-      it is served.
+      The SPI port shall drive a device's chip select active only while one of
+      that device's messages is on the wire, and every other device's inactive
+      meanwhile.
     rationale: >-
-      Chip select frames a transfer on the wire. Releasing it inside the
-      vector, rather than in the firmware's later task, holds the device
-      selected only for the transfer, at any task priority.
+      Chip select frames a message on the wire. Releasing it inside the
+      vector that ends the transfer holds the device selected only for the
+      transfer, whatever priority the consumer's task runs at.
     derived_from: [G1, G3]
     verification:
       entries:
         - level: target
           environment: development
           method:
-            procedure: requirements/benches.md#SPI port on the Nucleo-F401RE
+            procedure: requirements/benches.md#SPI port on the STM32F4 Discovery
+
+  - id: PORT-203
+    title: One device's messages run in the order submitted
+    statement: >-
+      The SPI port shall start one device's messages in the order they were
+      submitted, whatever their priorities.
+    rationale: >-
+      A device's own sequence (a write, then the read that depends on it)
+      must reach it in order; the established shared-bus pattern runs one
+      device's messages in order (D22).
+    derived_from: [G1]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::spi::spi_port::tests::within_a_device_order_is_as_submitted
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#SPI port on the STM32F4 Discovery
+
+  - id: PORT-204
+    title: Priority orders devices against each other
+    statement: >-
+      When the bus is free, the SPI port shall start the front message of the
+      device whose front message has the highest priority, the earliest
+      submitted among equal priorities.
+    rationale: >-
+      An urgent device must not wait behind another device's backlog (D22);
+      among equals, arrival order keeps the bus fair.
+    derived_from: [G1]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::spi::spi_port::tests::across_devices_priority_then_submission_then_device
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::spi::spi_port::tests::submits_draw_tickets_in_order_across_devices
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#SPI port on the STM32F4 Discovery
+
+  - id: PORT-205
+    title: A message no buffer can hold is refused
+    statement: >-
+      The SPI port shall refuse a message for which its device has no free
+      buffer long enough, leaving every message already lent, and every other
+      device, as they were.
+    rationale: >-
+      A full port pushes back on its consumer instead of losing data or
+      blocking (D8); each device owning its buffers keeps one busy device
+      from refusing another's message.
+    derived_from: [G1]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::spi::spi_port::tests::buffers_are_taken_lent_returned_and_freed
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::spi::spi_port::tests::a_malformed_message_is_refused_and_frees_its_buffer
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#SPI port on the STM32F4 Discovery
+
+  - id: PORT-206
+    title: A cancel aborts what the device submitted before it
+    statement: >-
+      On a device's cancel, the SPI port shall give back as aborted, with the
+      chip select released, every message of that device submitted before
+      the cancel, and run the messages submitted after it.
+    rationale: >-
+      A transfer that never ends is bounded by its consumer's timeout and
+      cancel; the cancel must neither leave the bus held nor drop work the
+      consumer submitted afterwards.
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::spi::spi_port::tests::cancel_marks_what_came_before_and_kicks
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#SPI port on the STM32F4 Discovery
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:SPI-006
+
+  - id: PORT-207
+    title: One handle type serves every device, bound at boot
+    statement: >-
+      The SPI port shall give every device's consumer a handle of one type,
+      whatever the device and the number of devices, for the firmware to move
+      into the task it chooses at boot.
+    rationale: >-
+      Boot-time binding (D12): a firmware decides in `init` which consumer
+      drives which device, and one implementation serves one device or many
+      (D21, D22).
+    derived_from: [G1, G2]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#SPI port on the STM32F4 Discovery
+
+  - id: PORT-208
+    title: Each device's own bus settings are in force for its messages
+    statement: >-
+      The SPI port shall apply a device's own bus settings before that
+      device's message starts.
+    rationale: >-
+      Devices on one bus differ in clock mode and rate; a message sent with
+      another device's settings is garbled or overclocks its device.
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#SPI port on the STM32F4 Discovery
         - level: target
           environment: development
           method:
             procedure: requirements/benches.md#SPI port on the Nucleo-H753ZI
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:SPI-004
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:SPI-005
+
+  - id: PORT-209
+    title: A message is one chip-select assertion, read back in place
+    statement: >-
+      The SPI port shall send a message's parts as one continuous transfer
+      under one chip-select assertion, and give back only what came in during
+      the parts marked to keep, each in place.
+    rationale: >-
+      A device's command and its answer share one assertion (an address,
+      then the bytes it returns); the consumer reads the answer without a
+      copy.
+    derived_from: [G1, G3]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::spi::spi_port::tests::a_message_is_built_in_place_and_read_back_in_place
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#SPI port on the STM32F4 Discovery

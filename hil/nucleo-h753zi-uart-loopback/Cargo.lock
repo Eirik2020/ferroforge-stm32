@@ -216,7 +216,7 @@ checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 [[package]]
 name = "ferroforge"
 version = "0.4.0"
-source = "git+https://github.com/Eirik2020/ferroforge?rev=9623964f3e26b34d9af2f1754b7e8a340a3f5ee0#9623964f3e26b34d9af2f1754b7e8a340a3f5ee0"
+source = "git+https://github.com/Eirik2020/ferroforge?rev=eded9269ebeb0852090b9174d1c416feb7ef6cc3#eded9269ebeb0852090b9174d1c416feb7ef6cc3"
 dependencies = [
  "ferroforge-macros",
 ]
@@ -224,7 +224,7 @@ dependencies = [
 [[package]]
 name = "ferroforge-contracts"
 version = "0.4.0"
-source = "git+https://github.com/Eirik2020/ferroforge?rev=9623964f3e26b34d9af2f1754b7e8a340a3f5ee0#9623964f3e26b34d9af2f1754b7e8a340a3f5ee0"
+source = "git+https://github.com/Eirik2020/ferroforge?rev=eded9269ebeb0852090b9174d1c416feb7ef6cc3#eded9269ebeb0852090b9174d1c416feb7ef6cc3"
 dependencies = [
  "proc-macro2",
  "syn 2.0.119",
@@ -233,7 +233,7 @@ dependencies = [
 [[package]]
 name = "ferroforge-macros"
 version = "0.4.0"
-source = "git+https://github.com/Eirik2020/ferroforge?rev=9623964f3e26b34d9af2f1754b7e8a340a3f5ee0#9623964f3e26b34d9af2f1754b7e8a340a3f5ee0"
+source = "git+https://github.com/Eirik2020/ferroforge?rev=eded9269ebeb0852090b9174d1c416feb7ef6cc3#eded9269ebeb0852090b9174d1c416feb7ef6cc3"
 dependencies = [
  "ferroforge-contracts",
  "proc-macro2",
@@ -258,7 +258,7 @@ dependencies = [
 [[package]]
 name = "ferrohal-stm32"
 version = "0.1.0"
-source = "git+https://github.com/Eirik2020/ferrohal-stm32?rev=c723b1ca60cc29d026d15d902ee8eb908f66d80b#c723b1ca60cc29d026d15d902ee8eb908f66d80b"
+source = "git+https://github.com/Eirik2020/ferrohal-stm32?rev=d5b81c655d9cc79526a3247ca2bf3bc093444562#d5b81c655d9cc79526a3247ca2bf3bc093444562"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
