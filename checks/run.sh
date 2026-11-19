@@ -40,6 +40,8 @@ for chip in "${chips[@]}"; do
         cargo test --manifest-path "$root/Cargo.toml" --features "$chip,usb" --target "$host"
 done
 for bench in "$root"/hil/*/; do
+    # Shared bench sources (hil/lane-common) and the ignored logs are no crate.
+    [ -f "$bench/Cargo.toml" ] || continue
     name=$(basename "$bench")
     # hil/common holds checks the bench crates include, not a crate.
     [ -f "$bench/Cargo.toml" ] || continue

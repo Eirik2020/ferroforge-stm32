@@ -11,7 +11,7 @@ publish = false
 # Every dependency is pinned exactly, as FerroHAL's are: a bump needs a
 # reviewed diff analysis or reverification. FerroHAL and FerroForge 0.5 are not
 # on crates.io yet, so both come from git at an exact revision until they are.
-ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "c5b5d57e8ea296e0086818e82b05300a4e3480a9" }
+ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "1e438f486220cc588af806c7ddf82f617580549f" }
 ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "eded9269ebeb0852090b9174d1c416feb7ef6cc3" }
 # The chip-select pin's trait, as FerroHAL's GPIO implements it.
 embedded-hal = "=1.0.0"
@@ -37,6 +37,11 @@ default = []
 # The USB device port: FerroHAL's `usb` feature, which brings the `usb-device`
 # bus. Off unless a firmware selects the port.
 usb = ["ferrohal-stm32/usb"]
+# The lane frame port's own statistics (`lanes_frame::Stats`): the turn,
+# the start and its parts, the runs, on the firmware's clock. Off in a
+# product build: no clock reads beyond `Times`, no spans in the shared
+# resource. The benches turn it on to measure the port's longest runs.
+port-stats = []
 # A group needs a chip to compile, but must not be the one choosing it. These
 # forward to FerroHAL so the crate checks on its own; a firmware's own FerroHAL
 # chip feature wins through feature unification. One chip per USART IP version

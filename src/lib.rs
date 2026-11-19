@@ -15,6 +15,7 @@
 
 mod adc;
 mod exti;
+pub mod lanes_frame;
 mod spi;
 mod uart;
 mod uart_rx;
@@ -23,6 +24,7 @@ mod usb;
 
 pub use adc::adc_scan;
 pub use exti::exti_line;
+pub use lanes_frame::lane_frame_port;
 pub use spi::spi_port;
 pub use uart::uart_port;
 pub use uart_rx::uart_rx_port;

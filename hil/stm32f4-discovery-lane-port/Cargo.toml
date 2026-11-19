@@ -1,0 +1,67 @@
+[package]
+name = "stm32f4-discovery-lane-port"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# The lane port bench: image F (`lanes-f`, the lane frame port) and image T
+# (`lanes-t`, FerroHAL's lanes under RTIC with no port), sharing the board
+# (src/lib.rs) and the checks (../lane-common/loopback.rs). The layout is a
+# feature, named by its shape.
+[lib]
+test = false
+bench = false
+
+[features]
+# checks/run.sh builds the default; a layout chosen beside it wins over it,
+# and the run scripts pass --no-default-features as well.
+default = ["reader-ahead"]
+# The layout, by shape (docs/design/lane-port.md): one of these.
+# Lanes on TIM1 and TIM8 over three ports, each port read by a reader armed
+# ahead on a spare lane-timer request.
+reader-ahead = []
+# The same lanes, each port read on its first lane's own stream.
+own-streams = []
+# Lanes on TIM3 and TIM2 over port B, sending on DMA1, the port read by a
+# reader paced by TIM8 on DMA2 (needs PA1 to PB1 through 1 kOhm).
+paced-reader = []
+# The lane frame port's own statistics (the turn, the start and its parts,
+# the runs): its longest runs. Off, the bench measures from each exchange's
+# times only, as a product build would.
+port-stats = ["ferroforge-stm32/port-stats"]
+# PROFILING ONLY: FerroHAL's cycle stamps through listen and speak, for the
+# switch's cycle count (listen whole).
+profile = ["ferrohal-stm32/profile-listen"]
+# PROFILING ONLY: also stamp each lane inside its listen.
+profile-lanes = ["profile", "ferrohal-stm32/profile-lanes"]
+# PROFILING ONLY: an exchange's start and the frame-end turn by part.
+profile-start = ["profile", "ferrohal-stm32/profile-start"]
+
+[dependencies]
+ferroforge-stm32 = { path = "../.." }
+ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "eded9269ebeb0852090b9174d1c416feb7ef6cc3" }
+# FerroHAL's pin, as ferroforge-stm32's. `rt` gives RTIC its vector table,
+# `rtic` the `Peripherals::steal` that `peripherals = true` names.
+ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "1e438f486220cc588af806c7ddf82f617580549f", features = ["stm32f407vg", "rt", "rtic", "defmt"] }
+
+cortex-m = { version = "0.7.7", features = ["critical-section-single-core"] }
+cortex-m-rt = "0.7.6"
+cortex-m-semihosting = "0.5.0"
+rtic = { version = "2.4.0", features = ["thumbv7-backend"] }
+
+defmt = "1.0.1"
+defmt-rtt = "1.3.0"
+panic-probe = { version = "1.0.0", features = ["print-defmt"] }
+
+[profile.dev]
+opt-level = "s"
+
+[profile.release]
+codegen-units = 1
+debug = 2
+lto = true
+opt-level = "s"
+
+
+# Not part of any workspace around it.
+[workspace]
