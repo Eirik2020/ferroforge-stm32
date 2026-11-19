@@ -443,23 +443,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nucleo-f401re-rx-ports"
-version = "0.1.0"
-dependencies = [
- "cortex-m",
- "cortex-m-rt",
- "cortex-m-semihosting",
- "defmt 1.2.0",
- "defmt-rtt",
- "ferroforge",
- "ferroforge-stm32",
- "ferrohal-stm32",
- "panic-probe",
- "rtic",
- "rtic-monotonics",
-]
-
-[[package]]
 name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -477,9 +460,9 @@ dependencies = [
 
 [[package]]
 name = "pin-project-lite"
-version = "0.2.17"
+version = "0.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
+checksum = "c938015719552d665fd0553b90d96cd7ff58e83e4c061ca99e6bb78865a72752"
 
 [[package]]
 name = "portable-atomic"
@@ -678,6 +661,23 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "defmt 0.3.101",
+]
+
+[[package]]
+name = "stm32f4discovery-uart-rx"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "cortex-m-semihosting",
+ "defmt 1.2.0",
+ "defmt-rtt",
+ "ferroforge",
+ "ferroforge-stm32",
+ "ferrohal-stm32",
+ "panic-probe",
+ "rtic",
+ "rtic-monotonics",
 ]
 
 [[package]]

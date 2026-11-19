@@ -4,22 +4,6 @@ What each requirement's bench entry runs. The benches are under `hil/`, one crat
 per board; each is a `ferroforge::app!` firmware, and doubles as the golden
 reference a generated firmware must match.
 
-## Receive ports on the Nucleo-F401RE
-
-`hil/run-f401-rx.sh`, with FerroHAL's F401 links J1 (PA9 to PA10) and J2 (PA11 to
-PA12) fitted, as `hil/nucleo-f401re-rx-ports/src/main.rs` lists them. The
-firmware selects `uart_rx_port` on USART6 and on USART1, every vector bound,
-with SysTick as its monotonic at 1 kHz, and drives PA9 and PA11 as GPIO, timed
-by the cycle counter with interrupts masked a frame at a time. It sends 1024
-bytes, a counter wrapping at 256, in frames of 1 to 32 bytes, into USART6 at
-115 200 baud 8N1 and then into USART1 at 100 000 baud 8E2. Pass: every check
-prints `PASS`, none prints `FAIL`, and the script exits zero. The checks: every
-member's vector is enabled [PORT-101]; on each port every byte came back once
-and in order with no gap reported [PORT-101]; each port woke its reader on idle
-lines [PORT-101]; every wake's stamp lay within the run, no earlier than the
-wake before it and no later than its reader ran [PORT-102]; and USART6's wakes
-were all stamped no later than USART1's first [PORT-102].
-
 ## SPI port on the STM32F4 Discovery
 
 `hil/run-discovery-spi.sh`, with nothing fitted: the board's LIS3DSH
@@ -122,6 +106,31 @@ sample landed in its channel's place [PORT-401].
 as on the Nucleo-F401RE, on `adc_v4` and DMAMUX: ADC3, which carries the
 internal pair, on DMA2 stream 0, reading PF6. Pass: every check prints `PASS`,
 none prints `FAIL`, and the script exits zero [PORT-401].
+
+## Receive-only UART port on the STM32F4 Discovery
+
+`hil/run-discovery-uart-rx.sh`, with FerroHAL's Discovery links D1 (PC10 to
+PC11) and D2 (PC12 to PD2) fitted, as `hil/stm32f4discovery-uart-rx/src/main.rs`
+lists them. The firmware, on die 0x413 at 168 MHz with the CS43L22 held in
+reset, selects `uart_rx_port` for USART3 RX (PC11, DMA1 stream 1) at 100 000
+baud 8E2 and UART5 RX (PD2, DMA1 stream 0) at 115 200 baud 8N1, every vector
+bound, with SysTick at 1 kHz as the monotonic, and gives the two handles to two
+consumer tasks, which task gets which port chosen at boot from a run-time
+value. It drives PC10 and PC12 as GPIO, timed by the cycle counter with
+interrupts masked a frame at a time: 1024 bytes of a counter into UART5 and
+then USART3, in frames of 1 to 32 bytes; then 1024 more into UART5 while its
+consumer holds every buffer, and 64 after the hold. Pass: every check prints
+`PASS`, none prints `FAIL`, and the script exits zero. The checks: every
+member's vector is enabled [PORT-101]; every 8E2 byte, and every 8N1 byte
+before the hold, came back once and in order with no gap [PORT-101]; frame
+ends arrived as idle chunks [PORT-005]; no chunk changed generation before the
+first gap [PORT-005]; every chunk's stamp came from the monotonic, in order,
+within the run and no later than its read [PORT-005]; UART5's main run was
+stamped before USART3's, as sent [PORT-005]; the loss while held reached the
+consumer as a gap, the stream in order on both sides and the generation
+advanced [PORT-006]; the pool's four chunks were kept and read before the gap,
+and the bytes after it up to the last one sent [PORT-007]; no buffer was lost
+[PORT-101]; and each consumer drained the port bound to it at boot [PORT-102].
 
 ## UART port on the STM32F4 Discovery
 
