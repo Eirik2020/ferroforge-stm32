@@ -1,0 +1,439 @@
+{
+  "schema_version": 5,
+  "run_id": "20261119T193426Z__23-methods__host__01",
+  "recorded_at_utc": "2026-11-19T19:34:26Z",
+  "board": null,
+  "revision": "3378f7ce1e6dcb088848b376a24551fee4d1ae70",
+  "working_tree": "clean",
+  "modules": {
+    "src/adc.rs": [
+      "extern:ferroforge-contracts@0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3",
+      "extern:ferroforge@0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3",
+      "extern:ferrohal-stm32@0.1.0+c5b5d57e8ea296e0086818e82b05300a4e3480a9",
+      "src/tests.rs"
+    ],
+    "src/exti.rs": [
+      "extern:ferroforge-contracts@0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3",
+      "extern:ferroforge@0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3",
+      "extern:ferrohal-stm32@0.1.0+c5b5d57e8ea296e0086818e82b05300a4e3480a9",
+      "src/tests.rs"
+    ],
+    "src/spi.rs": [
+      "extern:embedded-hal@1.0.0",
+      "extern:ferroforge@0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3",
+      "extern:ferrohal-stm32@0.1.0+c5b5d57e8ea296e0086818e82b05300a4e3480a9",
+      "extern:heapless@0.9.3",
+      "extern:rtic-sync@1.6.1"
+    ],
+    "src/tests.rs": [
+      "extern:ferroforge-contracts@0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3",
+      "extern:ferrohal-stm32@0.1.0+c5b5d57e8ea296e0086818e82b05300a4e3480a9",
+      "extern:syn@2.0.119",
+      "src/spi.rs",
+      "src/uart.rs",
+      "src/usb.rs"
+    ],
+    "src/uart.rs": [
+      "extern:ferroforge@0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3",
+      "extern:ferrohal-stm32@0.1.0+c5b5d57e8ea296e0086818e82b05300a4e3480a9"
+    ],
+    "src/uart_rx.rs": [
+      "extern:ferroforge@0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3",
+      "extern:ferrohal-stm32@0.1.0+c5b5d57e8ea296e0086818e82b05300a4e3480a9",
+      "src/tests.rs"
+    ],
+    "src/usb.rs": [
+      "extern:ferroforge-contracts@0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3",
+      "extern:ferroforge@0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3",
+      "extern:ferrohal-stm32@0.1.0+c5b5d57e8ea296e0086818e82b05300a4e3480a9",
+      "extern:rtic-sync@1.6.1",
+      "src/tests.rs"
+    ]
+  },
+  "identities": {
+    "extern:embedded-hal@1.0.0": "1.0.0",
+    "extern:ferroforge-contracts@0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3": "0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3",
+    "extern:ferroforge@0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3": "0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3",
+    "extern:ferrohal-stm32@0.1.0+c5b5d57e8ea296e0086818e82b05300a4e3480a9": "0.1.0+c5b5d57e8ea296e0086818e82b05300a4e3480a9",
+    "extern:heapless@0.9.3": "0.9.3",
+    "extern:rtic-sync@1.6.1": "1.6.1",
+    "extern:syn@2.0.119": "2.0.119",
+    "src/adc.rs": "34530120856667248e787fe554ab3410220fbe384a809b81dfd69c2e4700c0db",
+    "src/exti.rs": "5d8aa5d0dc92c3555cd13a34473c0c39812f8b9bfb8b378245ad9765e5574104",
+    "src/spi.rs": "d368c66b749591b233cc01740d5e4f31de23b7e97c52bbf80509ba5670363a37",
+    "src/tests.rs": "bf962b222b80a36303818f71018082bc5d6d5319dc5bd25a07a8d035799847d5",
+    "src/uart.rs": "63246943ce166653c275739084f63b9a8f3b5d76f816acaa33a4f5a33c33f951",
+    "src/uart_rx.rs": "b30f1eb4a38d7e3e8ae899807cf57db5853a77fd1e4e3912b889230bda762b8b",
+    "src/usb.rs": "53dcafbce5c66f9f97f0687b8753b88d8a83a2cc9787da70e0b586b0788916ab"
+  },
+  "results": [
+    {
+      "requirement": "PORT-002",
+      "method": {
+        "test": "ferroforge_stm32::adc::tests::adc_scan_builds_on_an_f401_converter"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "aee75ccb9432353ae543fe2384a0d17b11f3db2a291841182296780efcf9f0dc",
+      "exercised": [
+        "src/adc.rs",
+        "src/tests.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-002",
+      "method": {
+        "test": "ferroforge_stm32::adc::tests::adc_scan_builds_on_an_h753_converter"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "cd7016e020bce8566dea3f2d687997de61685474f4983ec0092c28a3e3ecb6d2",
+      "exercised": [
+        "src/adc.rs",
+        "src/tests.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-001",
+      "method": {
+        "test": "ferroforge_stm32::adc::tests::adc_scan_states_its_contract"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "e06c29f49e55e7ff51cf9f35a9014141d68594efdad1625bf833b30c7de68e5a",
+      "exercised": [
+        "src/adc.rs",
+        "src/tests.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-002",
+      "method": {
+        "test": "ferroforge_stm32::exti::tests::exti_line_builds_on_an_f401_line"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "5b33a4057c96c00ae5585f82cd928770fcf7db6e43329a92f68f8133c9fd5980",
+      "exercised": [
+        "src/exti.rs",
+        "src/tests.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-002",
+      "method": {
+        "test": "ferroforge_stm32::exti::tests::exti_line_builds_on_an_h753_line"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "5293635631fa0eee37bf702d32256d789f608ac005f127601e7e22fd54514728",
+      "exercised": [
+        "src/exti.rs",
+        "src/tests.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-001",
+      "method": {
+        "test": "ferroforge_stm32::exti::tests::exti_line_states_its_contract"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "88947a9ae139bfbe5ac68fdcc3e5c469e876cf5e7875dc1479d1da0c95f15fbd",
+      "exercised": [
+        "src/exti.rs",
+        "src/tests.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-205",
+      "method": {
+        "test": "ferroforge_stm32::spi::spi_port::tests::a_malformed_message_is_refused_and_frees_its_buffer"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "350b09f0a67b26d794f3da9dfa816a94fddcc644eb1b82309f79c7561660b82d",
+      "exercised": [
+        "src/spi.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-209",
+      "method": {
+        "test": "ferroforge_stm32::spi::spi_port::tests::a_message_is_built_in_place_and_read_back_in_place"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "a36e104771d0579ce1e2ee101e52bb596238719e35a2ba4995e27c2399f39b31",
+      "exercised": [
+        "src/spi.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-204",
+      "method": {
+        "test": "ferroforge_stm32::spi::spi_port::tests::across_devices_priority_then_submission_then_device"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "6b828705bdd4717e8275cb3a9a722000e8cc2bd3c84d3b7ffa0ec7a2e34345b6",
+      "exercised": [
+        "src/spi.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-205",
+      "method": {
+        "test": "ferroforge_stm32::spi::spi_port::tests::buffers_are_taken_lent_returned_and_freed"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "cdb46df9f01d74003729486952f3c47a10d356a9118376c598454397434bf3b9",
+      "exercised": [
+        "src/spi.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-206",
+      "method": {
+        "test": "ferroforge_stm32::spi::spi_port::tests::cancel_marks_what_came_before_and_kicks"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "4ecfdb450ef6a015fd96c199feae1bd58e60f5394bae611f3f0bf14f69dc7e83",
+      "exercised": [
+        "src/spi.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-204",
+      "method": {
+        "test": "ferroforge_stm32::spi::spi_port::tests::submits_draw_tickets_in_order_across_devices"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "caa62190df24454049463763fe6e3a4af992772e6383bccd47ef97321dd37257",
+      "exercised": [
+        "src/spi.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-203",
+      "method": {
+        "test": "ferroforge_stm32::spi::spi_port::tests::within_a_device_order_is_as_submitted"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "655bef07efa237a3c1a938dd5e9f45348a14e467645235dbac534997653da5b5",
+      "exercised": [
+        "src/spi.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-002",
+      "method": {
+        "test": "ferroforge_stm32::tests::spi_port_builds_on_an_f401_wiring"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "cd9dee17c994261830260c5702f5f74662d2374da5e02224c8a91639ba3acae6",
+      "exercised": [
+        "src/spi.rs",
+        "src/tests.rs",
+        "src/uart.rs",
+        "src/usb.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-002",
+      "method": {
+        "test": "ferroforge_stm32::tests::spi_port_builds_on_an_h753_wiring"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "44f646c0506dd6149b625905b6e7ccae7075961c040b8cbb9a2cae8bf33229ac",
+      "exercised": [
+        "src/spi.rs",
+        "src/tests.rs",
+        "src/uart.rs",
+        "src/usb.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-001",
+      "method": {
+        "test": "ferroforge_stm32::tests::spi_port_states_its_contract"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "90a07050bddb9217f62dedda6b7efd3ee72111bbe81ca8fb75a0a0a4c1c18eb1",
+      "exercised": [
+        "src/spi.rs",
+        "src/tests.rs",
+        "src/uart.rs",
+        "src/usb.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-002",
+      "method": {
+        "test": "ferroforge_stm32::tests::uart_port_builds_on_an_f401_wiring"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "dbff10af49cd08875345c68770cffa8a3cdc6d438b511010266b3253292773b5",
+      "exercised": [
+        "src/spi.rs",
+        "src/tests.rs",
+        "src/uart.rs",
+        "src/usb.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-002",
+      "method": {
+        "test": "ferroforge_stm32::tests::uart_port_builds_on_an_h753_wiring"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "9be779ffac9091ad9fd85a1752e80ef6770b7087dbd7ee9aa552d26507e313b6",
+      "exercised": [
+        "src/spi.rs",
+        "src/tests.rs",
+        "src/uart.rs",
+        "src/usb.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-001",
+      "method": {
+        "test": "ferroforge_stm32::tests::uart_port_states_its_contract"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "14f4fb28682de8d7522c06c7efa7cd75916c6a2a61e6a769919e213dba5b88c8",
+      "exercised": [
+        "src/spi.rs",
+        "src/tests.rs",
+        "src/uart.rs",
+        "src/usb.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-002",
+      "method": {
+        "test": "ferroforge_stm32::uart_rx::tests::uart_rx_port_builds_on_an_f401_wiring"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "74c6ff770e365300bb88ed6eb681cf8a263d2d4e2f63afade704339675c8004b",
+      "exercised": [
+        "src/tests.rs",
+        "src/uart_rx.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-002",
+      "method": {
+        "test": "ferroforge_stm32::uart_rx::tests::uart_rx_port_builds_on_an_h753_wiring"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "98f4df97d5c58c4d391d08fbe29795b269efe7b5fbd2ce488efa00c6e86a4995",
+      "exercised": [
+        "src/tests.rs",
+        "src/uart_rx.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-001",
+      "method": {
+        "test": "ferroforge_stm32::uart_rx::tests::uart_rx_port_states_its_contract"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "a2e4e3ffe52f3f2a35edcef7880f0907bd5260c2c24d338bc0a962988be03a46",
+      "exercised": [
+        "src/tests.rs",
+        "src/uart_rx.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-001",
+      "method": {
+        "test": "ferroforge_stm32::usb::tests::usb_device_states_its_contract"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "2b7c2fae347a54a0a849ffde71fed125104fb923960b2b929a7cc609ce5b60ea",
+      "exercised": [
+        "src/tests.rs",
+        "src/usb.rs"
+      ],
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-502",
+      "method": {
+        "test": "ferroforge_stm32::usb::tests::usb_device_states_its_contract"
+      },
+      "level": "unit",
+      "environment": "host",
+      "hazard": "none",
+      "claim": "18f2a2ae4df31e408cfc79268ecea09c094ba9827d768d7bd8aacd5499cd5961",
+      "exercised": [
+        "src/tests.rs",
+        "src/usb.rs"
+      ],
+      "result": "pass"
+    }
+  ],
+  "note": null,
+  "supersedes": [],
+  "ruling": null
+}
