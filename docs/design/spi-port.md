@@ -70,6 +70,12 @@ from software, `now` from the platform), `memory = [memory: Memory]`,
 S3: the number of devices, and each device's buffers, are checked by the
 constructor at boot.
 
+Every device has the same slot count `N` in `Memory<N, D>`. A slot count per
+device saved 43 % of the port's memory at the same timing on the F401
+variant bench (2026-11-19). The owner decided (2026-11-19) that it waits for
+a FerroForge contract entry stating a device as a repeated unit, which also
+closes S3.
+
 ## Betaflight targets (D29)
 
 Checked against three flight-controller board manifests (2026-11-19):
