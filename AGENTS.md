@@ -3,11 +3,11 @@
 FerroForge task groups for STM32 hardware ports, on FerroHAL. Groups: `uart_port`,
 `uart_rx_port`, `spi_port`, `exti_line`, `timer_tick`, `adc_event_port`. Benches:
 `hil/nucleo-f401re-uart-loopback`, `hil/nucleo-f401re-rx-ports`, `hil/nucleo-f401re-spi-loopback`,
-`hil/nucleo-f401re-exti-line` (Nucleo-F401RE), `hil/stm32f4-discovery-timer-tick`
-and `hil/stm32f4-discovery-adc-port` (STM32F4 Discovery),
-`hil/nucleo-h753zi-uart-loopback`, `hil/nucleo-h753zi-spi-loopback`,
+`hil/nucleo-f401re-exti-line` (Nucleo-F401RE), `hil/stm32f4-discovery-spi-device`,
+`hil/stm32f4-discovery-timer-tick` and `hil/stm32f4-discovery-adc-port` (STM32F4
+Discovery), `hil/nucleo-h753zi-uart-loopback`, `hil/nucleo-h753zi-spi-loopback`,
 `hil/nucleo-h753zi-exti-line` and `hil/nucleo-h753zi-timer-tick` (Nucleo-H753ZI),
-all HIL tier.
+all HIL tier. `hil/common/` holds checks several bench crates include.
 
 ## Authority
 
@@ -24,6 +24,7 @@ all HIL tier.
 | task | docs |
 |---|---|
 | add or change a group, its contract | `docs/design/port-contract.md`; `requirements/goals.md` G1, G2 |
+| the SPI port | `docs/design/spi-port.md` |
 | add or move requirements | `src/requirements/<group>.yaml`; `reqtool check <file>` before changing a file |
 | a hardware fact (pin, AF, DMA route, clock) | the ST document it comes from, cited where it is used (G3) |
 | run or extend the bench | `requirements/benches.md`; the bench crate's module doc |
@@ -35,6 +36,7 @@ all HIL tier.
 checks/run.sh                  # fmt, clippy + rustdoc per chip, host tests, bench images, reqtool validate
 hil/run-f401.sh                # Nucleo-F401RE: the uart_port loopback (F401_PROBE picks the probe)
 hil/run-f401-rx.sh             # Nucleo-F401RE: uart_rx_port twice, same links
+hil/run-discovery-spi.sh       # STM32F4 Discovery: spi_port on the board's LIS3DSH, nothing fitted
 hil/run-f401-spi.sh            # Nucleo-F401RE: spi_port over FerroHAL's link S1
 hil/run-f401-exti.sh           # Nucleo-F401RE: exti_line over FerroHAL's link J2
 hil/run-discovery-tick.sh      # STM32F4 Discovery: timer_tick on TIM4, no link (DISCOVERY_PROBE)

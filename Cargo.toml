@@ -15,6 +15,12 @@ ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "c
 ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "9623964f3e26b34d9af2f1754b7e8a340a3f5ee0" }
 # The chip-select pin's trait, as FerroHAL's GPIO implements it.
 embedded-hal = "=1.0.0"
+# The SPI port's per-device queues (single producer, single consumer, no
+# critical section) and free lists.
+heapless = "=0.9.3"
+# The SPI port's wake of each device's holder (`Signal`). Its short critical
+# section is the firmware's implementation (cortex-m's single-core one).
+rtic-sync = "=1.6.1"
 # The lock a group member's shared resource arrives through (`rtic::Mutex`).
 # The backend is the firmware's choice in practice; naming one here lets the
 # crate check on its own, on the target and on the host.
@@ -38,6 +44,8 @@ stm32h743vi = ["ferrohal-stm32/stm32h743vi"]
 stm32h753zi = ["ferrohal-stm32/stm32h753zi"]
 
 [dev-dependencies]
+# rtic-sync's `Signal` needs a critical section; on the host, std's.
+critical-section = { version = "=1.2.0", features = ["std"] }
 # The host tests read this crate's own source as a host tool would.
 ferroforge-contracts = { git = "https://github.com/Eirik2020/ferroforge", rev = "9623964f3e26b34d9af2f1754b7e8a340a3f5ee0" }
 syn = { version = "=2.0.119", features = ["full"] }

@@ -1,0 +1,11 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.11s
+     Running `probe-rs run --chip STM32F401RE target/thumbv7em-none-eabihf/release/adc-scan`
+     [38;5;10m[1mFinished[0m in 0.85s
+[INFO ] adc_scan on the Nucleo-F401RE, clocks: Clocks { sysclk: Hertz(84000000), cpu: Hertz(84000000), hclk: Hertz(84000000), pclk1: Hertz(42000000), pclk2: Hertz(84000000), timclk1: Hertz(84000000), timclk2: Hertz(84000000), pll_q: Some(Hertz(48000000)), flash_wait_states: 2 } (adc_scan nucleo-f401re-adc-scan/src/main.rs:126)
+[INFO ] PASS the member's vector is enabled [PORT-401] (adc_scan nucleo-f401re-adc-scan/src/main.rs:259)
+[INFO ] 200 sequences: 200 ended, 200 completed, 0 refused, 0 off their rail, 0 internal out of range; VDDA 3302 to 3306 mV, die 213 to 225 dC (adc_scan nucleo-f401re-adc-scan/src/main.rs:207)
+[INFO ] PASS every sequence's end reached the firmware's task, completed [PORT-401] (adc_scan nucleo-f401re-adc-scan/src/main.rs:259)
+[INFO ] PASS the driven pin's sample followed its drive in every sequence [PORT-401] (adc_scan nucleo-f401re-adc-scan/src/main.rs:259)
+[INFO ] PASS the internal pair read in range, in their places in the sequence [PORT-401] (adc_scan nucleo-f401re-adc-scan/src/main.rs:259)
+[INFO ] all checks passed (adc_scan nucleo-f401re-adc-scan/src/main.rs:226)
+Firmware exited successfully
