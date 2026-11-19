@@ -40,8 +40,19 @@ fn uart_port_states_its_contract() {
             ("on_tx_dma".to_string(), "tx_dma".to_string()),
         ]
     );
+    let names = |list: &[ferroforge_contracts::Typed]| -> Vec<std::string::String> {
+        list.iter().map(|t| t.name.to_string()).collect()
+    };
+    assert_eq!(names(&contract.memory), ["memory"]);
+    assert_eq!(names(&contract.handles), ["handle"]);
+    let pends: Vec<_> = contract
+        .pends
+        .iter()
+        .map(|p| (p.name.to_string(), p.member.to_string()))
+        .collect();
+    assert_eq!(pends, [("kick".to_string(), "on_tx_dma".to_string())]);
     let shared: Vec<_> = contract.shared.iter().map(|r| r.name.to_string()).collect();
-    assert_eq!(shared, ["uart"]);
+    assert_eq!(shared, ["port"]);
     assert!(contract.local.is_empty());
     let constructor = contract.constructor.as_ref().unwrap();
     assert!(constructor.path.is_ident("new"));
@@ -50,7 +61,12 @@ fn uart_port_states_its_contract() {
         .iter()
         .map(|a| a.to_string())
         .collect();
-    assert_eq!(arguments, ["rcc", "wiring", "config", "tx_buf", "rx_buf"]);
+    assert_eq!(
+        arguments,
+        [
+            "rcc", "wiring", "config", "tx_buf", "rx_buf", "memory", "rx_pool", "tx_lent", "kick"
+        ]
+    );
     let buffers: Vec<_> = contract
         .buffers
         .iter()
@@ -60,9 +76,18 @@ fn uart_port_states_its_contract() {
         buffers,
         [("tx_buf".to_string(), true), ("rx_buf".to_string(), true)]
     );
+    let config: Vec<_> = contract
+        .config
+        .iter()
+        .map(|c| (c.name.to_string(), c.layer))
+        .collect();
     assert_eq!(
-        contract.config[0].layer,
-        ferroforge_contracts::Layer::Platform
+        config,
+        [
+            ("config".to_string(), ferroforge_contracts::Layer::Platform),
+            ("rx_pool".to_string(), ferroforge_contracts::Layer::Software),
+            ("tx_lent".to_string(), ferroforge_contracts::Layer::Software),
+        ]
     );
     // Every vector's member is a hardware task defined in the group.
     for vector in &contract.vectors {
@@ -75,6 +100,37 @@ fn uart_port_states_its_contract() {
     }
 }
 
+/// `uart_port::new` at one wiring, with the result's fields the contract
+/// names: `port` (shared) and `handle`.
+macro_rules! uart_port_builds {
+    ($U:ty, $Tx:ty, $Rx:ty, $TxD:ty, $RxD:ty) => {{
+        use crate::uart::{Handle, Memory, Port, Refused, Resources};
+        use ferrohal_stm32::{
+            rcc::Rcc,
+            uart::{Config, Wiring},
+        };
+        type W = Wiring<$U, $Tx, $Rx, $TxD, $RxD>;
+        let constructor: fn(
+            &mut Rcc,
+            W,
+            &Config,
+            &'static mut [u8],
+            &'static mut [u8],
+            &'static mut Memory<8, 8>,
+            &mut dyn Iterator<Item = &'static mut [u8]>,
+            &mut dyn Iterator<Item = &'static mut [u8]>,
+            fn(),
+        ) -> Result<Resources<$U, $Tx, $Rx, $TxD, $RxD>, Refused<W>> = uart_port::new;
+        let _ = constructor;
+        let fields = |built: Resources<$U, $Tx, $Rx, $TxD, $RxD>| {
+            let port: Port<$U, $Tx, $Rx, $TxD, $RxD> = built.port;
+            let handle: Handle = built.handle;
+            (port, handle)
+        };
+        let _ = fields;
+    }};
+}
+
 #[cfg(feature = "stm32f401re")]
 #[test]
 fn uart_port_builds_on_an_f401_wiring() {
@@ -82,22 +138,10 @@ fn uart_port_builds_on_an_f401_wiring() {
         chip::USART1,
         dma::Stream,
         gpio::{Alternate, Pin},
-        rcc::Rcc,
-        uart::{Config, UartRefused, Wiring},
     };
     type Af7<const P: char, const N: u8> = Pin<P, N, Alternate<7>>;
     // USART1 on PA9/PA10, DMA2 streams 7 and 2 (RM0368 table 29).
-    type W = Wiring<USART1, Af7<'A', 9>, Af7<'A', 10>, Stream<2, 7>, Stream<2, 2>>;
-    type Built =
-        uart_port::Resources<USART1, Af7<'A', 9>, Af7<'A', 10>, Stream<2, 7>, Stream<2, 2>>;
-    let constructor: fn(
-        &mut Rcc,
-        W,
-        &Config,
-        &'static mut [u8],
-        &'static mut [u8],
-    ) -> Result<Built, UartRefused<W>> = uart_port::new;
-    let _ = constructor;
+    uart_port_builds!(USART1, Af7<'A', 9>, Af7<'A', 10>, Stream<2, 7>, Stream<2, 2>);
 }
 
 #[cfg(feature = "stm32h753zi")]
@@ -107,22 +151,51 @@ fn uart_port_builds_on_an_h753_wiring() {
         chip::USART1,
         dma::Stream,
         gpio::{Alternate, Pin},
-        rcc::Rcc,
-        uart::{Config, UartRefused, Wiring},
     };
     type Af7<const P: char, const N: u8> = Pin<P, N, Alternate<7>>;
     // FerroHAL's H753 bench USART1 (its Z3): DMA2 streams 5 and 4 through
     // DMAMUX.
-    type W = Wiring<USART1, Af7<'B', 6>, Af7<'B', 7>, Stream<2, 5>, Stream<2, 4>>;
-    type Built = uart_port::Resources<USART1, Af7<'B', 6>, Af7<'B', 7>, Stream<2, 5>, Stream<2, 4>>;
-    let constructor: fn(
-        &mut Rcc,
-        W,
-        &Config,
-        &'static mut [u8],
-        &'static mut [u8],
-    ) -> Result<Built, UartRefused<W>> = uart_port::new;
-    let _ = constructor;
+    uart_port_builds!(USART1, Af7<'B', 6>, Af7<'B', 7>, Stream<2, 5>, Stream<2, 4>);
+}
+
+/// The full-duplex UARTs of three flight controller boards, as their
+/// Betaflight-style targets assign pins and streams: the port takes each.
+/// Pins from DS8626 table 9 and DS12117 table 9; streams from RM0090
+/// table 43 (DMA1, channel 4) and table 44 (DMA2, channel 4); on the H7
+/// any stream takes any request through DMAMUX1 (RM0433 section 17.3.2).
+#[cfg(feature = "stm32f405rg")]
+#[test]
+fn uart_port_builds_on_f405_flight_controller_routes() {
+    use ferrohal_stm32::{
+        chip::{UART4, USART1, USART2, USART3},
+        dma::Stream,
+        gpio::{Alternate, Pin},
+    };
+    type Af7<const P: char, const N: u8> = Pin<P, N, Alternate<7>>;
+    type Af8<const P: char, const N: u8> = Pin<P, N, Alternate<8>>;
+    // USART2 on PA2/PA3, DMA1 streams 6 and 5.
+    uart_port_builds!(USART2, Af7<'A', 2>, Af7<'A', 3>, Stream<1, 6>, Stream<1, 5>);
+    // UART4 on PA0/PA1, DMA1 streams 4 and 2.
+    uart_port_builds!(UART4, Af8<'A', 0>, Af8<'A', 1>, Stream<1, 4>, Stream<1, 2>);
+    // USART3 on PC10/PC11, DMA1 streams 3 and 1.
+    uart_port_builds!(USART3, Af7<'C', 10>, Af7<'C', 11>, Stream<1, 3>, Stream<1, 1>);
+    // USART1 on PA9/PA10, DMA2 streams 7 and 5.
+    uart_port_builds!(USART1, Af7<'A', 9>, Af7<'A', 10>, Stream<2, 7>, Stream<2, 5>);
+}
+
+#[cfg(feature = "stm32h753zi")]
+#[test]
+fn uart_port_builds_on_h7_flight_controller_routes() {
+    use ferrohal_stm32::{
+        chip::{USART3, USART6},
+        dma::Stream,
+        gpio::{Alternate, Pin},
+    };
+    type Af7<const P: char, const N: u8> = Pin<P, N, Alternate<7>>;
+    // USART6 on PC6/PC7, DMA1 streams 6 and 0.
+    uart_port_builds!(USART6, Af7<'C', 6>, Af7<'C', 7>, Stream<1, 6>, Stream<1, 0>);
+    // USART3 on PD8/PD9, DMA1 streams 3 and 1.
+    uart_port_builds!(USART3, Af7<'D', 8>, Af7<'D', 9>, Stream<1, 3>, Stream<1, 1>);
 }
 
 #[test]

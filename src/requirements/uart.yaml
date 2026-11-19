@@ -1,0 +1,242 @@
+schema_version: 2
+requirements:
+  - id: PORT-003
+    title: The UART port's consumer needs no lock
+    statement: >-
+      The UART port shall give its consumer a handle that receives and sends
+      without naming the UART, its wiring, its vectors or a lock.
+    rationale: >-
+      The port's members own the UART (design record D20), so a consumer at
+      any priority never delays the port's interrupts, and one consumer
+      serves any UART.
+    derived_from: [G1]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the Nucleo-F401RE
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the Nucleo-H753ZI
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the STM32F4 Discovery
+
+  - id: PORT-004
+    title: Every UART port's handle has one type
+    statement: >-
+      Every UART port's handle shall have one type, whatever its UART,
+      wiring and buffers.
+    rationale: >-
+      The firmware then decides in `init` which task gets which UART, so one
+      image can offer configurable serial ports (D12).
+    derived_from: [PORT-003]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the Nucleo-F401RE
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the Nucleo-H753ZI
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the STM32F4 Discovery
+
+  - id: PORT-005
+    title: A received chunk carries its end, generation and time
+    statement: >-
+      The UART port shall hand its consumer each received chunk with why it
+      ended, its generation, and the firmware monotonic's time read in the
+      interrupt that took it.
+    rationale: >-
+      A serial protocol on top needs where the line went idle, where a gap
+      fell, and when the data arrived, to frame and judge its data (D13,
+      D17, D26).
+    derived_from: [PORT-003]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the Nucleo-F401RE
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the Nucleo-H753ZI
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the STM32F4 Discovery
+
+  - id: PORT-006
+    title: Loss reaches the consumer as a gap at its place
+    statement: >-
+      The UART port shall report every loss of received bytes to its
+      consumer as a gap chunk at the place in the stream where the bytes
+      went missing.
+    rationale: >-
+      Loss is never silent, and a decoder resynchronises at the gap instead
+      of joining bytes across it (D19).
+    derived_from: [PORT-005]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::uart::tests::a_gap_chunk_reaches_the_consumer_at_its_place
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the Nucleo-F401RE
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the Nucleo-H753ZI
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the STM32F4 Discovery
+
+  - id: PORT-007
+    title: A starved receive side pushes back onto FerroHAL's ring
+    statement: >-
+      While its consumer holds every receive buffer, the UART port shall
+      leave received bytes in FerroHAL's ring and take them once a buffer
+      comes back.
+    rationale: >-
+      The interrupt never waits for the consumer, and bytes are lost only
+      when the ring laps, which FerroHAL reports as a gap (D19).
+    derived_from: [PORT-006]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::uart::tests::a_chunk_is_read_in_place_and_a_starved_port_is_pended_on_release
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the Nucleo-F401RE
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the Nucleo-H753ZI
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the STM32F4 Discovery
+
+  - id: PORT-008
+    title: A frame is sent whole from the consumer's buffer
+    statement: >-
+      The UART port shall send each submitted frame as one frame from the
+      buffer the consumer wrote it in, up to the length of the longest
+      buffer the firmware lent the handle.
+    rationale: >-
+      The longest frame is the firmware's choice, not a fixed slot: a
+      280-byte MAVLink 2 frame goes whole, written in place with no copy
+      before FerroHAL's (D23).
+    derived_from: [PORT-003]
+    verification:
+      entries:
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the Nucleo-F401RE
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the Nucleo-H753ZI
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the STM32F4 Discovery
+
+  - id: PORT-009
+    title: Each frame comes back in order with its outcome
+    statement: >-
+      The UART port shall give each submitted frame's buffer back to its
+      consumer, in the order submitted, with the frame's outcome.
+    rationale: >-
+      The consumer learns what it wrote has gone, frame by frame, and reuses
+      the buffer (D15, D23). A frame is never reported sent unless FerroHAL
+      counted it sent.
+    derived_from: [PORT-008]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::uart::tests::a_frame_is_refused_until_a_buffer_is_free_and_comes_back_in_order
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::uart::tests::frames_finished_together_are_never_reported_sent_unless_known
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::uart::tests::a_halted_transmitter_returns_every_frame_in_flight_failed
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the Nucleo-F401RE
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the Nucleo-H753ZI
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the STM32F4 Discovery
+
+  - id: PORT-010
+    title: A frame with no buffer free is refused
+    statement: >-
+      The UART port's handle shall refuse a frame for which no free buffer
+      is long enough, without losing a frame already submitted.
+    rationale: >-
+      Running out of lent buffers is a scheduler error the port defines
+      (D8); the consumer retries once a frame comes back.
+    derived_from: [PORT-008]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::uart::tests::a_frame_is_refused_until_a_buffer_is_free_and_comes_back_in_order
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the Nucleo-F401RE
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the Nucleo-H753ZI
+        - level: target
+          environment: development
+          method:
+            procedure: requirements/benches.md#UART port on the STM32F4 Discovery
+
+  - id: PORT-011
+    title: The constructor refuses unusable buffers before opening the UART
+    statement: >-
+      The UART port's constructor shall refuse a lent buffer it cannot use
+      before it opens the UART, handing back the wiring and the buffers.
+    rationale: >-
+      A refusal never carries an opened driver: refusing with one cost about
+      11 KB of init code with two UARTs (UART prototype 2 results), and the
+      firmware can reuse what it gets back.
+    derived_from: [PORT-003]
+    verification:
+      entries:
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::uart::tests::buffers_the_port_cannot_use_are_refused
