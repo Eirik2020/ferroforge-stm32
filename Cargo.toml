@@ -12,7 +12,7 @@ publish = false
 # reviewed diff analysis or reverification. FerroHAL and FerroForge 0.5 are not
 # on crates.io yet, so both come from git at an exact revision until they are.
 ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "ceaedbf97e6d059e168fd3eaecddf5fe39f7b7a9" }
-ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "eded9269ebeb0852090b9174d1c416feb7ef6cc3" }
+ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "9623964f3e26b34d9af2f1754b7e8a340a3f5ee0" }
 # The chip-select pin's trait, as FerroHAL's GPIO implements it.
 embedded-hal = "=1.0.0"
 # The lock a group member's shared resource arrives through (`rtic::Mutex`).
@@ -39,5 +39,5 @@ stm32h753zi = ["ferrohal-stm32/stm32h753zi"]
 
 [dev-dependencies]
 # The host tests read this crate's own source as a host tool would.
-ferroforge-contracts = { git = "https://github.com/Eirik2020/ferroforge", rev = "eded9269ebeb0852090b9174d1c416feb7ef6cc3" }
+ferroforge-contracts = { git = "https://github.com/Eirik2020/ferroforge", rev = "9623964f3e26b34d9af2f1754b7e8a340a3f5ee0" }
 syn = { version = "=2.0.119", features = ["full"] }
