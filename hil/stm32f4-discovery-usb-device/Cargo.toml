@@ -15,7 +15,7 @@ ferroforge-stm32 = { path = "../..", features = ["usb"] }
 ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "eded9269ebeb0852090b9174d1c416feb7ef6cc3" }
 # FerroHAL's pin, as ferroforge-stm32's. `rt` gives RTIC its vector table,
 # `rtic` the `Peripherals::steal` that `peripherals = true` names.
-ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "1e438f486220cc588af806c7ddf82f617580549f", features = ["stm32f407vg", "rt", "rtic", "defmt", "usb"] }
+ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "2ca34065674b6b63eefd308eb5fee4f32f0920c5", features = ["stm32f407vg", "rt", "rtic", "defmt", "usb"] }
 # The bench firmware's CDC class: protocol, the firmware's (D6).
 usbd-serial = "=0.2.2"
 

@@ -5,7 +5,7 @@
 # - formatting (rustfmt), the crate and the bench;
 # - clippy and rustdoc on the crate, per chip, with warnings as errors: one chip
 #   per USART IP version (f401re: usart_v2, h753zi: usart_v4);
-# - the host tests, per chip;
+# - the host tests, per chip, and on the F405 for its UART routes;
 # - every bench image, built for its chip;
 # - reqtool validate, when reqtool is installed (CI installs it).
 
@@ -39,6 +39,10 @@ for chip in "${chips[@]}"; do
     step "host tests ($chip)" \
         cargo test --manifest-path "$root/Cargo.toml" --features "$chip,usb" --target "$host"
 done
+# The F405's UART routes (stm32f405rg): host tests only. Its clippy waits for
+# every group's tests to build cleanly without their chips' cfg.
+step "host tests (stm32f405rg)" \
+    cargo test --manifest-path "$root/Cargo.toml" --features stm32f405rg --target "$host"
 for bench in "$root"/hil/*/; do
     # Shared bench sources (hil/lane-common) and the ignored logs are no crate.
     [ -f "$bench/Cargo.toml" ] || continue

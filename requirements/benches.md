@@ -4,18 +4,6 @@ What each requirement's bench entry runs. The benches are under `hil/`, one crat
 per board; each is a `ferroforge::app!` firmware, and doubles as the golden
 reference a generated firmware must match.
 
-## UART port on the Nucleo-F401RE
-
-`hil/run-f401.sh`, with FerroHAL's F401 links J1 (PA9 to PA10) and J2 (PA11 to
-PA12) fitted, as `hil/nucleo-f401re-uart-loopback/src/main.rs` lists them. The
-firmware selects `uart_port` for USART1 and USART6, with every vector bound, and
-sends 4096 bytes, a counter wrapping at 256, round each loop in frames of 1 to 64
-bytes. Pass: every check prints `PASS`, none prints `FAIL`, and the script exits
-zero. The checks: every member's vector is enabled; both ports queued every
-byte; on each port every byte came back once and in order with no gap reported;
-the reader was woken by the group, at least once on an idle line; and the
-transmit vector reported frames sent [PORT-003].
-
 ## Receive ports on the Nucleo-F401RE
 
 `hil/run-f401-rx.sh`, with FerroHAL's F401 links J1 (PA9 to PA10) and J2 (PA11 to
@@ -167,11 +155,33 @@ configured, quiet second woke the task not at all [PORT-501]. The log gives
 the session's throughput and the longest the task held the lock, in CPU
 cycles.
 
-## UART port on the Nucleo-H753ZI
+## UART port on the STM32F4 Discovery
 
-`hil/run-h753.sh`, with FerroHAL's H753 links Z2 (PC6 to PC7) and Z3 (PB6 to
-PB7) fitted, as `hil/nucleo-h753zi-uart-loopback/src/main.rs` lists them. The
-same firmware and checks as on the Nucleo-F401RE, on `usart_v4` and DMAMUX:
-USART1 on DMA2 streams 5 and 4, USART6 on DMA1 streams 6 and 0, the data cache
-off. Pass: every check prints `PASS`, none prints `FAIL`, and the script exits
-zero [PORT-003].
+`hil/run-discovery-uart.sh`, with FerroHAL's Discovery links D1 (PC10 to PC11)
+and D2 (PC12 to PD2) fitted, as `hil/stm32f4discovery-uart-loopback/src/main.rs`
+lists them. The firmware, on die 0x413 at 168 MHz with the CS43L22 held in
+reset, selects `uart_port` for USART3 (DMA1 streams 3 and 1) and UART5 (DMA1
+streams 7 and 0), every vector bound, with SysTick at 1 kHz as the monotonic, and gives the two handles to two consumer
+tasks, which task gets which UART chosen at boot from a run-time value. Each
+consumer (`src/consumer.rs`) sends 16 384 bytes, a counter wrapping at 256, in
+32-byte frames written in its lent buffers, one at a time, and reads every
+chunk in place. USART3 then sends 2048 bytes while its consumer holds every
+receive buffer for 300 ms, and 256 more after; UART5 sends eight frames of 4
+bytes, eight of 64 and one of 280. Pass: every check prints `PASS`, none prints
+`FAIL`, and the script exits zero. The checks: every member's vector is enabled
+[PORT-003]; on each port every byte came back once and in order, before the
+flood on USART3 [PORT-003, PORT-008]; the loss while held reached the consumer
+as a gap, with the stream in order on both sides and the generation advanced
+[PORT-006]; the bytes the pool held were read first and the 256 after the gap
+read too [PORT-007]; frame ends arrived as idle chunks [PORT-005]; no chunk
+changed generation before the first gap [PORT-005]; every chunk's stamp came
+from the monotonic, in order and no later than its read [PORT-005]; every frame
+came back sent, in order, with every byte, and no buffer was lost [PORT-009];
+the 280-byte frame came back whole with one frame end [PORT-008]; with every
+buffer out a frame was refused as `Outstanding` and every byte was still sent
+[PORT-010]; each consumer drove the UART bound to it at boot [PORT-004]; and
+the consumer learned the line went quiet after its 64-byte frames, never
+sooner after a submit than the frame's time on the wire [PORT-012]. The run
+also prints how long before the last stop bit each 64-byte frame's outcome
+arrived, and how long after it the quiet; those figures are measured, not
+judged.

@@ -17,7 +17,7 @@ mod adc;
 mod exti;
 pub mod lanes_frame;
 mod spi;
-mod uart;
+pub mod uart;
 mod uart_rx;
 #[cfg(feature = "usb")]
 mod usb;

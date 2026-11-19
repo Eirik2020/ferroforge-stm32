@@ -258,7 +258,7 @@ dependencies = [
 [[package]]
 name = "ferrohal-stm32"
 version = "0.1.0"
-source = "git+https://github.com/Eirik2020/ferrohal-stm32?rev=1e438f486220cc588af806c7ddf82f617580549f#1e438f486220cc588af806c7ddf82f617580549f"
+source = "git+https://github.com/Eirik2020/ferrohal-stm32?rev=7530fc1773c3dbdac76b4000de6846a30b3c5b75#7530fc1773c3dbdac76b4000de6846a30b3c5b75"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
@@ -443,22 +443,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nucleo-h753zi-uart-loopback"
-version = "0.1.0"
-dependencies = [
- "cortex-m",
- "cortex-m-rt",
- "cortex-m-semihosting",
- "defmt 1.2.0",
- "defmt-rtt",
- "ferroforge",
- "ferroforge-stm32",
- "ferrohal-stm32",
- "panic-probe",
- "rtic",
-]
-
-[[package]]
 name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -569,6 +553,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d12a5e827e4a491affc0296b7c33242f03c02ef70150f93912cc9c77bb071f65"
 dependencies = [
  "cfg-if",
+ "cortex-m",
  "fugit",
  "portable-atomic",
  "rtic-time",
@@ -679,6 +664,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "stm32f4discovery-uart-loopback"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "cortex-m-semihosting",
+ "defmt 1.2.0",
+ "defmt-rtt",
+ "ferroforge",
+ "ferroforge-stm32",
+ "ferrohal-stm32",
+ "panic-probe",
+ "rtic",
+ "rtic-monotonics",
+]
+
+[[package]]
 name = "syn"
 version = "2.0.119"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -703,7 +705,7 @@ dependencies = [
 [[package]]
 name = "synopsys-usb-otg"
 version = "0.4.0"
-source = "git+https://github.com/Eirik2020/synopsys-usb-otg?rev=31a4cc9835a2b78e2a4d6a39738341f3184744a0#31a4cc9835a2b78e2a4d6a39738341f3184744a0"
+source = "git+https://github.com/Eirik2020/synopsys-usb-otg?rev=902ebe9494899ef13d1a9e7b757fb86b6f308727#902ebe9494899ef13d1a9e7b757fb86b6f308727"
 dependencies = [
  "cortex-m",
  "embedded-hal 0.2.7",
