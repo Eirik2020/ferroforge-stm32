@@ -15,10 +15,12 @@ from `init`; a tool can read the contract from source and write that firmware.
 | `uart_rx_port` | A receive-only `Uart`, served from its two vectors, each wake stamped | Nucleo-F401RE |
 | `spi_port` | One FerroHAL `Spi` master on DMA and its chip select, served from one vector | Nucleo-F401RE, Nucleo-H753ZI |
 | `exti_line` | One EXTI line, each edge stamped in its vector | Nucleo-F401RE, Nucleo-H753ZI |
+| `timer_tick` | One FerroHAL `Tick`, each tick stamped in its vector | Nucleo-F401RE, STM32F4 Discovery, Nucleo-H753ZI |
 | `adc_scan` | One FerroHAL `AdcScan`, a sequence of channels over DMA, served from one vector | Nucleo-F401RE, Nucleo-H753ZI |
 
 The golden reference is `hil/nucleo-f401re-uart-loopback`, a hand-written
 `ferroforge::app!`. Agents start at [AGENTS.md](AGENTS.md); the design is in
-[docs/design/port-contract.md](docs/design/port-contract.md).
+[docs/design/port-contract.md](docs/design/port-contract.md), the event ports'
+in [docs/design/event-ports.md](docs/design/event-ports.md).
 
 Licensed under either of Apache-2.0 or MIT, at your option.
