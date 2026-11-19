@@ -64,32 +64,52 @@ per chip.
 
 ## Figures
 
-Measured 2026-11-19 on the product build (FerroHAL c723b1c), four lanes on the Discovery
-and two on the H753, 600 kHz, the reply's start swept in steps of 1.67 us. The margin is
-from the latest reply start read whole every time to 30 us, with no profiling feature on.
-F is the frame port; T is FerroHAL's lanes under RTIC with no port, the firmware's task
-switching. The switch is FerroHAL's listen whole (`profile` alone, without
-`profile-start`); cycles are DWT counts, means over 1000 exchanges (the switch over the
-sweep's 37,000).
+Measured 2026-11-19 on the product build (FerroHAL d5b81c6), four lanes on the Discovery
+and two on the H753, 600 kHz, the reply's start swept in steps of 1.67 us. F is the frame
+port; T is FerroHAL's lanes under RTIC with no port, the firmware's task switching. Cycles
+are DWT counts over 1000 exchanges.
 
-STM32F4 Discovery (168 MHz):
+### The product build (no `port-stats`)
 
-| layout | margin F / T | round 2 prototype F / T | switch F / T | start whole (F) |
+The margin is from the latest reply start read whole every time to 30 us. The turn, from
+the frame's end to listening, is taken from each exchange's `Times`; the switch is
+FerroHAL's listen whole (its `profile-listen` alone, a separate run).
+
+| board, layout | margin F / T | round 2 prototype F / T | turn F, mean / most | switch F / T |
 |---|---|---|---|---|
-| reader-ahead | 10841 / 10841 ns | 10.8 / 9.2 us | 686 / 639 cycles | 5563 cycles |
-| own-streams | 5843 / 4177 ns | 5.8 / 4.2 us | 1661 / 1611 cycles | 4474 cycles |
-| paced-reader | 10841 / 9175 ns | 10.8 / 9.2 us | 711 / 715 cycles | 4920 cycles |
+| Discovery, reader-ahead | 10841 / 10841 ns | 10.8 / 9.2 us | 2699 / 2700 cycles | 686 / 639 cycles |
+| Discovery, own-streams | 5843 / 4177 ns | 5.8 / 4.2 us | 3615 / 3617 cycles | 1661 / 1611 cycles |
+| Discovery, paced-reader | 10841 / 9175 ns | 10.8 / 9.2 us | 2728 / 2728 cycles | 711 / 715 cycles |
+| H753, reader-ahead | 14183 / 12518 ns | 14.2 / 12.5 us | 5416 / 5458 cycles | 1513 / 1440 cycles |
+| H753, own-streams | 10853 / 9188 ns | 9.2 / 7.5 us | 6716 / 6746 cycles | 2958 / 2860 cycles |
 
-Nucleo-H753ZI (400 MHz):
+Every margin is at the prototype's sweep step or past it, and the same with `port-stats` on.
 
-| layout | margin F / T | round 2 prototype F / T | switch F / T | start whole (F) |
+### The longest runs (with `port-stats`)
+
+What the port's member costs at its priority: one run whole, the start (from the run's
+entry to `play` returning, a receive included), the run that sees the frames end (the turn
+and taking the frames back), and the run that sees the receive end. Mean / most, in cycles
+and, for the most, microseconds.
+
+| board, layout | run | start | sent | end |
 |---|---|---|---|---|
-| reader-ahead | 14183 / 12518 ns | 14.2 / 12.5 us | 1513 / 1440 cycles | 12854 cycles |
-| own-streams | 10853 / 9188 ns | 9.2 / 7.5 us | 2958 / 2860 cycles | 11280 cycles |
+| Discovery, reader-ahead | 2397 / 9739 (58.0 us) | 5538 / 9585 (57.1 us) | 2921 / 2931 (17.4 us) | 2927 / 2930 (17.4 us) |
+| Discovery, own-streams | 2357 / 8578 (51.1 us) | 4484 / 8428 (50.2 us) | 3921 / 3922 (23.3 us) | 2775 / 2778 (16.5 us) |
+| Discovery, paced-reader | 3525 / 7476 (44.5 us) | 4910 / 7322 (43.6 us) | 2978 / 2989 (17.8 us) | 2268 / 2272 (13.5 us) |
+| H753, reader-ahead | 6477 / 19842 (49.6 us) | 12888 / 19486 (48.7 us) | 5862 / 6046 (15.1 us) | 5718 / 5790 (14.5 us) |
+| H753, own-streams | 6411 / 18408 (46.0 us) | 11332 / 18048 (45.1 us) | 7507 / 7660 (19.2 us) | 5307 / 5348 (13.4 us) |
 
-Every margin is at the prototype's sweep step or past it. The start without the repeated
-checks and the queue's copy (D33): 5563 cycles with readers armed ahead on the Discovery,
-against 8195 on the round 2 prototype's same layout, and 12854 on the H753 against 19106.
+The longest run is the start: its most is far above its mean in every layout,
+and its least within 200 cycles of the mean. The consumer's submit, on its own side,
+is 2335 to 2348 cycles on the Discovery and 4732 to 4806 on the H753, mean, most within
+60 of it.
+
+`port-stats` costs 736 B of RAM (image F, reader-ahead: data and bss 22,960 against 22,224
+B on the Discovery, 37,056 against 36,320 on the H753) and about 7.2 KB of flash. The
+start without the repeated checks and the queue's copy (D33): 5538 cycles mean with readers
+armed ahead on the Discovery, against 8195 on the round 2 prototype's same layout, and
+12888 on the H753 against 19106.
 
 ## Not in this port
 
