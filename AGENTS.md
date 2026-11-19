@@ -1,11 +1,13 @@
 # ferroforge-stm32 - agent entry
 
 FerroForge task groups for STM32 hardware ports, on FerroHAL. Groups: `uart_port`,
-`uart_rx_port`, `spi_port`, `exti_line`, `adc_scan`. Benches:
+`uart_rx_port`, `spi_port`, `exti_line`, `adc_scan`, `lane_frame_port`. Benches:
 `hil/nucleo-f401re-uart-loopback`, `hil/nucleo-f401re-rx-ports`, `hil/nucleo-f401re-spi-loopback`,
 `hil/nucleo-f401re-exti-line` and `hil/nucleo-f401re-adc-scan` (Nucleo-F401RE),
 `hil/nucleo-h753zi-uart-loopback`, `hil/nucleo-h753zi-spi-loopback`,
 `hil/nucleo-h753zi-exti-line` and `hil/nucleo-h753zi-adc-scan` (Nucleo-H753ZI),
+`hil/stm32f4-discovery-lane-port` (STM32F4 Discovery, the lane port's proving board) and
+`hil/nucleo-h753zi-lane-port` (the H753's lane figures, which verify no requirement),
 all HIL tier.
 
 ## Authority
@@ -41,6 +43,8 @@ hil/run-h753.sh                # Nucleo-H753ZI: the same loopback (H753_PROBE)
 hil/run-h753-spi.sh            # Nucleo-H753ZI: spi_port over FerroHAL's link S1
 hil/run-h753-exti.sh           # Nucleo-H753ZI: exti_line over FerroHAL's link Z1
 hil/run-h753-adc.sh            # Nucleo-H753ZI: adc_scan over FerroHAL's link Z10
+hil/run-discovery-lane-port.sh <layout> [f] [t]  # Discovery: lane_frame_port (F) and lanes under RTIC (T); layout reader-ahead, own-streams or paced-reader
+hil/run-h753-lane-port.sh <layout> [f] [t]       # Nucleo-H753ZI: the same timing, reader-ahead or own-streams
 reqtool validate | check       # requirements and evidence (reqtool at the revision CI pins)
 ```
 
