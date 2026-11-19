@@ -7,10 +7,10 @@ requirements:
       entry that finds the core waiting for a poll, until the task's next
       wait returns.
     rationale: >-
-      The firmware's task, not the vector, serves the core (the deferred
-      vector), and a wake it never sees stalls the port for good. A signal
-      that holds until the task reads it loses no wake, so no start-of-frame
-      heartbeat is needed to repeat one, and a quiet bus raises no vector.
+      The firmware's task, not the vector, serves the core, and a wake it
+      never sees stalls the port for good. A signal held until the task reads
+      it loses no wake, so no start-of-frame heartbeat repeats one, and a
+      quiet bus raises no vector.
     derived_from: [G1, G3]
     verification:
       entries:
@@ -31,12 +31,9 @@ requirements:
       the device and its classes.
     rationale: >-
       FerroHAL's rule of use (USB-002): the vector's service and every bus
-      call never preempt one another, or the transmit FIFO erratum (ES0182
-      2.14.1 and its twins) stalls the IN endpoint. Holding all three behind
-      one lock puts the rule in the types: nothing reaches the bus or the
-      service without it, and the lock holds off only vectors at or below
-      the USB vector's priority, where a critical section held every one
-      for about 10 us on the F407 (D35).
+      call never preempt one another, or the transmit FIFO erratum stalls the
+      IN endpoint. One lock over all three puts the rule in the types, and
+      holds off only vectors at or below the USB vector's priority (D35).
     derived_from: [G1, G3]
     verification:
       entries:
