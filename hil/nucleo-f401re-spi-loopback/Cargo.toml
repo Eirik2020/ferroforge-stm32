@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2024"
 publish = false
 
+[lib]
+test = false
+bench = false
+
 [[bin]]
 name = "spi-loopback"
 path = "src/main.rs"
@@ -12,7 +16,7 @@ bench = false
 
 [dependencies]
 ferroforge-stm32 = { path = "../.." }
-ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "f7387ed67ca29e194c8938d0db03f735c59480d7" }
+ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "eded9269ebeb0852090b9174d1c416feb7ef6cc3" }
 # FerroHAL's pin, as ferroforge-stm32's. `rt` gives RTIC its vector table,
 # `rtic` the `Peripherals::steal` that `peripherals = true` names.
 ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "4e24a5a07e7dbc2694cbc8acdd2f4f5799c8d082", features = ["stm32f401re", "rt", "rtic", "defmt"] }
