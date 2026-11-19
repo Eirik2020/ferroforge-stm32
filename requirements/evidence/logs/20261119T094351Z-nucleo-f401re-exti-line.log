@@ -1,0 +1,15 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.11s
+     Running `probe-rs run --chip STM32F401RE target/thumbv7em-none-eabihf/release/exti-line`
+     [38;5;10m[1mFinished[0m in 0.84s
+[INFO ] exti_line on the Nucleo-F401RE, clocks: Clocks { sysclk: Hertz(84000000), cpu: Hertz(84000000), hclk: Hertz(84000000), pclk1: Hertz(42000000), pclk2: Hertz(84000000), timclk1: Hertz(84000000), timclk2: Hertz(84000000), pll_q: Some(Hertz(48000000)), flash_wait_states: 2 } (exti_line nucleo-f401re-exti-line/src/main.rs:134)
+[INFO ] PASS the member's vector is enabled [PORT-301] (exti_line nucleo-f401re-exti-line/src/main.rs:297)
+[INFO ] 100 edges driven: 100 reached the task, 0 missed, 0 stamped outside their tick, 0 stamped after their task ran (exti_line nucleo-f401re-exti-line/src/main.rs:189)
+[INFO ] PASS every edge reached the firmware's task, none missed [PORT-301] (exti_line nucleo-f401re-exti-line/src/main.rs:297)
+[INFO ] PASS every edge was stamped within a tick of being driven [PORT-302] (exti_line nucleo-f401re-exti-line/src/main.rs:297)
+[INFO ] held 5 ms: driven at 4000 us, stamped 4000 us, taken 9000 us (exti_line nucleo-f401re-exti-line/src/main.rs:214)
+[INFO ] PASS an edge's stamp is its own, not its task's [PORT-302] (exti_line nucleo-f401re-exti-line/src/main.rs:297)
+[INFO ] 3 edges held, then 1: 2 reached the task, the last carrying 2 missed (exti_line nucleo-f401re-exti-line/src/main.rs:240)
+[INFO ] PASS edges dropped while the task was queued are counted on the next [PORT-301] (exti_line nucleo-f401re-exti-line/src/main.rs:297)
+[INFO ] PASS the line is left clear [PORT-301] (exti_line nucleo-f401re-exti-line/src/main.rs:297)
+[INFO ] all checks passed (exti_line nucleo-f401re-exti-line/src/main.rs:251)
+Firmware exited successfully

@@ -1,6 +1,7 @@
 //! The SPI port group's reference: a hand-written `ferroforge::app!` on the
-//! Nucleo-F401RE (MB1136) that selects `ferroforge_stm32::spi_port` once and
-//! runs transfers of every length round a MOSI-to-MISO loop.
+//! Nucleo-F401RE (MB1136) that selects `ferroforge_stm32::spi_port` once,
+//! with four devices on SPI1, and runs the checks of
+//! `hil/common/spi_port.rs` round a MOSI-to-MISO loop.
 //!
 //! The link, as FerroHAL's F401 bench fits it (its S1; UM1724 table 29):
 //!
@@ -10,15 +11,16 @@
 //!
 //! Routing (DS10086 table 9, alternate functions; RM0368 table 29, DMA2
 //! requests): SPI1 on AF5, SCK PA5, MISO PA6, MOSI PA7; TX on DMA2 stream 3
-//! channel 3, RX on DMA2 stream 0 channel 3. Chip select is PA4, a plain
-//! push-pull output with nothing on it: the checks read back the level the
-//! port drives. SCK is also the board's LD2.
+//! channel 3, RX on DMA2 stream 0 channel 3. SCK is also the board's LD2.
+//! The chip selects are plain push-pull outputs with nothing on them, and
+//! the checks read back the level the port drives: device 0 on PA4
+//! (CN7-32), devices 1 to 3 on PC8 (CN10-2), PC5 (CN10-6) and PC4 (CN10-34)
+//! (UM1724 table 29; none is in FerroHAL's F401 link list).
 //!
 //! | Vector | Serves | Priority |
 //! | --- | --- | --- |
-//! | `DMA2_STREAM0` | `spi1`'s member | 3 |
-//! | `SPI2` | RTIC, dispatching `spi1_done` | 2 |
-//! | `SPI3` | RTIC, dispatching `checks` | 1 |
+//! | `DMA2_STREAM0` | `spi1`'s member, also pended by every handle | 4 |
+//! | `SPI2`, `SPI3`, `SPI4` | RTIC: `stress_high` (3), `stress_low` (2), `checks` (1) | |
 //!
 //! Each check prints `PASS` or `FAIL` with the requirements it verifies in
 //! brackets; the run passes when every check does.
@@ -32,18 +34,19 @@ use panic_probe as _;
 ferroforge::app! {
     device = ferrohal_stm32::device,
     peripherals = true,
-    dispatchers = [SPI2, SPI3],
+    dispatchers = [SPI2, SPI3, SPI4],
 
     use ferrohal_stm32::{
         chip::SPI1,
         dma::Stream,
         gpio::{Alternate, Output, Pin, Speed},
         rcc::{AhbPrescaler, ApbPrescaler, Clocks, Config, Pll, PllP, PllSource, Supply, Sysclk},
-        spi::{self, Wiring},
+        spi::{self, Wiring, MODE_1, MODE_2, MODE_3},
         time::Hertz,
     };
     use cortex_m_semihosting::debug::{self, EXIT_FAILURE, EXIT_SUCCESS};
-    use ferroforge_stm32::spi_port::{self, Device, Error};
+    use ferroforge_stm32::spi_port::{self, Memory, SpiHandle, SpiPort};
+    use nucleo_f401re_spi_loopback as bench;
 
     /// 84 MHz from HSI, the F401's ceiling (DS10086 section 3.13): 16 MHz /
     /// 16 * 336 = 336 MHz VCO, / 4 = 84 MHz. APB2 at 84 MHz, SPI1's kernel.
@@ -68,70 +71,81 @@ ferroforge::app! {
         Ok(clocks) => clocks,
         Err(_) => panic!("CLOCK_CONFIG breaks the F401's limits"),
     };
+    const CPU_HZ: u32 = 84_000_000;
 
-    /// SPI1's slowest SCK, 84 MHz / 256 = 328 kHz (RM0368 section 20.5.1), so
-    /// a full frame lasts long enough to see chip select held.
-    const BUS: spi::Config = spi::Config::new(Hertz::khz(400));
-    const _: () = assert!(spi::check::<SPI1>(&CLOCKS, &BUS).is_ok());
-
-    /// CPU cycles in a millisecond, for the busy waits.
-    const MS: u32 = 84_000;
+    /// One setting per device. SPI1's kernel clock is 84 MHz (RM0368
+    /// section 20.5.1): 400 kHz gives its slowest SCK, 328 kHz, so a long
+    /// transfer lasts long enough to see chip select held; 2 MHz gives
+    /// 1.3125 MHz, 1 MHz gives 656 kHz.
+    const CONFIGS: [spi::Config; 4] = [
+        spi::Config::new(Hertz::khz(400)),
+        spi::Config::new(Hertz::mhz(2)).with_mode(MODE_3),
+        spi::Config::new(Hertz::mhz(1)).with_mode(MODE_1),
+        spi::Config::new(Hertz::khz(400)).with_mode(MODE_2),
+    ];
+    const _: () = assert!(spi::check::<SPI1>(&CLOCKS, &CONFIGS[0]).is_ok());
+    const _: () = assert!(spi::check::<SPI1>(&CLOCKS, &CONFIGS[1]).is_ok());
+    const _: () = assert!(spi::check::<SPI1>(&CLOCKS, &CONFIGS[2]).is_ok());
+    const _: () = assert!(spi::check::<SPI1>(&CLOCKS, &CONFIGS[3]).is_ok());
 
     type Af5<const P: char, const N: u8> = Pin<P, N, Alternate<5>>;
-
     /// SPI1 over S1: PA7 into PA6, DMA2 stream 3 transmitting, stream 0
     /// receiving.
     type Spi1Wiring = Wiring<SPI1, Af5<'A', 5>, Af5<'A', 6>, Af5<'A', 7>, Stream<2, 3>, Stream<2, 0>>;
-    type Cs = Pin<'A', 4, Output>;
+    type Cs = (Pin<'A', 4, Output>, Pin<'C', 8, Output>, Pin<'C', 5, Output>, Pin<'C', 4, Output>);
 
-    /// The bus's buffers, and so its longest transfer.
-    const FRAME: usize = 64;
-    /// Transfers run round the loop, of 1 to `FRAME` bytes.
-    const TRANSFERS: u32 = 256;
+    /// FerroHAL's DMA buffers, and so the longest message.
+    const BUS: usize = 256;
+    /// Each device's lent buffers, (device, length): device 0 seven of 64
+    /// bytes and one of 256; device 1 two; devices 2 and 3, the stress
+    /// tasks', three each. A queue of `SLOTS` slots holds `SLOTS - 1`.
+    static LENT: [(usize, usize); 16] = [
+        (0, 64), (0, 64), (0, 64), (0, 64), (0, 64), (0, 64), (0, 64), (0, 256),
+        (1, 64), (1, 64),
+        (2, 64), (2, 64), (2, 64),
+        (3, 64), (3, 64), (3, 64),
+    ];
+    const POOL: usize = 7 * 64 + 256 + 8 * 64;
+    const SLOTS: usize = 9;
 
-    /// What the firmware's task has seen of the transfers that ended.
-    #[derive(Clone, Copy, Default)]
-    pub struct Tally {
-        /// Outcomes passed on by the group.
-        pub ended: u32,
-        pub completed: u32,
-        pub faults: u32,
-        /// Completed transfers whose length was not the one started.
-        pub wrong_length: u32,
-        /// Completed transfers whose bytes were not the ones sent.
-        pub wrong_bytes: u32,
-        /// Outcomes that arrived with the device still selected.
-        pub selected_at_end: u32,
+    fn cycles() -> u32 {
+        cortex_m::peripheral::DWT::cycle_count()
     }
 
-    /// The frame on the wire, for the firmware's task to compare against.
-    #[derive(Clone, Copy)]
-    pub struct Sent {
-        pub bytes: [u8; FRAME],
-        pub len: usize,
-    }
+    /// Which device the checker's first handle is, decided at boot (D12):
+    /// a run-time value, as a stored setting would be.
+    static FIRST: usize = 0;
 
     #[shared]
     struct Shared {
-        spi1: Device<Spi1Wiring, Cs>,
-        tally: Tally,
-        sent: Sent,
+        port: SpiPort<Spi1Wiring, Cs>,
+        stressed: [(u32, u32, u32); 2],
     }
 
     #[local]
-    struct Local {}
+    struct Local {
+        main: [SpiHandle; 2],
+        low: SpiHandle,
+        high: SpiHandle,
+    }
 
     #[init(local = [
-        tx_buf: [u8; FRAME] = [0; FRAME],
-        rx_buf: [u8; FRAME] = [0; FRAME],
+        tx_buf: [u8; BUS] = [0; BUS],
+        rx_buf: [u8; BUS] = [0; BUS],
+        memory: Memory<SLOTS, 4> = Memory::new(),
+        pool: [u8; POOL] = [0; POOL],
     ])]
     fn init(cx: init::Context) -> (Shared, Local) {
+        let mut core = cx.core;
+        core.DCB.enable_trace();
+        core.DWT.enable_cycle_counter();
         let p = cx.device;
         let mut rcc = match p.RCC.freeze(&CLOCK_CONFIG) {
             Ok(rcc) => rcc,
             Err(refused) => defmt::panic!("clocks: {}", refused.error()),
         };
         let mut gpioa = p.GPIOA.split(&mut rcc);
+        let mut gpioc = p.GPIOC.split(&mut rcc);
         let dma2 = p.DMA2.split(&mut rcc);
         let ctrl = &mut gpioa.ctrl;
         let mut sck = gpioa.p5.into_alternate::<5>(ctrl);
@@ -139,177 +153,127 @@ ferroforge::app! {
         let miso = gpioa.p6.into_alternate::<5>(ctrl);
         let mut mosi = gpioa.p7.into_alternate::<5>(ctrl);
         mosi.set_speed(ctrl, Speed::Medium);
-        let cs = gpioa.p4.into_push_pull_output(ctrl);
-
+        let cs = (
+            gpioa.p4.into_push_pull_output(ctrl),
+            gpioc.p8.into_push_pull_output(&mut gpioc.ctrl),
+            gpioc.p5.into_push_pull_output(&mut gpioc.ctrl),
+            gpioc.p4.into_push_pull_output(&mut gpioc.ctrl),
+        );
         let local = cx.local;
-        let spi1 = spi_port::new(
+        let built = spi_port::new(
             &mut rcc,
             Wiring { spi: p.SPI1, sck, miso, mosi, tx_dma: dma2.s3, rx_dma: dma2.s0 },
             cs,
-            &BUS,
+            &CONFIGS,
             local.tx_buf,
             local.rx_buf,
-        )
-        .unwrap_or_else(|refused| defmt::panic!("SPI1: {}", refused.error()));
-
-        defmt::info!("spi_port loopback on the Nucleo-F401RE, clocks: {}", CLOCKS);
+            local.memory,
+            &mut bench::carve(local.pool, &LENT),
+            spi1::kick,
+            cycles,
+        );
+        let Ok(built) = built else {
+            defmt::panic!("SPI1 refused");
+        };
+        let mut handles = built.handles;
+        // Boot-time binding: one handle type, picked by a run-time value.
+        let first = core::hint::black_box(FIRST);
+        let (Some(a), Some(b), Some(c), Some(d)) = (
+            handles.take(first),
+            handles.take((first + 1) % 4),
+            handles.take((first + 2) % 4),
+            handles.take((first + 3) % 4),
+        ) else {
+            defmt::panic!("a handle was missing");
+        };
+        defmt::info!("spi_port with four devices on the Nucleo-F401RE, clocks: {}", CLOCKS);
         checks::spawn().ok();
         (
-            Shared {
-                spi1: spi1.spi,
-                tally: Tally::default(),
-                sent: Sent { bytes: [0; FRAME], len: 0 },
-            },
-            Local {},
+            Shared { port: built.port, stressed: [(0, 0, 0); 2] },
+            Local { main: [a, b], low: c, high: d },
         )
     }
 
-    #[group(from = ferroforge_stm32::spi_port, shared = [spi = spi1], spawn = [done = spi1_done])]
+    #[group(from = ferroforge_stm32::spi_port, shared = [port = port])]
     mod spi1 {
-        #[task(binds = DMA2_STREAM0, priority = 3)]
+        #[task(binds = DMA2_STREAM0, priority = 4)]
         fn on_spi_rx_dma;
     }
 
-    /// The firmware's task behind the port: first sees whether the device
-    /// was released before it ran, then checks what came back.
-    #[task(priority = 2, shared = [spi1, tally, sent])]
-    async fn spi1_done(cx: spi1_done::Context, result: Result<usize, Error>) {
-        let spi1_done::SharedResources { mut spi1, mut tally, mut sent, .. } = cx.shared;
-        let sent = sent.lock(|sent| *sent);
-        tally.lock(|tally| {
-            spi1.lock(|spi| {
-                tally.ended += 1;
-                if !spi.chip_select().is_set_high() {
-                    tally.selected_at_end += 1;
-                }
-                match result {
-                    Ok(len) => {
-                        tally.completed += 1;
-                        if len != sent.len {
-                            tally.wrong_length += 1;
-                        } else if spi.received() != &sent.bytes[..sent.len] {
-                            tally.wrong_bytes += 1;
-                        }
-                    }
-                    Err(error) => {
-                        defmt::warn!("transfer: {}", error);
-                        tally.faults += 1;
-                    }
-                }
-            })
-        });
+    #[task(priority = 1, local = [main], shared = [port, stressed])]
+    async fn checks(cx: checks::Context) {
+        let checks::SharedResources { mut port, mut stressed, .. } = cx.shared;
+        let [a, b] = cx.local.main;
+        let mut failed = 0u32;
+        failed += bench::verdict("the member's vector is enabled [PORT-201]", bench::View::vectors_enabled(&mut port));
+        failed += bench::verdict(
+            "boot binding: every handle one type, bound to its task by a run-time choice [PORT-207]",
+            a.device() == 0 && b.device() == 1,
+        );
+        let idle = (0..4).all(|d| bench::View::selected(&mut port, d) == Some(false));
+        failed += bench::verdict("every device starts deselected [PORT-202]", idle);
+        failed += bench::length(a, &mut port, cycles, &[4, 64, 256]).await;
+        failed += bench::latency(a, cycles, 1000).await;
+        failed += bench::multipart(a).await;
+        failed += bench::chip_select(a, &mut port).await;
+        failed += bench::chip_select(b, &mut port).await;
+        failed += bench::full(a, bench::Bus::Loop, cycles).await;
+        failed += bench::priority(&mut [&mut *a], &[bench::Bus::Loop], [0, 0, 0, 0], cycles, false);
+        // Low and high on device 1, the mediums on device 0: the high
+        // overtakes another device's queued messages.
+        failed += bench::priority(&mut [&mut *a, &mut *b], &[bench::Bus::Loop; 2], [1, 0, 0, 1], cycles, true);
+        failed += bench::switch(a, bench::Bus::Loop, b, bench::Bus::Loop, &mut port, CPU_HZ).await;
+        failed += bench::cancel(a, bench::Bus::Loop, b, bench::Bus::Loop, &mut port, cycles, 3).await;
+        failed += bench::isolation(a, bench::Bus::Loop, b, bench::Bus::Loop, cycles).await;
+
+        // Two tasks at different priorities submit to their own devices
+        // while this one does too.
+        stress_low::spawn().ok();
+        stress_high::spawn().ok();
+        let mine = bench::stress(a, bench::Bus::Loop, 500, 1).await;
+        let start = cycles();
+        while stressed.lock(|s| s[0].0 < 500 || s[1].0 < 500) && cycles().wrapping_sub(start) < CPU_HZ * 4 {
+            cortex_m::asm::delay(CPU_HZ / 1000);
+        }
+        let s = stressed.lock(|s| *s);
+        defmt::info!(
+            "concurrent: checker {} done {} wrong {} retried; priority 2 task {} done {} wrong {} retried; priority 3 task {} done {} wrong {} retried",
+            mine.0, mine.1, mine.2, s[0].0, s[0].1, s[0].2, s[1].0, s[1].1, s[1].2
+        );
+        failed += bench::verdict(
+            "concurrent: three tasks at three priorities, every message back done with its bytes [PORT-201]",
+            mine.0 == 500 && mine.1 == 0 && s[0].0 == 500 && s[0].1 == 0 && s[1].0 == 500 && s[1].1 == 0,
+        );
+        failed += bench::closing(&mut port);
+        finish(failed);
     }
 
-    /// Runs the transfers and judges them.
-    #[task(priority = 1, shared = [spi1, tally, sent])]
-    async fn checks(cx: checks::Context) {
-        let checks::SharedResources { mut spi1, mut tally, mut sent, .. } = cx.shared;
-        let mut failed = 0u32;
+    #[task(priority = 2, local = [low], shared = [stressed])]
+    async fn stress_low(mut cx: stress_low::Context) {
+        let r = bench::stress(cx.local.low, bench::Bus::Loop, 500, 2).await;
+        cx.shared.stressed.lock(|s| s[0] = r);
+    }
 
-        let bound = spi1.lock(|spi| spi.vectors().verify()).is_ok();
-        failed += verdict("the member's vector is enabled [PORT-201]", bound);
-        let idle = spi1.lock(|spi| spi.chip_select().is_set_high());
-        failed += verdict("the device starts deselected [PORT-202]", idle);
+    #[task(priority = 3, local = [high], shared = [stressed])]
+    async fn stress_high(mut cx: stress_high::Context) {
+        let r = bench::stress(cx.local.high, bench::Bus::Loop, 500, 3).await;
+        cx.shared.stressed.lock(|s| s[1] = r);
+    }
 
-        // One transfer at a time, each waited for: lengths 1 to FRAME, the
-        // bytes a counter that carries on from one to the next.
-        let mut next = 0u8;
-        let mut selected_while_running = 0u32;
-        let mut refused = 0u32;
-        let mut late = 0u32;
-        for n in 0..TRANSFERS {
-            let len = (n as usize % FRAME) + 1;
-            let mut frame = Sent { bytes: [0; FRAME], len };
-            for byte in &mut frame.bytes[..len] {
-                *byte = next;
-                next = next.wrapping_add(1);
-            }
-            sent.lock(|sent| *sent = frame);
-            let started = spi1.lock(|spi| {
-                let started = spi.start(&frame.bytes[..len]);
-                // Read before the end can come: a full frame takes 1.6 ms.
-                if started.is_ok() && len == FRAME && !spi.chip_select().is_set_high() {
-                    selected_while_running += 1;
-                }
-                started
-            });
-            if started.is_err() {
-                refused += 1;
-                continue;
-            }
-            // A frame takes at most 1.6 ms; wait up to 10.
-            let mut waited = 0;
-            while tally.lock(|t| t.ended) < n + 1 - refused && waited < 100 {
-                cortex_m::asm::delay(MS / 10);
-                waited += 1;
-            }
-            if waited == 100 {
-                late += 1;
-            }
-        }
-        let t = tally.lock(|t| *t);
-        defmt::info!(
-            "{} transfers: {} ended, {} completed, {} faults, {} wrong length, {} wrong bytes, {} refused, {} late",
-            TRANSFERS, t.ended, t.completed, t.faults, t.wrong_length, t.wrong_bytes, refused, late
-        );
-        failed += verdict("every transfer's end reached the firmware's task [PORT-201]",
-            refused == 0 && late == 0 && t.ended == TRANSFERS);
-        failed += verdict("every transfer completed with the bytes sent [PORT-201]",
-            t.completed == TRANSFERS && t.faults == 0 && t.wrong_length == 0 && t.wrong_bytes == 0);
-        failed += verdict("the device was selected while a transfer ran [PORT-202]",
-            selected_while_running == TRANSFERS / FRAME as u32);
-        failed += verdict("the device was released before the firmware's task ran [PORT-202]",
-            t.selected_at_end == 0);
-
-        // An abort mid-frame releases the device, passes no outcome on, and
-        // leaves the bus ready.
-        let mut frame = Sent { bytes: [0; FRAME], len: FRAME };
-        for (i, byte) in frame.bytes.iter_mut().enumerate() {
-            *byte = i as u8;
-        }
-        let (aborted_selected, released) = spi1.lock(|spi| {
-            let _ = spi.start(&frame.bytes);
-            let selected = !spi.chip_select().is_set_high();
-            spi.abort();
-            (selected, spi.chip_select().is_set_high() && !spi.is_busy())
-        });
-        cortex_m::asm::delay(5 * MS);
-        let ended_after_abort = tally.lock(|t| t.ended);
-        failed += verdict("an abort releases the device and ends the transfer [PORT-202]",
-            aborted_selected && released);
-        failed += verdict("an aborted transfer passes no outcome on [PORT-201]",
-            ended_after_abort == TRANSFERS);
-        sent.lock(|sent| *sent = frame);
-        let restarted = spi1.lock(|spi| spi.start(&frame.bytes)).is_ok();
-        cortex_m::asm::delay(5 * MS);
-        let t = tally.lock(|t| *t);
-        failed += verdict("the bus runs again after an abort [PORT-201]",
-            restarted && t.ended == TRANSFERS + 1 && t.completed == TRANSFERS + 1
-                && t.wrong_bytes == 0 && t.selected_at_end == 0);
-
+    fn finish(failed: u32) -> ! {
         if failed == 0 {
             defmt::info!("all checks passed");
         } else {
             defmt::error!("{} checks failed", failed);
         }
-        // The host drains RTT while the target runs; the semihosting exit ends
-        // that, so give it the last lines first (about 200 ms).
-        cortex_m::asm::delay(200 * MS);
+        // The host drains RTT while the target runs; the semihosting exit
+        // ends that, so give it the last lines first (about 200 ms).
+        cortex_m::asm::delay(CPU_HZ / 5);
         if failed == 0 {
-            debug::exit(EXIT_SUCCESS);
+            debug::exit(EXIT_SUCCESS)
         } else {
-            debug::exit(EXIT_FAILURE);
+            debug::exit(EXIT_FAILURE)
         }
-    }
-
-    /// Prints the check's verdict; 1 for a failure, to count them.
-    fn verdict(name: &str, pass: bool) -> u32 {
-        if pass {
-            defmt::info!("PASS {}", name);
-            0
-        } else {
-            defmt::error!("FAIL {}", name);
-            1
-        }
+        loop {}
     }
 }

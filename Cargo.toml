@@ -12,9 +12,15 @@ publish = false
 # reviewed diff analysis or reverification. FerroHAL and FerroForge 0.5 are not
 # on crates.io yet, so both come from git at an exact revision until they are.
 ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "ceaedbf97e6d059e168fd3eaecddf5fe39f7b7a9" }
-ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "f7387ed67ca29e194c8938d0db03f735c59480d7" }
+ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "eded9269ebeb0852090b9174d1c416feb7ef6cc3" }
 # The chip-select pin's trait, as FerroHAL's GPIO implements it.
 embedded-hal = "=1.0.0"
+# The SPI port's per-device queues (single producer, single consumer, no
+# critical section) and free lists.
+heapless = "=0.9.3"
+# The SPI port's wake of each device's holder (`Signal`). Its short critical
+# section is the firmware's implementation (cortex-m's single-core one).
+rtic-sync = "=1.6.1"
 # The lock a group member's shared resource arrives through (`rtic::Mutex`).
 # The backend is the firmware's choice in practice; naming one here lets the
 # crate check on its own, on the target and on the host.
@@ -38,6 +44,8 @@ stm32h743vi = ["ferrohal-stm32/stm32h743vi"]
 stm32h753zi = ["ferrohal-stm32/stm32h753zi"]
 
 [dev-dependencies]
+# rtic-sync's `Signal` needs a critical section; on the host, std's.
+critical-section = { version = "=1.2.0", features = ["std"] }
 # The host tests read this crate's own source as a host tool would.
-ferroforge-contracts = { git = "https://github.com/Eirik2020/ferroforge", rev = "f7387ed67ca29e194c8938d0db03f735c59480d7" }
+ferroforge-contracts = { git = "https://github.com/Eirik2020/ferroforge", rev = "eded9269ebeb0852090b9174d1c416feb7ef6cc3" }
 syn = { version = "=2.0.119", features = ["full"] }

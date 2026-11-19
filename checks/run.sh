@@ -41,6 +41,8 @@ for chip in "${chips[@]}"; do
 done
 for bench in "$root"/hil/*/; do
     name=$(basename "$bench")
+    # hil/common holds checks the bench crates include, not a crate.
+    [ -f "$bench/Cargo.toml" ] || continue
     # From the bench's own directory, so its .cargo/config.toml picks the
     # target and the linker scripts.
     step "bench image ($name)" bash -c 'cd "$1" && cargo build --release --bins' _ "$bench"
