@@ -122,15 +122,15 @@ F407 at 168 MHz from the ST-LINK's 8 MHz clock, and lets it run: a quiet window
 of 1000 ticks with an empty task; the task stalling once for 5.5 periods; the
 task held off for 5 ms from just after a tick. Pass: every check prints `PASS`,
 none prints `FAIL`, and the script exits zero. The checks: the member's vector
-is enabled [PORT-501]; every tick of the quiet window reached the task, none
-missed, as many as the monotonic's elapsed periods [PORT-501]; every tick was
+is enabled [PORT-701]; every tick of the quiet window reached the task, none
+missed, as many as the monotonic's elapsed periods [PORT-701]; every tick was
 stamped a period after the one taken before it, counting the missed ones,
-within a monotonic tick, and no later than its task ran [PORT-502]; after the
+within a monotonic tick, and no later than its task ran [PORT-702]; after the
 stall the next tick carried 5 missed, and the stamps' span matched the periods
-taken and counted [PORT-501, PORT-502]; the tick queued while the task was held
+taken and counted [PORT-701, PORT-702]; the tick queued while the task was held
 kept a stamp within a period and a monotonic tick of the hold's start, at least
-3 ms before its task ran [PORT-502]; and the tick after it carried the 4 that
-found the task queued [PORT-501].
+3 ms before its task ran [PORT-702]; and the tick after it carried the 4 that
+found the task queued [PORT-701].
 
 ## Timer tick on the Nucleo-H753ZI
 
@@ -141,7 +141,7 @@ checks as on the STM32F4 Discovery, on `timer_v3` at 400 MHz, TIM4 counting at
 update flag and answering `false` for another timer's pass, which no FerroHAL
 requirement covers yet, and `timer_v3` is the other timer IP version. Pass:
 every check prints `PASS`, none prints `FAIL`, and the script exits zero
-[PORT-501, PORT-502].
+[PORT-701, PORT-702].
 
 ## ADC port on the STM32F4 Discovery
 

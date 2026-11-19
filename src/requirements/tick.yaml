@@ -1,6 +1,6 @@
 schema_version: 2
 requirements:
-  - id: PORT-501
+  - id: PORT-701
     title: The timer tick passes each tick to the firmware's task
     statement: >-
       The timer tick's vector member shall serve its timer and pass each tick
@@ -27,7 +27,7 @@ requirements:
           method:
             library: ferrohal-stm32:TIMER-001
 
-  - id: PORT-502
+  - id: PORT-702
     title: The timer tick stamps each tick in its vector
     statement: >-
       The timer tick's vector member shall read the firmware's monotonic before

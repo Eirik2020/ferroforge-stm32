@@ -24,7 +24,7 @@
 //! TIM10 on the F401, TIM8's and TIM13 on the H753) need a group that serves
 //! both, which this one is not (RM0368 table 38, RM0433 table 147).
 //!
-//! Requirements: PORT-001, PORT-002, PORT-501, PORT-502
+//! Requirements: PORT-001, PORT-002, PORT-701, PORT-702
 
 /// The tick group. A firmware selects it once per timer:
 ///

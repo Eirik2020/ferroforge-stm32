@@ -205,7 +205,7 @@ ferroforge::app! {
         let mut failed = 0u32;
 
         failed += verdict(
-            "the member's vector is enabled [PORT-501]",
+            "the member's vector is enabled [PORT-701]",
             cx.local.vectors.verify().is_ok(),
         );
 
@@ -222,11 +222,11 @@ ferroforge::app! {
             seen.span_off_us(), seen.worst_gap_off_us
         );
         failed += verdict(
-            "every tick of a quiet window reached the firmware's task, none missed [PORT-501]",
+            "every tick of a quiet window reached the firmware's task, none missed [PORT-701]",
             seen.missed_total == 0 && u64::from(seen.ticks).abs_diff(elapsed_us / PERIOD_US) <= 2,
         );
         failed += verdict(
-            "every tick was stamped a period after the one before, within a monotonic tick, and no later than its task ran [PORT-502]",
+            "every tick was stamped a period after the one before, within a monotonic tick, and no later than its task ran [PORT-702]",
             seen.stamped_late == 0
                 && seen.worst_gap_off_us <= RESOLUTION_US
                 && seen.span_off_us() <= RESOLUTION_US,
@@ -245,11 +245,11 @@ ferroforge::app! {
             STALL_TENTHS / 10, STALL_TENTHS % 10, slow.ticks, slow.missed_total, slow.carried, slow.span_off_us()
         );
         failed += verdict(
-            "ticks that found the task running are counted on the next [PORT-501]",
+            "ticks that found the task running are counted on the next [PORT-701]",
             slow.carried == 5 && slow.missed_total == 5,
         );
         failed += verdict(
-            "taken and counted ticks account for every period [PORT-501, PORT-502]",
+            "taken and counted ticks account for every period [PORT-701, PORT-702]",
             slow.span_off_us() <= RESOLUTION_US && slow.worst_gap_off_us <= RESOLUTION_US,
         );
 
@@ -273,12 +273,12 @@ ferroforge::app! {
             HOLD_MS, held_us, held.at_us, held.ran_us, after.carried
         );
         failed += verdict(
-            "a tick's stamp is its own, not its task's [PORT-502]",
+            "a tick's stamp is its own, not its task's [PORT-702]",
             held.at_us <= held_us + PERIOD_US + RESOLUTION_US
                 && held.ran_us >= held.at_us + u64::from(HOLD_MS - 2) * 1_000,
         );
         failed += verdict(
-            "ticks that found the task queued are counted on the next [PORT-501]",
+            "ticks that found the task queued are counted on the next [PORT-701]",
             after.carried == HOLD_MS - 1,
         );
 
