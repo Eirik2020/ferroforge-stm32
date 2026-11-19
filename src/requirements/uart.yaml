@@ -24,6 +24,10 @@ requirements:
           environment: development
           method:
             procedure: requirements/benches.md#UART port on the STM32F4 Discovery
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:UART-003
 
   - id: PORT-004
     title: Every UART port's handle has one type
@@ -74,6 +78,18 @@ requirements:
           environment: development
           method:
             procedure: requirements/benches.md#UART port on the STM32F4 Discovery
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:UART-007
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:UARTDMA-003
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:UART-009
 
   - id: PORT-006
     title: Loss reaches the consumer as a gap at its place
@@ -103,6 +119,18 @@ requirements:
           environment: development
           method:
             procedure: requirements/benches.md#UART port on the STM32F4 Discovery
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:UART-008
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:UART-009
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:UARTDMA-011
 
   - id: PORT-007
     title: A starved receive side pushes back onto FerroHAL's ring
@@ -132,6 +160,14 @@ requirements:
           environment: development
           method:
             procedure: requirements/benches.md#UART port on the STM32F4 Discovery
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:UARTDMA-001
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:UARTDMA-002
 
   - id: PORT-008
     title: A frame is sent whole from the consumer's buffer
@@ -158,6 +194,18 @@ requirements:
           environment: development
           method:
             procedure: requirements/benches.md#UART port on the STM32F4 Discovery
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:UART-010
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:UART-011
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:UARTDMA-006
 
   - id: PORT-009
     title: Each frame comes back in order with its outcome
@@ -195,6 +243,18 @@ requirements:
           environment: development
           method:
             procedure: requirements/benches.md#UART port on the STM32F4 Discovery
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:UART-010
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:UARTDMA-007
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:UARTDMA-012
 
   - id: PORT-010
     title: A frame with no buffer free is refused
@@ -240,3 +300,7 @@ requirements:
           environment: host
           method:
             test: ferroforge_stm32::uart::tests::buffers_the_port_cannot_use_are_refused
+        - level: target
+          environment: development
+          method:
+            library: ferrohal-stm32:UART-004
