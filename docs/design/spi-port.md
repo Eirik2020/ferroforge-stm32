@@ -96,3 +96,17 @@ These follow from lending memory, and were measured in the prototype
   behind what its own device submitted before it.
 - A transfer that never ends is bounded by its consumer: a timeout, then
   `cancel`.
+
+## Faults and the port's run
+
+The port's run holds its vector, at the firmware's priority for it, for as
+long as FerroHAL's `on_interrupt`, `abort`, `set_config` and `start` take.
+On the F401 bench, the run is under 2,100 cycles at every length up to 256
+bytes, and at most 7,500 cycles over a whole run with cancels and three
+consumers. One fault takes far longer. When the receive stream completes
+before the SPI has finished its frame, FerroHAL waits for the frame inside
+the interrupt, up to its bound, and the run took 103,005 cycles (1.23 ms)
+before the message came back `Failed(Timeout)` (DEBT S5). A transfer that
+never ends at all (no request reaching the receive stream) raises no
+interrupt, so the port's run stays short. That message waits for its
+consumer's `cancel`.
