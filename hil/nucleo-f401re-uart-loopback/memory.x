@@ -1,7 +1,0 @@
-/* STM32F401RE (DS10086 section 3.4 and RM0368 section 2.3): 512 KiB of flash
-   at 0x0800_0000, 96 KiB of SRAM at 0x2000_0000. */
-MEMORY
-{
-  FLASH : ORIGIN = 0x08000000, LENGTH = 512K
-  RAM   : ORIGIN = 0x20000000, LENGTH = 96K
-}
