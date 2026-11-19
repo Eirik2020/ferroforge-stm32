@@ -2,11 +2,10 @@
 
 FerroForge task groups for STM32 hardware ports, on FerroHAL. Groups: `uart_port`,
 `uart_rx_port`, `spi_port`, `exti_line`, `adc_scan`, `usb_device` (feature `usb`), `lane_frame_port`. Benches:
-`hil/nucleo-f401re-rx-ports`, `hil/nucleo-f401re-spi-loopback`,
+`hil/nucleo-f401re-uart-loopback`, `hil/nucleo-f401re-rx-ports`, `hil/nucleo-f401re-spi-loopback`,
 `hil/nucleo-f401re-exti-line` and `hil/nucleo-f401re-adc-scan` (Nucleo-F401RE),
-`hil/stm32f4discovery-uart-loopback`, `hil/stm32f4-discovery-spi-device` and
-`hil/stm32f4-discovery-usb-device` (STM32F4 Discovery),
-`hil/nucleo-h753zi-spi-loopback`,
+`hil/stm32f4-discovery-spi-device` and `hil/stm32f4-discovery-usb-device` (STM32F4 Discovery),
+`hil/nucleo-h753zi-uart-loopback`, `hil/nucleo-h753zi-spi-loopback`,
 `hil/nucleo-h753zi-exti-line` and `hil/nucleo-h753zi-adc-scan` (Nucleo-H753ZI),
 `hil/stm32f4-discovery-lane-port` (STM32F4 Discovery, the lane port's proving board) and
 `hil/nucleo-h753zi-lane-port` (the H753's lane figures, which verify no requirement),
@@ -28,7 +27,6 @@ all HIL tier. `hil/common/` holds checks several bench crates include.
 |---|---|
 | add or change a group, its contract | `docs/design/port-contract.md`; `requirements/goals.md` G1, G2 |
 | the SPI port | `docs/design/spi-port.md` |
-| the UART port | `docs/design/uart-port.md` |
 | the USB port | `docs/design/usb-port.md` |
 | add or move requirements | `src/requirements/<group>.yaml`; `reqtool check <file>` before changing a file |
 | a hardware fact (pin, AF, DMA route, clock) | the ST document it comes from, cited where it is used (G3) |
@@ -39,13 +37,14 @@ all HIL tier. `hil/common/` holds checks several bench crates include.
 
 ```
 checks/run.sh                  # fmt, clippy + rustdoc per chip, host tests, bench images, reqtool validate
-hil/run-discovery-uart.sh      # STM32F4 Discovery: the uart_port loopback (DISCOVERY_PROBE picks the probe)
-hil/run-f401-rx.sh             # Nucleo-F401RE: uart_rx_port twice over FerroHAL's links J1 and J2
+hil/run-f401.sh                # Nucleo-F401RE: the uart_port loopback (F401_PROBE picks the probe)
+hil/run-f401-rx.sh             # Nucleo-F401RE: uart_rx_port twice, same links
 hil/run-discovery-spi.sh       # STM32F4 Discovery: spi_port on the board's LIS3DSH, nothing fitted
 hil/run-discovery-usb.sh       # STM32F4 Discovery: usb_device on CN5 (FERROHAL_DIR for the host script)
 hil/run-f401-spi.sh            # Nucleo-F401RE: spi_port over FerroHAL's link S1
 hil/run-f401-exti.sh           # Nucleo-F401RE: exti_line over FerroHAL's link J2
 hil/run-f401-adc.sh            # Nucleo-F401RE: adc_scan over FerroHAL's link S1
+hil/run-h753.sh                # Nucleo-H753ZI: the same loopback (H753_PROBE)
 hil/run-h753-spi.sh            # Nucleo-H753ZI: spi_port over FerroHAL's link S1
 hil/run-h753-exti.sh           # Nucleo-H753ZI: exti_line over FerroHAL's link Z1
 hil/run-h753-adc.sh            # Nucleo-H753ZI: adc_scan over FerroHAL's link Z10
