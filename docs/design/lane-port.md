@@ -34,6 +34,12 @@ code is the same for all three.
   pends only a member that serves one vector.
 - A receive returns the reader's share of lent memory: every lane on one timer and port
   gets the same port words.
+- Every lane is lent a receive share, though FerroHAL writes only each reader's: it picks
+  the readers inside `Awg::prepare_listen`, which needs their memory already lent, and
+  `Awg::reader_of` answers only from a prepared plan. One share per reader needs a FerroHAL
+  call that names a lane's reader from the wiring, before any prepare (a follow-up after
+  FerroHAL's timer lanes merge). Inferred, not measured: on the benches' 4 x 1024-sample
+  shares, 2 KB saved with three readers (reader-ahead, own-streams), 6 KB with one (paced).
 - Any fault, refused load or cancel stops the generator, leaves every output at its
   inactive level and comes back as the exchange's outcome (D16). Nothing panics.
 - Priorities are the firmware's (D14). The figures below say how long the members run.
