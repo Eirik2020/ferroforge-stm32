@@ -1,0 +1,239 @@
+{
+  "schema_version": 5,
+  "run_id": "20261119T191734Z__uart-port-on-the-stm32f4-discovery__stm32f4discovery-uart-loopback__01",
+  "recorded_at_utc": "2026-11-19T19:17:34Z",
+  "board": "stm32f4discovery-uart-loopback",
+  "tier": "HIL",
+  "revision": "949c9e3a4d6fc92741865e65fb16a8d5997012e9",
+  "working_tree": "clean",
+  "configuration": {
+    "board": "stm32f4discovery-uart-loopback",
+    "features": [],
+    "files": {
+      "hil/stm32f4discovery-uart-loopback/.cargo/config.toml": "670d352a14855eca575d92053c6519ebd5e439d6fd60558be0bff3a138302890",
+      "hil/stm32f4discovery-uart-loopback/Cargo.toml": "874a041e4d18ab89a8a90f94a6a478bbb405e6cec71c25a3ed9bcb1e5d16fdd2",
+      "hil/stm32f4discovery-uart-loopback/src/consumer.rs": "c89353ab586dd8e01753c31f7689ffc07b8ced0f3ba869ab2df67b09c84e04c3",
+      "hil/stm32f4discovery-uart-loopback/src/main.rs": "e98ada1125c59cc8f83a2a0fa72dc66447e14e447ff0c6bf3761ab6dccabb17f",
+      "src/adc.rs": "34530120856667248e787fe554ab3410220fbe384a809b81dfd69c2e4700c0db",
+      "src/exti.rs": "5d8aa5d0dc92c3555cd13a34473c0c39812f8b9bfb8b378245ad9765e5574104",
+      "src/lib.rs": "39d436e2c1bc4b591e60da9c687e282089717741eae6946ba1d7680a9503ead9",
+      "src/spi.rs": "d368c66b749591b233cc01740d5e4f31de23b7e97c52bbf80509ba5670363a37",
+      "src/uart.rs": "6ef4537ebc8cbc98ba842f601428951b168087f3c6624fe06357c67ba2c98678",
+      "src/uart_receive.rs": "e545b57380f46c262b4642d7d1d53eb3cbf87bca5058bb8e8b19e2910592082b",
+      "src/uart_rx.rs": "53b4fea12d4173a3b8f6523ade63627672e387e65a6c636297a551549b7b681b"
+    },
+    "externals": {
+      "bare-metal": "0.2.5",
+      "bitfield": "0.13.2",
+      "bitflags": "1.3.2",
+      "byteorder": "1.5.0",
+      "cfg-if": "1.0.5",
+      "cortex-m": "0.7.10",
+      "cortex-m-macros": "0.7.8",
+      "cortex-m-rt": "0.7.7",
+      "cortex-m-rt-macros": "0.7.7",
+      "cortex-m-semihosting": "0.5.0",
+      "critical-section": "1.2.0",
+      "defmt": "0.3.101, 1.2.0",
+      "defmt-macros": "1.2.0",
+      "defmt-parser": "1.1.0",
+      "defmt-rtt": "1.3.1",
+      "embedded-hal": "0.2.7, 1.0.0",
+      "embedded-hal-async": "1.0.0",
+      "embedded-hal-bus": "0.3.0",
+      "embedded-io": "0.7.1",
+      "equivalent": "1.0.3",
+      "ferroforge": "0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3",
+      "ferroforge-contracts": "0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3",
+      "ferroforge-macros": "0.4.0+eded9269ebeb0852090b9174d1c416feb7ef6cc3",
+      "ferrohal-stm32": "0.1.0+ceaedbf97e6d059e168fd3eaecddf5fe39f7b7a9",
+      "fugit": "0.3.9",
+      "futures-core": "0.3.34",
+      "futures-task": "0.3.34",
+      "futures-util": "0.3.34",
+      "gcd": "2.3.0",
+      "hash32": "0.3.1",
+      "hashbrown": "0.17.1",
+      "heapless": "0.9.3",
+      "indexmap": "2.14.2",
+      "nb": "0.1.3, 1.1.0",
+      "panic-probe": "1.0.0",
+      "pin-project-lite": "0.2.17",
+      "portable-atomic": "1.15.0",
+      "proc-macro2": "1.0.107",
+      "quote": "1.0.47",
+      "rtic": "2.4.0",
+      "rtic-common": "1.3.0",
+      "rtic-core": "1.0.0",
+      "rtic-macros": "2.4.0",
+      "rtic-monotonics": "2.2.1",
+      "rtic-sync": "1.6.1",
+      "rtic-time": "2.0.1",
+      "rustc_version": "0.2.3",
+      "semver": "0.9.0",
+      "semver-parser": "0.7.0",
+      "stable_deref_trait": "1.2.1",
+      "stm32-metapac": "21.0.0",
+      "syn": "2.0.119, 3.0.10",
+      "thiserror": "2.0.21",
+      "thiserror-impl": "2.0.21",
+      "unicode-ident": "1.0.27",
+      "vcell": "0.1.3",
+      "void": "1.0.2",
+      "volatile-register": "0.2.2"
+    },
+    "environment": {
+      "DEFMT_LOG": "info"
+    }
+  },
+  "results": [
+    {
+      "requirement": "PORT-003",
+      "method": {
+        "procedure": "requirements/benches.md#UART port on the STM32F4 Discovery"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "998e72ae2131051e605bbf1e382e4a5c4ecf26a40a115ad236110e3b0785cac5",
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-004",
+      "method": {
+        "procedure": "requirements/benches.md#UART port on the STM32F4 Discovery"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "063c7b7c7ad681f7fef53f809b74ebd9d75ca30d1e510237c0969bafcde23264",
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-005",
+      "method": {
+        "procedure": "requirements/benches.md#UART port on the STM32F4 Discovery"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "a650ce390a69350dc5743aa7b6dca4f9abee2aaa31ba5852cd5a0e4fdb66bcbe",
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-006",
+      "method": {
+        "procedure": "requirements/benches.md#UART port on the STM32F4 Discovery"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "a1278225953c19a98243a23880c9a8b2debef08e9d344602b394545e65dc8d42",
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-007",
+      "method": {
+        "procedure": "requirements/benches.md#UART port on the STM32F4 Discovery"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "a3a62ae2328bd161e3a0ca14335a6f7c229c9493e7014028bbb93c827f62f7a2",
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-008",
+      "method": {
+        "procedure": "requirements/benches.md#UART port on the STM32F4 Discovery"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "b66fc646d4e2188cea3faa277f03a6ce670daec8e80758cd79ea86b5fadec487",
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-009",
+      "method": {
+        "procedure": "requirements/benches.md#UART port on the STM32F4 Discovery"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "1acc875a0388bc8ef1f46493864988e38411e79221885b2f5e0ce6cfb6b11701",
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-010",
+      "method": {
+        "procedure": "requirements/benches.md#UART port on the STM32F4 Discovery"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "7aa253d5a90cd8739409a8292c02784d37781b939c8ce8f49afc932472c2e07d",
+      "result": "pass"
+    }
+  ],
+  "note": null,
+  "supersedes": [],
+  "ruling": null,
+  "details": {
+    "execution": {
+      "performed_by": "agent",
+      "user_confirmed": false
+    },
+    "candidate": {
+      "firmware_sha256": "e2526361f5783aa5f48fcbf8ec82b142a42ee0d56a5d60dde32edb7e8c0ab717",
+      "features": []
+    },
+    "conditions": {
+      "actuators": "none on this bench",
+      "image": "release profile, thumbv7em-none-eabihf, no extra features",
+      "links": "FerroHAL's Discovery links D1 (PC10-PC11) and D2 (PC12-PD2) fitted",
+      "equipment": [
+        "STM32F4 Discovery (MB997, STM32F407VGT6) through its ST-LINK, probe 0673FF495170535067225844",
+        "probe-rs"
+      ],
+      "environment": [
+        "development bench"
+      ]
+    },
+    "commands": [
+      {
+        "command": "RIG_REQUESTER=uart-port-thread rig --wait run-discovery-uart.sh",
+        "exit_code": 0
+      }
+    ],
+    "artifacts": [
+      {
+        "id": "rtt-log",
+        "kind": "log",
+        "path": "requirements/evidence/logs/uart-port-discovery-20261119d/run.log",
+        "bytes": 4701,
+        "sha256": "32f397027d9a43c2f9396291750322b1e9cf13f9d0df666b969a3cbaa79d4848"
+      },
+      {
+        "id": "image-hash",
+        "kind": "firmware",
+        "path": "requirements/evidence/logs/uart-port-discovery-20261119d/image.sha256",
+        "bytes": 80,
+        "sha256": "882ed444f82a5bb765e04bdbc20ba9b679fb576a9aaf163fd31e44d4f87f41d2"
+      }
+    ],
+    "measurements": {
+      "checks_failed": 0,
+      "checks_passed": 18,
+      "clocks": "sysclk 168 MHz, pclk1 42 MHz",
+      "exit": 0
+    },
+    "observations": [
+      "Run by an agent on ubuntu-beefcake under the coordinator's board grant, at revision 58d6ee8, through rig, once with no retries; FerroHAL at ceaedbf, FerroForge at eded926.",
+      "Every check printed PASS and the firmware exited through semihosting with success."
+    ],
+    "limitations": [
+      "The monotonic runs at 1 kHz, so stamps are good to a millisecond."
+    ]
+  }
+}
