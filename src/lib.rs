@@ -19,6 +19,8 @@ pub mod lanes_frame;
 mod spi;
 mod uart;
 mod uart_rx;
+#[cfg(feature = "usb")]
+mod usb;
 
 pub use adc::adc_scan;
 pub use exti::exti_line;
@@ -26,6 +28,8 @@ pub use lanes_frame::lane_frame_port;
 pub use spi::spi_port;
 pub use uart::uart_port;
 pub use uart_rx::uart_rx_port;
+#[cfg(feature = "usb")]
+pub use usb::usb_device;
 
 #[cfg(test)]
 extern crate std;

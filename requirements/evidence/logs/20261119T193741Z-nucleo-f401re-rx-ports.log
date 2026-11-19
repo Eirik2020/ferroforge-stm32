@@ -1,0 +1,78 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling cortex-m v0.7.10
+   Compiling critical-section v1.2.0
+   Compiling semver-parser v0.7.0
+   Compiling embedded-hal v1.0.0
+   Compiling thiserror v2.0.21
+   Compiling defmt v1.2.0
+   Compiling cortex-m-macros v0.7.8
+   Compiling nb v1.1.0
+   Compiling vcell v0.1.3
+   Compiling void v1.0.2
+   Compiling defmt-macros v1.2.0
+   Compiling bitfield v0.13.2
+   Compiling portable-atomic v1.15.0
+   Compiling volatile-register v0.2.2
+   Compiling nb v0.1.3
+   Compiling bitflags v1.3.2
+   Compiling embedded-hal-async v1.0.0
+   Compiling cortex-m-rt v0.7.7
+   Compiling heapless v0.9.3
+   Compiling embedded-hal v0.2.7
+   Compiling stm32-metapac v21.0.0
+   Compiling rtic-macros v2.4.0
+   Compiling gcd v2.3.0
+   Compiling pin-project-lite v0.2.17
+   Compiling equivalent v1.0.3
+   Compiling semver v0.9.0
+   Compiling futures-core v0.3.34
+   Compiling hashbrown v0.17.1
+   Compiling byteorder v1.5.0
+   Compiling futures-task v0.3.34
+   Compiling fugit v0.3.9
+   Compiling rtic v2.4.0
+   Compiling rtic-monotonics v2.2.1
+   Compiling stable_deref_trait v1.2.1
+   Compiling futures-util v0.3.34
+   Compiling cfg-if v1.0.5
+   Compiling rtic-core v1.0.0
+   Compiling defmt-rtt v1.3.1
+   Compiling panic-probe v1.0.0
+   Compiling embedded-io v0.7.1
+   Compiling rustc_version v0.2.3
+   Compiling hash32 v0.3.1
+   Compiling cortex-m-semihosting v0.5.0
+   Compiling embedded-hal-bus v0.3.0
+   Compiling bare-metal v0.2.5
+   Compiling indexmap v2.14.2
+   Compiling rtic-common v1.3.0
+   Compiling syn v3.0.10
+   Compiling syn v2.0.119
+   Compiling rtic-sync v1.6.1
+   Compiling rtic-time v2.0.1
+   Compiling ferroforge-contracts v0.4.0 (https://github.com/Eirik2020/ferroforge?rev=eded9269ebeb0852090b9174d1c416feb7ef6cc3#eded9269)
+   Compiling thiserror-impl v2.0.21
+   Compiling cortex-m-rt-macros v0.7.7
+   Compiling ferroforge-macros v0.4.0 (https://github.com/Eirik2020/ferroforge?rev=eded9269ebeb0852090b9174d1c416feb7ef6cc3#eded9269)
+   Compiling defmt-parser v1.1.0
+   Compiling ferroforge v0.4.0 (https://github.com/Eirik2020/ferroforge?rev=eded9269ebeb0852090b9174d1c416feb7ef6cc3#eded9269)
+   Compiling defmt v0.3.101
+   Compiling ferrohal-stm32 v0.1.0 (https://github.com/Eirik2020/ferrohal-stm32?rev=c5b5d57e8ea296e0086818e82b05300a4e3480a9#c5b5d57e)
+   Compiling ferroforge-stm32 v0.1.0 (/home/kaldstrand/ws/ferro/ferroforge-stm32-usb)
+   Compiling nucleo-f401re-rx-ports v0.1.0 (/home/kaldstrand/ws/ferro/ferroforge-stm32-usb/hil/nucleo-f401re-rx-ports)
+    Finished `release` profile [optimized + debuginfo] target(s) in 10.56s
+     Running `probe-rs run --chip STM32F401RE target/thumbv7em-none-eabihf/release/rx-ports`
+     [38;5;10m[1mFinished[0m in 1.44s
+[INFO ] receive ports on the Nucleo-F401RE, clocks: Clocks { sysclk: Hertz(84000000), cpu: Hertz(84000000), hclk: Hertz(84000000), pclk1: Hertz(42000000), pclk2: Hertz(84000000), timclk1: Hertz(84000000), timclk2: Hertz(84000000), pll_q: Some(Hertz(48000000)), flash_wait_states: 2, overdrive: false } (rx_ports nucleo-f401re-rx-ports/src/main.rs:187)
+[INFO ] PASS every member's vector is enabled [PORT-101] (rx_ports nucleo-f401re-rx-ports/src/main.rs:418)
+[INFO ] USART6, 115 200 8N1: 1024 bytes read, 0 wrong, 0 gaps, 71 wakes (63 idle); stamps 0 to 72000 us, 0 backwards, 0 ahead; line Health { overruns: 0, framing_errors: 0, parity_errors: 0, noise_errors: 0, dma_errors: 0, dma_overruns: 0, buffer_overruns: 0, restarts: 0, marks_lost: 0 } (rx_ports nucleo-f401re-rx-ports/src/main.rs:263)
+[INFO ] USART1, 100 000 8E2: 1024 bytes read, 0 wrong, 0 gaps, 71 wakes (63 idle); stamps 72000 to 155000 us, 0 backwards, 0 ahead; line Health { overruns: 0, framing_errors: 0, parity_errors: 0, noise_errors: 0, dma_errors: 0, dma_overruns: 0, buffer_overruns: 0, restarts: 0, marks_lost: 0 } (rx_ports nucleo-f401re-rx-ports/src/main.rs:263)
+[INFO ] PASS every 8N1 byte came back, in order, once [PORT-101] (rx_ports nucleo-f401re-rx-ports/src/main.rs:418)
+[INFO ] PASS every 8E2 byte came back, in order, once [PORT-101] (rx_ports nucleo-f401re-rx-ports/src/main.rs:418)
+[INFO ] PASS each port woke the firmware's reader on idle lines [PORT-101] (rx_ports nucleo-f401re-rx-ports/src/main.rs:418)
+[INFO ] PASS every wake was stamped in order, within the run, never after its reader ran [PORT-102] (rx_ports nucleo-f401re-rx-ports/src/main.rs:418)
+[INFO ] PASS the 8N1 port's wakes were stamped before the 8E2 port's, as sent [PORT-102] (rx_ports nucleo-f401re-rx-ports/src/main.rs:418)
+[INFO ] all checks passed (rx_ports nucleo-f401re-rx-ports/src/main.rs:299)
+Firmware exited successfully

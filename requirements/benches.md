@@ -150,6 +150,22 @@ none prints `FAIL`, and the script exits zero [PORT-401].
 ## Lane frame port timing on the Nucleo-H753ZI
 
 `hil/run-h753-lane-port.sh reader-ahead` and `hil/run-h753-lane-port.sh own-streams`, with the link PC8 to PE11 through 1 kOhm, as `hil/nucleo-h753zi-lane-port/src/lib.rs` lists it. This run verifies no requirement: the port is proven on the STM32F4 Discovery (D34). It measures the H753's figures the port's contract states, its longest runs and margins (`docs/design/lane-port.md`), with the same checks. Pass: every check prints `PASS`, none prints `FAIL`, and the script exits zero.
+## USB port on the STM32F4 Discovery
+
+`hil/run-discovery-usb.sh`, with CN5 cabled to the host, nothing fitted.
+FerroHAL's `hil/usb_cdc_host.py` (at the FerroHAL revision this crate pins, in
+`FERROHAL_DIR`) runs beside the firmware and checks every byte it gets back.
+The firmware, `hil/stm32f4-discovery-usb-device/src/main.rs`, selects
+`usb_device` at 168 MHz with the vector at priority 3 and its CDC echo task at
+priority 2; its shared stack holds the vector service, the device and one
+`usbd-serial` class, and the task takes the stack's lock once per poll and
+echo round. Pass: every check prints `PASS`, none prints `FAIL`, the host
+prints no `FAIL`, and the script exits zero. The checks: the host configured
+the device [PORT-501]; the host's echo session, 1 byte to 64 KiB, finished
+with every byte echoed but the end marker [PORT-501, PORT-502]; and a
+configured, quiet second woke the task not at all [PORT-501]. The log gives
+the session's throughput and the longest the task held the lock, in CPU
+cycles.
 
 ## UART port on the Nucleo-H753ZI
 
