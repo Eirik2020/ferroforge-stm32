@@ -55,6 +55,14 @@ requirements:
         - level: unit
           environment: host
           method:
+            test: ferroforge_stm32::tests::uart_port_builds_on_f405_flight_controller_routes
+        - level: unit
+          environment: host
+          method:
+            test: ferroforge_stm32::tests::uart_port_builds_on_h7_flight_controller_routes
+        - level: unit
+          environment: host
+          method:
             test: ferroforge_stm32::uart_rx::tests::uart_rx_port_builds_on_an_f401_wiring
         - level: unit
           environment: host
@@ -85,23 +93,3 @@ requirements:
           method:
             test: ferroforge_stm32::adc::tests::adc_scan_builds_on_an_h753_converter
 
-  - id: PORT-003
-    title: The UART port serves its vectors and wakes the firmware
-    statement: >-
-      Each of the UART port's vector members shall serve the UART and pass
-      the events of a nonempty service to the firmware's task.
-    rationale: >-
-      One owner served from every vector under the scheduler's lock is
-      FerroHAL's UART model; the group is how a firmware gets it
-      without writing the handlers.
-    derived_from: [G1, G3]
-    verification:
-      entries:
-        - level: target
-          environment: development
-          method:
-            procedure: requirements/benches.md#UART port on the Nucleo-F401RE
-        - level: target
-          environment: development
-          method:
-            procedure: requirements/benches.md#UART port on the Nucleo-H753ZI
