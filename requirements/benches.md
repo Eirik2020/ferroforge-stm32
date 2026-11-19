@@ -20,30 +20,62 @@ lines [PORT-101]; every wake's stamp lay within the run, no earlier than the
 wake before it and no later than its reader ran [PORT-102]; and USART6's wakes
 were all stamped no later than USART1's first [PORT-102].
 
+## SPI port on the STM32F4 Discovery
+
+`hil/run-discovery-spi.sh`, with nothing fitted: the board's LIS3DSH
+accelerometer is the device, on SPI1 with its chip select on PE3, as
+`hil/stm32f4-discovery-spi-device/src/main.rs` lists it (UM1472 table 7). The
+firmware selects `spi_port` on SPI1 at 168 MHz with three devices: device 0 the
+LIS3DSH, mode 3 at 5.25 MHz, four 16-byte buffers; devices 1 and 2 free I/Os,
+PE7 (mode 0 at 656 kHz, four 64-byte buffers) and PE8 (mode 0 at 1.3125 MHz,
+three 16-byte buffers), with nothing on them. A probe on device 0 reads
+WHO_AM_I and must give 0x3F; a probe on devices 1 and 2 writes four bytes and
+keeps none. The shared checks are `hil/common/spi_port.rs`'s. Pass: every check
+prints `PASS`, none prints `FAIL`, and the script exits zero. The checks: the
+member's vector is enabled [PORT-201]; the handles are one type, taken by a
+run-time choice [PORT-207]; every device starts deselected [PORT-202]; 100
+reads of WHO_AM_I give 0x3F [PORT-201, PORT-209]; 100 three-byte patterns
+written to OFF_X to OFF_Z in one message read back in another [PORT-209]; a
+write, a read, a second write and a read queued at once, at priorities against
+that order, read back the two writes in order [PORT-203]; 100 alternations
+with device 1 each read 0x3F, with a settings switch at every change of device
+[PORT-208]; 1000 probes come back done with 0x3F [PORT-201]; while a 64-byte
+message runs on device 1 only its line is low, and all are high once it is
+back [PORT-202]; device 1's buffers all out, the next message is refused
+`Outstanding` and every lent one comes back [PORT-205]; with a low and a high
+on device 1 and two medium probes on device 0, they end low, high, medium,
+medium [PORT-204]; a cancel on device 1 aborts its running and two queued
+messages with the line high, leaves device 0's probe alone, and the probe
+submitted straight after the cancel runs [PORT-206]; with device 1's buffers
+all out, device 0's probe is accepted and comes back [PORT-205]; the checker
+on device 0 and a task at priority 2 on device 2 each run 500 probes at once,
+all back done with their data [PORT-201]; and the port lost no message and
+FerroHAL counted no fault [PORT-201].
+
 ## SPI port on the Nucleo-F401RE
 
 `hil/run-f401-spi.sh`, with FerroHAL's F401 link S1 (PA7 to PA6) fitted, as
 `hil/nucleo-f401re-spi-loopback/src/main.rs` lists it. The firmware selects
-`spi_port` on SPI1 at its slowest clock, 328 kHz, with PA4 as chip select and
-nothing on it, and runs 256 transfers one at a time, of 1 to 64 bytes, a counter
-carrying on from one to the next, then aborts a 64-byte transfer mid-frame and
-runs one more. Pass: every check prints `PASS`, none prints `FAIL`, and the
-script exits zero. The checks: the member's vector is enabled [PORT-201]; the
-device starts deselected [PORT-202]; every transfer's end reached the firmware's
-task, and completed with its length and the bytes sent [PORT-201]; chip select
-read low while each 64-byte transfer ran [PORT-202], and high when the
-firmware's task first ran for every transfer [PORT-202]; the abort left chip
-select high and the bus idle [PORT-202] and passed no outcome on [PORT-201];
-and the transfer after it completed [PORT-201].
+`spi_port` on SPI1 with four devices, each with its own settings (mode 0 at
+328 kHz, mode 3 at 1.3125 MHz, mode 1 at 656 kHz, mode 2 at 328 kHz), chip
+selects on PA4, PC8, PC5 and PC4 with nothing on them, and runs
+`hil/common/spi_port.rs`'s checks round the loop, with messages of 4 to 256
+bytes. One board proves a port (D34), the STM32F4 Discovery, so this run is no
+requirement's entry; it is the loopback bench the port's timings are compared
+on. Pass: every check prints `PASS`, none prints `FAIL`, and the script exits
+zero.
 
 ## SPI port on the Nucleo-H753ZI
 
 `hil/run-h753-spi.sh`, with FerroHAL's H753 link S1 (PD7 to PA6) fitted, as
 `hil/nucleo-h753zi-spi-loopback/src/main.rs` lists it. The same firmware and
-checks as on the Nucleo-F401RE, on `spi_v4` and DMAMUX: SPI1 at 391 kHz on DMA1
-streams 5 and 4, PD14 as chip select, the data cache off. Pass: every check
-prints `PASS`, none prints `FAIL`, and the script exits zero [PORT-201,
-PORT-202].
+checks as on the Nucleo-F401RE, on `spi_v4` and DMAMUX: SPI1 on DMA1 streams 5
+and 4, chip selects on PD14, PD15, PE9 and PE11, the data cache off. Pass:
+every check prints `PASS`, none prints `FAIL`, and the script exits zero. It
+is an entry of PORT-208 only, whose FerroHAL need, a settings change between
+transfers, has no FerroHAL requirement to map yet (`docs/DEBT.md` S1), and
+whose path differs on `spi_v4`, which disables the SPI after each transfer
+[PORT-208].
 
 ## EXTI line on the Nucleo-F401RE
 

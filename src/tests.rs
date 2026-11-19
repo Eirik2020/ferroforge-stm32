@@ -221,7 +221,7 @@ fn spi_port_states_its_contract() {
         [("on_spi_rx_dma".to_string(), "rx_dma".to_string())]
     );
     let shared: Vec<_> = contract.shared.iter().map(|r| r.name.to_string()).collect();
-    assert_eq!(shared, ["spi"]);
+    assert_eq!(shared, ["port"]);
     assert!(contract.local.is_empty());
     let buffers: Vec<_> = contract
         .buffers
@@ -235,8 +235,30 @@ fn spi_port_states_its_contract() {
             ("rx_buf".to_string(), "u8".to_string(), true),
         ]
     );
-    assert_eq!(contract.config[0].name, "config");
-    assert_eq!(contract.config[0].layer, ferroforge_contracts::Layer::Board);
+    let config: Vec<_> = contract
+        .config
+        .iter()
+        .map(|c| (c.name.to_string(), c.layer))
+        .collect();
+    assert_eq!(
+        config,
+        [
+            ("configs".to_string(), ferroforge_contracts::Layer::Board),
+            ("lent".to_string(), ferroforge_contracts::Layer::Software),
+            ("now".to_string(), ferroforge_contracts::Layer::Platform),
+        ]
+    );
+    let names = |list: &[ferroforge_contracts::Typed]| -> Vec<std::string::String> {
+        list.iter().map(|t| t.name.to_string()).collect()
+    };
+    assert_eq!(names(&contract.memory), ["memory"]);
+    assert_eq!(names(&contract.handles), ["handles"]);
+    let pends: Vec<_> = contract
+        .pends
+        .iter()
+        .map(|p| (p.name.to_string(), p.member.to_string()))
+        .collect();
+    assert_eq!(pends, [("kick".to_string(), "on_spi_rx_dma".to_string())]);
     let constructor = contract.constructor.as_ref().unwrap();
     assert!(constructor.path.is_ident("new"));
     let arguments: Vec<_> = constructor
@@ -246,7 +268,9 @@ fn spi_port_states_its_contract() {
         .collect();
     assert_eq!(
         arguments,
-        ["rcc", "wiring", "cs", "config", "tx_buf", "rx_buf"]
+        [
+            "rcc", "wiring", "cs", "configs", "tx_buf", "rx_buf", "memory", "lent", "kick", "now"
+        ]
     );
     for vector in &contract.vectors {
         let member = group
@@ -258,6 +282,34 @@ fn spi_port_states_its_contract() {
     }
 }
 
+/// The constructor's signature over one wiring, with two chip selects and
+/// memory for two devices of four slots.
+macro_rules! spi_port_constructor {
+    ($u:ty, $sck:ty, $miso:ty, $mosi:ty, $txd:ty, $rxd:ty, $cs:ty) => {{
+        use ferrohal_stm32::{
+            rcc::Rcc,
+            spi::{Config, Wiring},
+        };
+        type W = Wiring<$u, $sck, $miso, $mosi, $txd, $rxd>;
+        let constructor: fn(
+            &mut Rcc,
+            W,
+            $cs,
+            &[Config],
+            &'static mut [u8],
+            &'static mut [u8],
+            &'static mut spi_port::Memory<4, 2>,
+            &mut dyn Iterator<Item = (usize, &'static mut [u8])>,
+            fn(),
+            fn() -> u32,
+        ) -> Result<
+            spi_port::Resources<W, $cs>,
+            spi_port::PortRefused<$u, $sck, $miso, $mosi, $txd, $rxd, $cs>,
+        > = spi_port::new;
+        let _ = constructor;
+    }};
+}
+
 #[cfg(feature = "stm32f401re")]
 #[test]
 fn spi_port_builds_on_an_f401_wiring() {
@@ -265,34 +317,18 @@ fn spi_port_builds_on_an_f401_wiring() {
         chip::SPI1,
         dma::Stream,
         gpio::{Alternate, Output, Pin},
-        rcc::Rcc,
-        spi::{Config, SpiRefused, Wiring},
     };
     type Af5<const P: char, const N: u8> = Pin<P, N, Alternate<5>>;
     // SPI1 on PA5/PA6/PA7, DMA2 streams 3 (TX) and 0 (RX) (RM0368 table 29).
-    type W = Wiring<SPI1, Af5<'A', 5>, Af5<'A', 6>, Af5<'A', 7>, Stream<2, 3>, Stream<2, 0>>;
-    type Cs = Pin<'A', 4, Output>;
-    type Built = spi_port::Resources<
+    spi_port_constructor!(
         SPI1,
         Af5<'A', 5>,
         Af5<'A', 6>,
         Af5<'A', 7>,
         Stream<2, 3>,
         Stream<2, 0>,
-        Cs,
-    >;
-    let constructor: fn(
-        &mut Rcc,
-        W,
-        Cs,
-        &Config,
-        &'static mut [u8],
-        &'static mut [u8],
-    ) -> Result<
-        Built,
-        SpiRefused<SPI1, Af5<'A', 5>, Af5<'A', 6>, Af5<'A', 7>, Stream<2, 3>, Stream<2, 0>>,
-    > = spi_port::new;
-    let _ = constructor;
+        (Pin<'A', 4, Output>, Pin<'C', 8, Output>)
+    );
 }
 
 #[cfg(feature = "stm32h753zi")]
@@ -302,33 +338,17 @@ fn spi_port_builds_on_an_h753_wiring() {
         chip::SPI1,
         dma::Stream,
         gpio::{Alternate, Output, Pin},
-        rcc::Rcc,
-        spi::{Config, SpiRefused, Wiring},
     };
     type Af5<const P: char, const N: u8> = Pin<P, N, Alternate<5>>;
     // SPI1 on PA5/PA6/PD7 (DS12117 table 9), DMA1 streams 5 and 4 through
     // DMAMUX (RM0433 section 17.3).
-    type W = Wiring<SPI1, Af5<'A', 5>, Af5<'A', 6>, Af5<'D', 7>, Stream<1, 5>, Stream<1, 4>>;
-    type Cs = Pin<'D', 14, Output>;
-    type Built = spi_port::Resources<
+    spi_port_constructor!(
         SPI1,
         Af5<'A', 5>,
         Af5<'A', 6>,
         Af5<'D', 7>,
         Stream<1, 5>,
         Stream<1, 4>,
-        Cs,
-    >;
-    let constructor: fn(
-        &mut Rcc,
-        W,
-        Cs,
-        &Config,
-        &'static mut [u8],
-        &'static mut [u8],
-    ) -> Result<
-        Built,
-        SpiRefused<SPI1, Af5<'A', 5>, Af5<'A', 6>, Af5<'D', 7>, Stream<1, 5>, Stream<1, 4>>,
-    > = spi_port::new;
-    let _ = constructor;
+        (Pin<'D', 14, Output>, Pin<'D', 15, Output>)
+    );
 }
