@@ -1,7 +1,7 @@
 //! The bench's consumer, the same on every board: one task per port, each
 //! owning a `uart_port::Handle` and naming no UART. A counter wrapping at 256
 //! goes out in frames written in place, and every byte read in place is
-//! checked against the next value. The other benches include this file.
+//! checked against the next value.
 //!
 //! One port of each pair floods: once its main run is back it sends more
 //! than its pool and FerroHAL's ring hold while its consumer holds every
@@ -178,7 +178,9 @@ impl Loop {
         self.collect(handle, cycles);
         if !self.hold {
             for _ in 0..64 {
-                let Some(got) = handle.next_chunk() else { break };
+                let Some(got) = handle.next_chunk() else {
+                    break;
+                };
                 let now = now_us();
                 if got.at_us > now {
                     self.future += 1;
@@ -286,19 +288,34 @@ pub fn verdict(name: &str, pass: bool) -> u32 {
 pub fn report(name: &str, l: &Loop, unsure: u32, pool: u32, frame_cycles: u32) -> u32 {
     defmt::info!(
         "{}: sent {} read {} wrong {} chunks {} idle-ended {} gaps {} wakes {} all-back {} stamps {}..{} us",
-        name, l.sent, l.read, l.wrong, l.chunks, l.idles, l.gaps, l.wakes, l.all_back,
-        l.first_us, l.last_us
+        name,
+        l.sent,
+        l.read,
+        l.wrong,
+        l.chunks,
+        l.idles,
+        l.gaps,
+        l.wakes,
+        l.all_back,
+        l.first_us,
+        l.last_us
     );
     defmt::info!(
         "{} frames back {} failed {} out of order {} bytes {}; refused {} (last {}); buffers lost {}, outcomes unsure {}",
-        name, l.back.frames, l.back.failed, l.back.disorder, l.back.bytes, l.refused,
+        name,
+        l.back.frames,
+        l.back.failed,
+        l.back.disorder,
+        l.back.bytes,
+        l.refused,
         match l.last_refusal {
             None => "none",
             Some(FrameError::Outstanding) => "Outstanding",
             Some(FrameError::TooLong) => "TooLong",
             Some(FrameError::Empty) => "Empty",
         },
-        l.lost, unsure
+        l.lost,
+        unsure
     );
     let mut failed = 0;
     if l.flood == 0 {
@@ -310,7 +327,10 @@ pub fn report(name: &str, l: &Loop, unsure: u32, pool: u32, frame_cycles: u32) -
         let (read0, gaps0, _) = l.before;
         defmt::info!(
             "{} held: {} of {} flooded bytes read, {} gaps",
-            name, l.read - read0, l.flood, l.gaps - gaps0
+            name,
+            l.read - read0,
+            l.flood,
+            l.gaps - gaps0
         );
         failed += verdict(
             "every byte came back once, in order, before the flood [PORT-003, PORT-008]",
@@ -326,7 +346,10 @@ pub fn report(name: &str, l: &Loop, unsure: u32, pool: u32, frame_cycles: u32) -
             at_gap - read0 >= pool && l.read - at_gap >= AFTER,
         );
     }
-    failed += verdict("frame ends reached the consumer as idle chunks [PORT-005]", l.idles > 0);
+    failed += verdict(
+        "frame ends reached the consumer as idle chunks [PORT-005]",
+        l.idles > 0,
+    );
     failed += verdict(
         "no generation change before the first gap [PORT-005]",
         l.generation.is_some() && l.generation_moved == 0,
@@ -337,20 +360,38 @@ pub fn report(name: &str, l: &Loop, unsure: u32, pool: u32, frame_cycles: u32) -
     );
     failed += verdict(
         "every frame came back sent, in order, every byte [PORT-009]",
-        l.back.frames > 0 && l.back.failed == 0 && l.back.disorder == 0 && l.back.bytes == l.sent
-            && l.all_back > 0 && unsure == 0,
+        l.back.frames > 0
+            && l.back.failed == 0
+            && l.back.disorder == 0
+            && l.back.bytes == l.sent
+            && l.all_back > 0
+            && unsure == 0,
     );
     failed += verdict("no buffer was lost [PORT-009]", l.lost == 0);
     if l.tail {
         let (back, ends, chunks) = l.long();
-        defmt::info!("{} long frame: {} of {} bytes back, {} frame ends, {} chunks", name, back, LONG, ends, chunks);
-        failed += verdict("the 280-byte frame went whole, one frame end [PORT-008]", back == LONG as u32 && ends == 1);
+        defmt::info!(
+            "{} long frame: {} of {} bytes back, {} frame ends, {} chunks",
+            name,
+            back,
+            LONG,
+            ends,
+            chunks
+        );
+        failed += verdict(
+            "the 280-byte frame went whole, one frame end [PORT-008]",
+            back == LONG as u32 && ends == 1,
+        );
         let wire = TAIL[1].1 as u32 * frame_cycles;
         let (shortest, longest) = l.sent_cycles;
         defmt::info!(
             "{} sent timing: a 64-byte frame takes {} cycles on the wire; submit to outcome {}..{} cycles, so the outcome came {}..{} cycles before the last stop bit",
-            name, wire, shortest, longest,
-            wire as i64 - longest as i64, wire as i64 - shortest as i64
+            name,
+            wire,
+            shortest,
+            longest,
+            wire as i64 - longest as i64,
+            wire as i64 - shortest as i64
         );
     }
     if l.flood > 0 {

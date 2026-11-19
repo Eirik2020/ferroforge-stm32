@@ -1,7 +1,10 @@
 //! The UART port on the STM32F4 Discovery (MB997, STM32F407VGT6), die
 //! 0x413: the board that proves `ferroforge_stm32::uart_port`. A hand-written
-//! `ferroforge::app!` selecting it twice, the same consumer and checks as the
-//! Nucleo benches (`nucleo-f401re-uart-loopback/src/consumer.rs`).
+//! `ferroforge::app!` selecting it twice, with the consumer in `consumer.rs`.
+//!
+//! This is the group's golden reference: what a generated firmware must
+//! match, in resources, selections, constructor calls and bench result
+//! (FerroSmith design record v3, section 10).
 //!
 //! The links, as FerroHAL's Discovery bench fits them (its D1 and D2, on the
 //! P2 header; UM1472 table 7):
@@ -40,7 +43,6 @@
 use defmt_rtt as _;
 use panic_probe as _;
 
-#[path = "../../nucleo-f401re-uart-loopback/src/consumer.rs"]
 mod consumer;
 
 ferroforge::app! {

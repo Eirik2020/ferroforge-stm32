@@ -31,9 +31,8 @@ jobs:
         with:
           workspaces: |
             . -> target
-            hil/nucleo-f401re-uart-loopback -> target
             hil/nucleo-f401re-rx-ports -> target
-            hil/nucleo-h753zi-uart-loopback -> target
+            hil/stm32f4discovery-uart-loopback -> target
       - name: Install reqtool at its pinned revision
         run: >
           cargo install --git https://github.com/Eirik2020/reqtool
