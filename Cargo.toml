@@ -11,7 +11,7 @@ publish = false
 # Every dependency is pinned exactly, as FerroHAL's are: a bump needs a
 # reviewed diff analysis or reverification. FerroHAL and FerroForge 0.5 are not
 # on crates.io yet, so both come from git at an exact revision until they are.
-ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "ceaedbf97e6d059e168fd3eaecddf5fe39f7b7a9" }
+ferrohal-stm32 = { git = "https://github.com/Eirik2020/ferrohal-stm32", rev = "1205848fa05edafb3a84b939a2247217ee990d9e" }
 ferroforge = { git = "https://github.com/Eirik2020/ferroforge", rev = "f7387ed67ca29e194c8938d0db03f735c59480d7" }
 # The chip-select pin's trait, as FerroHAL's GPIO implements it.
 embedded-hal = "=1.0.0"
@@ -27,6 +27,9 @@ fugit = { version = "=0.3.9", default-features = false }
 
 [features]
 default = []
+# The USB device port: FerroHAL's `usb` feature, which brings the `usb-device`
+# bus. Off unless a firmware selects the port.
+usb = ["ferrohal-stm32/usb"]
 # A group needs a chip to compile, but must not be the one choosing it. These
 # forward to FerroHAL so the crate checks on its own; a firmware's own FerroHAL
 # chip feature wins through feature unification. One chip per USART IP version

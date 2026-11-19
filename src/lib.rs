@@ -18,12 +18,20 @@ mod exti;
 mod spi;
 mod uart;
 mod uart_rx;
+#[cfg(feature = "usb")]
+mod usb;
+#[cfg(feature = "usb")]
+mod usb_poll;
 
 pub use adc::adc_scan;
 pub use exti::exti_line;
 pub use spi::spi_port;
 pub use uart::uart_port;
 pub use uart_rx::uart_rx_port;
+#[cfg(feature = "usb")]
+pub use usb::usb_device;
+#[cfg(feature = "usb")]
+pub use usb_poll::usb_polled;
 
 #[cfg(test)]
 extern crate std;

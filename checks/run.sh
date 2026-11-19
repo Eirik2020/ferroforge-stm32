@@ -31,16 +31,18 @@ step() {
 step "rustfmt" cargo fmt --manifest-path "$root/Cargo.toml" --check
 for chip in "${chips[@]}"; do
     step "clippy ($chip, target)" \
-        cargo clippy --manifest-path "$root/Cargo.toml" --features "$chip" --target thumbv7em-none-eabihf -- -D warnings
+        cargo clippy --manifest-path "$root/Cargo.toml" --features "$chip,usb" --target thumbv7em-none-eabihf -- -D warnings
     step "clippy ($chip, host)" \
-        cargo clippy --manifest-path "$root/Cargo.toml" --features "$chip" --target "$host" --all-targets -- -D warnings
+        cargo clippy --manifest-path "$root/Cargo.toml" --features "$chip,usb" --target "$host" --all-targets -- -D warnings
     step "rustdoc ($chip)" \
-        env RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --manifest-path "$root/Cargo.toml" --features "$chip" --target thumbv7em-none-eabihf
+        env RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --manifest-path "$root/Cargo.toml" --features "$chip,usb" --target thumbv7em-none-eabihf
     step "host tests ($chip)" \
-        cargo test --manifest-path "$root/Cargo.toml" --features "$chip" --target "$host"
+        cargo test --manifest-path "$root/Cargo.toml" --features "$chip,usb" --target "$host"
 done
 for bench in "$root"/hil/*/; do
     name=$(basename "$bench")
+    # Shared bench sources (hil/usb-common) are no crate of their own.
+    [ -f "$bench/Cargo.toml" ] || continue
     # From the bench's own directory, so its .cargo/config.toml picks the
     # target and the linker scripts.
     step "bench image ($name)" bash -c 'cd "$1" && cargo build --release --bins' _ "$bench"
