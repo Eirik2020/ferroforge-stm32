@@ -40,6 +40,8 @@ for chip in "${chips[@]}"; do
         cargo test --manifest-path "$root/Cargo.toml" --features "$chip" --target "$host"
 done
 for bench in "$root"/hil/*/; do
+    # Shared bench sources (hil/lane-common) and the ignored logs are no crate.
+    [ -f "$bench/Cargo.toml" ] || continue
     name=$(basename "$bench")
     # From the bench's own directory, so its .cargo/config.toml picks the
     # target and the linker scripts.
