@@ -1,10 +1,9 @@
 # The UART port
 
-`uart_port` (`src/uart.rs`) is the full-duplex UART port. The owner decided
-its shape on two rounds of prototypes, benched on the Nucleo-F401RE and the
-Nucleo-H753ZI. The decisions are D12 to D23 of the port design record (project
-files, `ferroforge-stm32-port-design/port-design-record.md`). This chapter
-states what binds the code. The requirements are `src/requirements/uart.yaml`.
+`uart_port` (`src/uart.rs`) is the full-duplex UART port. Its shape follows
+decisions D12 to D23, D29, D34 and D15's line-idle signal in the port design
+record (project files, `ferroforge-stm32-port-design/port-design-record.md`),
+which keeps why each was decided. This chapter states what binds the code. The requirements are `src/requirements/uart.yaml`.
 
 ## Shape
 
@@ -68,8 +67,8 @@ is broken (`Port::lost_outcomes`). The in-flight depth is FerroHAL's
 `TX_FRAMES` (UARTDMA-014).
 
 "Sent" is FerroHAL's DMA completion, which comes before the USART's
-transmission complete. The owner decided for D15 (2026-11-19) that it stays
-there, and that the line's quiet is its own signal: the port turns on
+transmission complete. It stays there, and the line's quiet is its own
+signal (D15): the port turns on
 FerroHAL's TC interrupt (`set_tx_idle_interrupt`, UART-023), and
 `Handle::drained` is true, with a wake, once FerroHAL reports the line quiet
 and no frame is lent or in flight. Submitting a frame clears it at once.
@@ -92,5 +91,4 @@ needs both streams, so those UARTs are `uart_rx_port`'s.
 
 ## Boards
 
-The STM32F4 Discovery proves the port: one board proves a port (owner,
-2026-11-19).
+The STM32F4 Discovery proves the port: one board proves a port (D34).

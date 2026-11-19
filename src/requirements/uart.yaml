@@ -257,8 +257,7 @@ requirements:
     rationale: >-
       A frame's outcome comes at its DMA completion, up to two characters
       before the line goes quiet; a consumer that turns a line around
-      (RS-485, half duplex) needs the quiet itself, as the owner decided for
-      D15.
+      (RS-485, half duplex) needs the quiet itself (design record D15).
     derived_from: [PORT-009]
     verification:
       entries:
