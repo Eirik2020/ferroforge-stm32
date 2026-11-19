@@ -1,0 +1,16 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.08s
+     Running `probe-rs run --chip STM32H753ZI target/thumbv7em-none-eabihf/release/uart-loopback`
+     [38;5;10m[1mFinished[0m in 2.77s
+[INFO ] uart_port loopback on the Nucleo-H753ZI, clocks: Clocks { sysclk: Hertz(400000000), cpu: Hertz(400000000), hclk: Hertz(200000000), pclk1: Hertz(100000000), pclk2: Hertz(100000000), pclk3: Hertz(100000000), pclk4: Hertz(100000000), timclk1: Hertz(200000000), timclk2: Hertz(200000000), pll1_q: Some(Hertz(100000000)), setup: Setup { flash_latency: 2, flash_wrhighfreq: 2, pll_range: 3, pll_wide_vco: true } } (uart_loopback nucleo-h753zi-uart-loopback/src/main.rs:170)
+[INFO ] PASS every member's vector is enabled [PORT-003] (uart_loopback nucleo-h753zi-uart-loopback/src/main.rs:331)
+[INFO ] PASS both ports queued every byte [PORT-003] (uart_loopback nucleo-h753zi-uart-loopback/src/main.rs:331)
+[INFO ] USART1: 4096 bytes read, 0 wrong, 0 gaps, 180 wakes (2 idle, 147 sent) (uart_loopback nucleo-h753zi-uart-loopback/src/main.rs:275)
+[INFO ] PASS every byte came back, in order, once [PORT-003] (uart_loopback nucleo-h753zi-uart-loopback/src/main.rs:331)
+[INFO ] PASS the group woke the firmware's reader [PORT-003] (uart_loopback nucleo-h753zi-uart-loopback/src/main.rs:331)
+[INFO ] PASS the transmit vector reported frames sent [PORT-003] (uart_loopback nucleo-h753zi-uart-loopback/src/main.rs:331)
+[INFO ] USART6: 4096 bytes read, 0 wrong, 0 gaps, 198 wakes (2 idle, 165 sent) (uart_loopback nucleo-h753zi-uart-loopback/src/main.rs:275)
+[INFO ] PASS every byte came back, in order, once [PORT-003] (uart_loopback nucleo-h753zi-uart-loopback/src/main.rs:331)
+[INFO ] PASS the group woke the firmware's reader [PORT-003] (uart_loopback nucleo-h753zi-uart-loopback/src/main.rs:331)
+[INFO ] PASS the transmit vector reported frames sent [PORT-003] (uart_loopback nucleo-h753zi-uart-loopback/src/main.rs:331)
+[INFO ] all checks passed (uart_loopback nucleo-h753zi-uart-loopback/src/main.rs:285)
+Firmware exited successfully

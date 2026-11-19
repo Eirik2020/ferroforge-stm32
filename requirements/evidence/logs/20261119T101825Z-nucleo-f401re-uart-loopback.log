@@ -1,0 +1,16 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.08s
+     Running `probe-rs run --chip STM32F401RE target/thumbv7em-none-eabihf/release/uart-loopback`
+     [38;5;10m[1mFinished[0m in 1.37s
+[INFO ] uart_port loopback on the Nucleo-F401RE, clocks: Clocks { sysclk: Hertz(84000000), cpu: Hertz(84000000), hclk: Hertz(84000000), pclk1: Hertz(42000000), pclk2: Hertz(84000000), timclk1: Hertz(84000000), timclk2: Hertz(84000000), pll_q: Some(Hertz(48000000)), flash_wait_states: 2 } (uart_loopback nucleo-f401re-uart-loopback/src/main.rs:164)
+[INFO ] PASS every member's vector is enabled [PORT-003] (uart_loopback nucleo-f401re-uart-loopback/src/main.rs:325)
+[INFO ] PASS both ports queued every byte [PORT-003] (uart_loopback nucleo-f401re-uart-loopback/src/main.rs:325)
+[INFO ] USART1: 4096 bytes read, 0 wrong, 0 gaps, 192 wakes (1 idle, 159 sent) (uart_loopback nucleo-f401re-uart-loopback/src/main.rs:269)
+[INFO ] PASS every byte came back, in order, once [PORT-003] (uart_loopback nucleo-f401re-uart-loopback/src/main.rs:325)
+[INFO ] PASS the group woke the firmware's reader [PORT-003] (uart_loopback nucleo-f401re-uart-loopback/src/main.rs:325)
+[INFO ] PASS the transmit vector reported frames sent [PORT-003] (uart_loopback nucleo-f401re-uart-loopback/src/main.rs:325)
+[INFO ] USART6: 4096 bytes read, 0 wrong, 0 gaps, 197 wakes (1 idle, 164 sent) (uart_loopback nucleo-f401re-uart-loopback/src/main.rs:269)
+[INFO ] PASS every byte came back, in order, once [PORT-003] (uart_loopback nucleo-f401re-uart-loopback/src/main.rs:325)
+[INFO ] PASS the group woke the firmware's reader [PORT-003] (uart_loopback nucleo-f401re-uart-loopback/src/main.rs:325)
+[INFO ] PASS the transmit vector reported frames sent [PORT-003] (uart_loopback nucleo-f401re-uart-loopback/src/main.rs:325)
+[INFO ] all checks passed (uart_loopback nucleo-f401re-uart-loopback/src/main.rs:279)
+Firmware exited successfully

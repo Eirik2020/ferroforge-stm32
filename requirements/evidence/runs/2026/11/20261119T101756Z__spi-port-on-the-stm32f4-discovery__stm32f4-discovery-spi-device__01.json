@@ -1,0 +1,253 @@
+{
+  "schema_version": 5,
+  "run_id": "20261119T101756Z__spi-port-on-the-stm32f4-discovery__stm32f4-discovery-spi-device__01",
+  "recorded_at_utc": "2026-11-19T10:17:56Z",
+  "board": "stm32f4-discovery-spi-device",
+  "tier": "HIL",
+  "revision": "ff29e15205a1914914cede57005c5c34435757e3",
+  "working_tree": "clean",
+  "configuration": {
+    "board": "stm32f4-discovery-spi-device",
+    "features": [],
+    "files": {
+      "hil/stm32f4-discovery-spi-device/.cargo/config.toml": "83e2aeaa84d3342cc131ef80e1ad47e7d8154cee35be8e4059a4d54d21d61064",
+      "hil/stm32f4-discovery-spi-device/Cargo.toml": "8448b00d3c85b4597637529548e4736def7d0e9a215360f5893688c6e6e8d423",
+      "hil/stm32f4-discovery-spi-device/src/../../common/spi_port.rs": "f1cf84b366b973495ca3961367ea06a2f5d66f7a7d050a39624e71333f11540e",
+      "hil/stm32f4-discovery-spi-device/src/lib.rs": "f9da834410ae2a45287f934aeedcd5430a0ac190cf454af1d941d8b8aed5c8f4",
+      "hil/stm32f4-discovery-spi-device/src/main.rs": "7d355ea70ea50d07b459602588ffa722a1d898b2c88f4b1840eec9d8ca0009e0",
+      "src/adc.rs": "34530120856667248e787fe554ab3410220fbe384a809b81dfd69c2e4700c0db",
+      "src/exti.rs": "5d8aa5d0dc92c3555cd13a34473c0c39812f8b9bfb8b378245ad9765e5574104",
+      "src/lib.rs": "0790488d028d27d0888a377d86cb583dd4d43d27f2f93b54bc791d5f6d4a483d",
+      "src/spi.rs": "d368c66b749591b233cc01740d5e4f31de23b7e97c52bbf80509ba5670363a37",
+      "src/uart.rs": "63246943ce166653c275739084f63b9a8f3b5d76f816acaa33a4f5a33c33f951",
+      "src/uart_rx.rs": "b30f1eb4a38d7e3e8ae899807cf57db5853a77fd1e4e3912b889230bda762b8b"
+    },
+    "externals": {
+      "bare-metal": "0.2.5",
+      "bitfield": "0.13.2",
+      "bitflags": "1.3.2",
+      "byteorder": "1.5.0",
+      "cfg-if": "1.0.5",
+      "cortex-m": "0.7.10",
+      "cortex-m-macros": "0.7.8",
+      "cortex-m-rt": "0.7.7",
+      "cortex-m-rt-macros": "0.7.7",
+      "cortex-m-semihosting": "0.5.0",
+      "critical-section": "1.2.0",
+      "defmt": "0.3.101, 1.2.0",
+      "defmt-macros": "1.2.0",
+      "defmt-parser": "1.1.0",
+      "defmt-rtt": "1.3.1",
+      "embedded-hal": "0.2.7, 1.0.0",
+      "embedded-hal-async": "1.0.0",
+      "embedded-hal-bus": "0.3.0",
+      "embedded-io": "0.7.1",
+      "equivalent": "1.0.3",
+      "ferroforge": "0.4.0+9623964f3e26b34d9af2f1754b7e8a340a3f5ee0",
+      "ferroforge-contracts": "0.4.0+9623964f3e26b34d9af2f1754b7e8a340a3f5ee0",
+      "ferroforge-macros": "0.4.0+9623964f3e26b34d9af2f1754b7e8a340a3f5ee0",
+      "ferrohal-stm32": "0.1.0+ceaedbf97e6d059e168fd3eaecddf5fe39f7b7a9",
+      "fugit": "0.3.9",
+      "futures-core": "0.3.34",
+      "futures-task": "0.3.34",
+      "futures-util": "0.3.34",
+      "gcd": "2.3.0",
+      "hash32": "0.3.1",
+      "hashbrown": "0.17.1",
+      "heapless": "0.9.3",
+      "indexmap": "2.14.2",
+      "nb": "0.1.3, 1.1.0",
+      "panic-probe": "1.0.0",
+      "pin-project-lite": "0.2.17",
+      "portable-atomic": "1.15.0",
+      "proc-macro2": "1.0.107",
+      "quote": "1.0.47",
+      "rtic": "2.4.0",
+      "rtic-common": "1.3.0",
+      "rtic-core": "1.0.0",
+      "rtic-macros": "2.4.0",
+      "rtic-monotonics": "2.2.1",
+      "rtic-sync": "1.6.1",
+      "rtic-time": "2.0.1",
+      "rustc_version": "0.2.3",
+      "semver": "0.9.0",
+      "semver-parser": "0.7.0",
+      "stable_deref_trait": "1.2.1",
+      "stm32-metapac": "21.0.0",
+      "syn": "2.0.119, 3.0.10",
+      "thiserror": "2.0.21",
+      "thiserror-impl": "2.0.21",
+      "unicode-ident": "1.0.27",
+      "vcell": "0.1.3",
+      "void": "1.0.2",
+      "volatile-register": "0.2.2"
+    },
+    "environment": {
+      "DEFMT_LOG": "info"
+    }
+  },
+  "results": [
+    {
+      "requirement": "PORT-201",
+      "method": {
+        "procedure": "requirements/benches.md#SPI port on the STM32F4 Discovery"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "64e2dc78b854d95685f57e20fb539aea9935e884f30a45628aeb24c6b59a6cc4",
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-202",
+      "method": {
+        "procedure": "requirements/benches.md#SPI port on the STM32F4 Discovery"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "297b2bbef99a915b6ce0be450d8cfe5c9461d4bcefcfbb8937535e54583267ad",
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-203",
+      "method": {
+        "procedure": "requirements/benches.md#SPI port on the STM32F4 Discovery"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "e373c3c2adf2afa62a8d156efaea45e19ad22d1999d41796dd5f2113c640dbe5",
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-204",
+      "method": {
+        "procedure": "requirements/benches.md#SPI port on the STM32F4 Discovery"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "c91b74912d5bf914c40cae996bc511acafa118b5299f9905570bbefd016c38e0",
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-205",
+      "method": {
+        "procedure": "requirements/benches.md#SPI port on the STM32F4 Discovery"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "6cfc0d54ecbdc52caa6f1f6030db112554b26744ba4e8c546c4ce5e6f3ac01a0",
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-206",
+      "method": {
+        "procedure": "requirements/benches.md#SPI port on the STM32F4 Discovery"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "021c0d89378f0ae438c23f1e3dd29e9319918cb354b065c77a06b4d3290afc2e",
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-207",
+      "method": {
+        "procedure": "requirements/benches.md#SPI port on the STM32F4 Discovery"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "9f254d6d45fd2548640580eda19cb811076b7e8a00a28387e6de5bea651837f2",
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-208",
+      "method": {
+        "procedure": "requirements/benches.md#SPI port on the STM32F4 Discovery"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "5c6cedddf7bfb5e176b8233a80ea11a6cf4fbd0ea5fd039a21992db2284f6db8",
+      "result": "pass"
+    },
+    {
+      "requirement": "PORT-209",
+      "method": {
+        "procedure": "requirements/benches.md#SPI port on the STM32F4 Discovery"
+      },
+      "level": "target",
+      "environment": "development",
+      "hazard": "none",
+      "claim": "790e21fb3d6adf855b383a3a31c15772bab32f2799a74e6a049c6d64dce2fb23",
+      "result": "pass"
+    }
+  ],
+  "note": null,
+  "supersedes": [],
+  "ruling": null,
+  "details": {
+    "execution": {
+      "performed_by": "agent",
+      "user_confirmed": false
+    },
+    "conditions": {
+      "actuators": "none on this bench",
+      "image": "release profile, thumbv7em-none-eabihf, no extra features",
+      "links": "nothing fitted: the board's LIS3DSH on SPI1, chip select PE3",
+      "equipment": [
+        "STM32F4 Discovery (MB997) through its ST-LINK, probe 0673FF495170535067225844",
+        "probe-rs"
+      ],
+      "environment": [
+        "development bench"
+      ]
+    },
+    "commands": [
+      {
+        "command": "RIG_REQUESTER=spi-port-thread rig --wait run-discovery-spi.sh",
+        "exit_code": 0
+      }
+    ],
+    "artifacts": [
+      {
+        "id": "log",
+        "kind": "log",
+        "path": "requirements/evidence/logs/20261119T101750Z-stm32f4-discovery-spi-device.log",
+        "bytes": 5194,
+        "sha256": "4a079a22c04d34f9474b65160879eb17665f31217e3313018a1ad73cfdad2b14"
+      }
+    ],
+    "measurements": {
+      "checks_failed": 0,
+      "checks_passed": 16,
+      "exit": 0
+    },
+    "observations": [
+      "Run by an agent on ubuntu-beefcake under the coordinator's board grant, at ff29e15 with a clean tree, through rig (FerroHAL's rig telemetry wrapper), once with no retries.",
+      "PASS the member's vector is enabled [PORT-201]",
+      "PASS boot binding: every handle one type, bound to its task by a run-time choice [PORT-207]",
+      "PASS every device starts deselected [PORT-202]",
+      "PASS a real device: WHO_AM_I reads 0x3F, the address part written, the read part kept [PORT-201, PORT-209]",
+      "PASS a real device: three registers written in one message read back in another [PORT-209]",
+      "PASS a real device: one device's messages reach it as submitted, priority not applied [PORT-203]",
+      "PASS a real device: its own settings in force after every switch from another device [PORT-208]",
+      "PASS latency: every message came back done, in order, with the data expected [PORT-201]",
+      "PASS chip select: own line low and no other while running, all high once back [PORT-202]",
+      "PASS full: refused Outstanding with every buffer out, nothing lent lost, usable after [PORT-205]",
+      "PASS priority across devices: low",
+      "PASS cancel: running and queued aborted, chip select high, the other device untouched, the next message runs [PORT-206]",
+      "PASS isolation: a device with every buffer out does not stop another's message [PORT-205]",
+      "PASS concurrent: two tasks at two priorities, every message back done with its data [PORT-201]",
+      "PASS the LIS3DSH back to its offsets at reset",
+      "PASS port: no message lost, no bus fault [PORT-201]"
+    ],
+    "limitations": [
+      "The firmware image's hash was not captured."
+    ]
+  }
+}
